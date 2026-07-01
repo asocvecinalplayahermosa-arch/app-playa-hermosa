@@ -524,11 +524,16 @@ function renderSecciones(rol) {
           <h2 style="color: var(--navy);">📅 Eventos</h2>
           <button class="btn-add-circle" onclick="abrirModalEvento()" title="Agregar nuevo evento">+</button>
         </div>
+        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Actividades y eventos organizados por la Asociación (chocolatadas, talleres, asambleas, etc.)</p>
         <div id="tablaEventos"></div>
       </div>
       <div id="noticias" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📢 Noticias</h2>
-        <p>Gestión de noticias</p>
+        <div class="socios-toolbar">
+          <h2 style="color: var(--navy);">📢 Noticias</h2>
+          <button class="btn-add-circle" onclick="abrirModalNoticia()" title="Agregar nueva noticia">+</button>
+        </div>
+        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Noticias de relevancia para el balneario (obras, comunicados, novedades locales). Podés adjuntar un link a la fuente.</p>
+        <div id="tablaNoticias"></div>
       </div>
     `;
   } else if (rol === 'tesorero') {
@@ -585,6 +590,7 @@ function renderSecciones(rol) {
     cargarPanelTesorero();
     actualizarDashboard();
     if (rol === 'admin') cargarTablaEventos();
+    if (rol === 'admin') cargarTablaNoticias();
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();
@@ -944,6 +950,89 @@ function eliminarEvento(id) {
   actualizarDashboard();
 }
 
+// ===== NOTICIAS =====
+function cargarTablaNoticias() {
+  let html = `<table><thead><tr><th>Título</th><th>Descripción</th><th>Fuente</th><th>Acciones</th></tr></thead><tbody>`;
+
+  if (noticiasDB.length === 0) {
+    html += `<tr><td colspan="4" style="color: var(--gray); text-align:center;">No hay noticias cargadas</td></tr>`;
+  }
+
+  noticiasDB.forEach(no => {
+    const fuente = no.link ? `<a href="${no.link}" target="_blank" rel="noopener noreferrer" style="color: var(--navy2); font-weight:600;">🔗 Ver fuente</a>` : '<span style="color: var(--gray);">-</span>';
+    html += `<tr>
+      <td><strong>${no.titulo}</strong></td>
+      <td>${no.descripcion}</td>
+      <td>${fuente}</td>
+      <td>
+        <button class="btn-editar" onclick="abrirModalNoticia(${no.id})">Editar</button>
+        <button class="btn-baja-rojo" onclick="eliminarNoticia(${no.id})">Eliminar</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('tablaNoticias').innerHTML = html;
+}
+
+function abrirModalNoticia(idExistente) {
+  const editando = idExistente !== undefined;
+  const no = editando ? noticiasDB.find(n => n.id === idExistente) : null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar noticia' : '➕ Agregar nueva noticia'}</h2>
+      <label style="font-size:12px; font-weight:600;">Título</label>
+      <input type="text" id="noticiaTitulo" placeholder="Título de la noticia" value="${editando ? no.titulo : ''}">
+      <label style="font-size:12px; font-weight:600;">Descripción</label>
+      <textarea id="noticiaDescripcion" placeholder="Contenido de la noticia">${editando ? no.descripcion : ''}</textarea>
+      <label style="font-size:12px; font-weight:600;">Link a la fuente (opcional)</label>
+      <input type="url" id="noticiaLink" placeholder="https://..." value="${editando ? (no.link || '') : ''}">
+      <button class="btn" onclick="guardarNoticia(${editando ? idExistente : 'null'})">Guardar Noticia</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarNoticia(idExistente) {
+  const titulo = document.getElementById('noticiaTitulo').value.trim();
+  const descripcion = document.getElementById('noticiaDescripcion').value.trim();
+  const link = document.getElementById('noticiaLink').value.trim();
+
+  if (!titulo || !descripcion) {
+    alert('Título y descripción son obligatorios');
+    return;
+  }
+
+  if (idExistente !== null && idExistente !== undefined) {
+    const no = noticiasDB.find(n => n.id === idExistente);
+    no.titulo = titulo;
+    no.descripcion = descripcion;
+    no.link = link;
+    alert('✅ Noticia actualizada');
+  } else {
+    const nuevoId = noticiasDB.length ? Math.max(...noticiasDB.map(n => n.id)) + 1 : 1;
+    noticiasDB.push({ id: nuevoId, titulo, descripcion, link, tipo: 'noticia' });
+    alert('✅ Noticia creada');
+  }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaNoticias();
+  actualizarDashboard();
+}
+
+function eliminarNoticia(id) {
+  if (!confirm('¿Seguro que querés eliminar esta noticia?')) return;
+  noticiasDB = noticiasDB.filter(n => n.id !== id);
+  guardarTodo();
+  cargarTablaNoticias();
+  actualizarDashboard();
+}
+
 // ===== TESORERO =====
 function cargarPanelTesorero() {
   let html = `
@@ -1029,7 +1118,7 @@ function cargarCarouselProfesor() {
   function actualizar() {
     const item = allItems[currentIndex];
     document.getElementById('carouselTitleP').textContent = item.titulo;
-    document.getElementById('carouselDescP').textContent = item.descripcion;
+    document.getElementById('carouselDescP').innerHTML = item.descripcion + (item.link ? ` <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="color: var(--gold2); font-weight:bold;">Ver más →</a>` : '');
     
     let ind = '';
     for (let i = 0; i < allItems.length; i++) {
@@ -1064,7 +1153,7 @@ function cargarCarouselSocio() {
   function actualizar() {
     const item = allItems[currentIndex];
     document.getElementById('carouselTitleS').textContent = item.titulo;
-    document.getElementById('carouselDescS').textContent = item.descripcion;
+    document.getElementById('carouselDescS').innerHTML = item.descripcion + (item.link ? ` <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="color: var(--gold2); font-weight:bold;">Ver más →</a>` : '');
     
     let ind = '';
     for (let i = 0; i < allItems.length; i++) {

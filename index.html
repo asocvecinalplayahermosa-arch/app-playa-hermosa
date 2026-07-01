@@ -325,25 +325,20 @@
       <div id="socios" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👥 Gestionar Socios</h2>
         
-        <div class="form-section">
-          <h3>➕ Agregar nuevo socio</h3>
-          <input type="text" id="nuevoNombreSocio" placeholder="Nombre completo (ej: Angel Antonio Ramirez Rey)" required>
-          <input type="email" id="nuevoEmailSocio" placeholder="Email" required>
-          <input type="text" id="nuevoTelefonoSocio" placeholder="Teléfono (opcional)">
-          <p style="font-size: 12px; color: var(--gray); margin-bottom: 10px;">
-            ℹ️ El usuario se genera automáticamente. Contraseña inicial: <strong>1234</strong>
-          </p>
-          <button class="btn btn-small" onclick="agregarNuevoSocio()">Guardar Socio</button>
-        </div>
+        <button class="btn btn-small" onclick="abrirModalAgregarSocio()" style="width: auto; padding: 12px 20px; font-size: 16px; margin-bottom: 30px;">
+          ➕ Agregar nuevo socio
+        </button>
         
-        <h3 style="color: var(--navy); margin-top: 30px; margin-bottom: 15px;">Socios registrados</h3>
+        <h3 style="color: var(--navy); margin-bottom: 15px;">Socios registrados</h3>
         <table id="tablaSocios">
           <thead>
             <tr>
-              <th>Nombre</th>
+              <th>Nombre completo</th>
               <th>Email</th>
               <th>Usuario</th>
-              <th>Estado</th>
+              <th>Tipo de socio</th>
+              <th>Teléfono</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody id="tbody-socios"></tbody>
@@ -421,6 +416,37 @@
         </div>
       </div>
       
+    </div>
+  </div>
+</div>
+
+<!-- MODAL AGREGAR SOCIO -->
+<div id="modalAgregarSocio" class="modal-overlay" style="display: none;">
+  <div class="modal-content" style="max-width: 500px;">
+    <h2>➕ Agregar nuevo socio</h2>
+    
+    <input type="text" id="modalNombre" placeholder="Nombre" required>
+    <input type="text" id="modalPrimerApellido" placeholder="Primer apellido" required>
+    <input type="text" id="modalSegundoApellido" placeholder="Segundo apellido">
+    <input type="text" id="modalTelefono" placeholder="Teléfono">
+    <input type="text" id="modalDireccion" placeholder="Dirección">
+    <input type="email" id="modalEmail" placeholder="Correo electrónico" required>
+    
+    <select id="modalTipoSocio" required style="margin-bottom: 10px;">
+      <option value="">-- Selecciona tipo de socio --</option>
+      <option value="Fundador">🏛️ Fundador</option>
+      <option value="Activo">👥 Activo</option>
+      <option value="Honorario">🌟 Honorario</option>
+      <option value="Suscriptor">🧒 Suscriptor</option>
+    </select>
+    
+    <p style="font-size: 12px; color: var(--gray); margin-bottom: 15px;">
+      ℹ️ El usuario se generará automáticamente. Contraseña inicial: <strong>1234</strong>
+    </p>
+    
+    <div style="display: flex; gap: 10px;">
+      <button class="btn" onclick="guardarNuevoSocio()" style="flex: 1;">Guardar Socio</button>
+      <button class="btn" onclick="cerrarModalAgregarSocio()" style="flex: 1; background: #dc3545;">Cancelar</button>
     </div>
   </div>
 </div>
@@ -667,30 +693,103 @@ function actualizarCarrusel() {
   document.getElementById('carouselButtons').innerHTML = btnHTML;
 }
 
-// ===== SOCIOS =====
-function agregarNuevoSocio() {
-  const nombre = document.getElementById('nuevoNombreSocio').value;
-  const email = document.getElementById('nuevoEmailSocio').value;
-  const telefono = document.getElementById('nuevoTelefonoSocio').value;
+// ===== SOCIOS CON MODAL =====
+
+function abrirModalAgregarSocio() {
+  document.getElementById('modalAgregarSocio').style.display = 'flex';
+}
+
+function cerrarModalAgregarSocio() {
+  document.getElementById('modalAgregarSocio').style.display = 'none';
+  limpiarFormularioSocio();
+}
+
+function limpiarFormularioSocio() {
+  document.getElementById('modalNombre').value = '';
+  document.getElementById('modalPrimerApellido').value = '';
+  document.getElementById('modalSegundoApellido').value = '';
+  document.getElementById('modalTelefono').value = '';
+  document.getElementById('modalDireccion').value = '';
+  document.getElementById('modalEmail').value = '';
+  document.getElementById('modalTipoSocio').value = '';
+}
+
+function generarUsuarioDesdeModal() {
+  const nombre = document.getElementById('modalNombre').value;
+  const primerApellido = document.getElementById('modalPrimerApellido').value;
   
-  if (!nombre || !email) {
-    alert('Completa nombre y email');
+  if (!nombre || !primerApellido) return '';
+  
+  let usuarioBase = nombre[0].toLowerCase() + primerApellido.toLowerCase();
+  
+  if (!usuariosDB[usuarioBase]) {
+    return usuarioBase;
+  }
+  
+  const segundoApellido = document.getElementById('modalSegundoApellido').value;
+  if (segundoApellido) {
+    let usuarioConSegundo = usuarioBase + segundoApellido.substring(0, 2).toLowerCase();
+    if (!usuariosDB[usuarioConSegundo]) {
+      return usuarioConSegundo;
+    }
+    
+    let usuarioConSegundoCompleto = usuarioBase + segundoApellido.toLowerCase();
+    if (!usuariosDB[usuarioConSegundoCompleto]) {
+      return usuarioConSegundoCompleto;
+    }
+  }
+  
+  let contador = 1;
+  while (usuariosDB[usuarioBase + contador]) {
+    contador++;
+  }
+  return usuarioBase + contador;
+}
+
+function guardarNuevoSocio() {
+  const nombre = document.getElementById('modalNombre').value;
+  const primerApellido = document.getElementById('modalPrimerApellido').value;
+  const segundoApellido = document.getElementById('modalSegundoApellido').value;
+  const telefono = document.getElementById('modalTelefono').value;
+  const direccion = document.getElementById('modalDireccion').value;
+  const email = document.getElementById('modalEmail').value;
+  const tipoSocio = document.getElementById('modalTipoSocio').value;
+  
+  if (!nombre || !primerApellido || !email || !tipoSocio) {
+    alert('Completa los campos obligatorios: Nombre, Primer Apellido, Email y Tipo de socio');
     return;
   }
   
-  const usuario = generarUsuario(nombre);
+  const nombreCompleto = segundoApellido 
+    ? `${nombre} ${primerApellido} ${segundoApellido}` 
+    : `${nombre} ${primerApellido}`;
+  
+  const usuario = generarUsuarioDesdeModal();
+  
+  if (!usuario) {
+    alert('No se pudo generar un usuario único');
+    return;
+  }
+  
   usuariosDB[usuario] = {
-    nombre, email, telefono, password: '1234', rol: 'socio', passwordCambiada: false
+    nombre: nombreCompleto,
+    primerApellido,
+    segundoApellido,
+    email,
+    telefono,
+    direccion,
+    tipoSocio,
+    password: '1234',
+    rol: 'socio',
+    passwordCambiada: false
   };
   
   localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
-  document.getElementById('nuevoNombreSocio').value = '';
-  document.getElementById('nuevoEmailSocio').value = '';
-  document.getElementById('nuevoTelefonoSocio').value = '';
   
+  cerrarModalAgregarSocio();
   listarSocios();
   actualizarDashboard();
-  alert(`✅ Socio agregado\n\nUsuario: ${usuario}\nContraseña: 1234\n\nDeberá cambiarla al ingresar`);
+  alert(`✅ Socio agregado\n\nNombre: ${nombreCompleto}\nUsuario: ${usuario}\nContraseña: 1234\n\nDeberá cambiarla al ingresar`);
 }
 
 function listarSocios() {
@@ -702,7 +801,9 @@ function listarSocios() {
         <td>${u.nombre}</td>
         <td>${u.email}</td>
         <td><strong>${user}</strong></td>
-        <td>Activo</td>
+        <td>${u.tipoSocio || 'Activo'}</td>
+        <td>${u.telefono || '-'}</td>
+        <td><button class="btn btn-small" onclick="alert('Editar: ${user}')">Editar</button></td>
       </tr>`;
     }
   }

@@ -152,6 +152,8 @@
     border-radius: 10px;
     max-width: 500px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    max-height: 90vh;
+    overflow-y: auto;
   }
   .modal-content h2 { color: var(--navy); margin-bottom: 15px; }
   .warning-box {
@@ -161,6 +163,7 @@
     margin-bottom: 20px;
     font-size: 12px;
     color: #856404;
+    white-space: pre-line;
   }
   .form-section { background: var(--cream); padding: 20px; border-radius: 10px; margin-bottom: 20px; }
   input, select, textarea {
@@ -173,6 +176,28 @@
     font-size: 14px;
   }
   textarea { min-height: 100px; resize: vertical; }
+  .carousel {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+    border-radius: 15px;
+    padding: 30px;
+    color: white;
+    margin-bottom: 30px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .carousel h2 { font-size: 32px; margin-bottom: 15px; }
+  .carousel p { font-size: 16px; line-height: 1.6; margin-bottom: 15px; }
+  .carousel-indicators { display: flex; gap: 10px; margin-top: 20px; justify-content: center; }
+  .carousel-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    cursor: pointer;
+  }
+  .carousel-dot.active { background: var(--gold2); }
   .status-badge {
     display: inline-block;
     padding: 4px 12px;
@@ -182,7 +207,6 @@
   }
   .status-activo { background: #d4edda; color: #155724; }
   .status-suspenso { background: #f8d7da; color: #721c24; }
-  .status-baja { background: #e2e3e5; color: #383d41; }
 </style>
 </head>
 <body>
@@ -219,18 +243,16 @@
       <div class="user-info">
         <p>Bienvenido,</p>
         <p style="color: var(--navy); font-weight: bold; font-size: 16px;" id="userDisplay">Usuario</p>
-        <p style="font-size: 11px; color: var(--gold);" id="userRole">Rol</p>
+        <p style="font-size: 11px; color: var(--gold); margin-top: 5px;" id="userRole">Rol</p>
         <button class="btn-logout" onclick="handleLogout()">Cerrar sesión</button>
       </div>
     </div>
     
-    <!-- MENÚ DINÁMICO -->
     <div id="menuContainer">
       <div class="menu" id="menuButtons"></div>
     </div>
     
     <div class="content">
-      <!-- Secciones se cargan dinámicamente -->
       <div id="sectionsContainer"></div>
     </div>
   </div>
@@ -240,64 +262,31 @@
 // ===== BASE DE DATOS =====
 let usuariosDB = JSON.parse(localStorage.getItem('usuariosDB')) || {
   'admin': { 
-    password: 'admin', 
-    nombre: 'Administrador', 
-    email: 'admin@playahermosa.com', 
-    rol: 'admin', 
-    passwordCambiada: true
+    password: 'admin', nombre: 'Administrador', email: 'admin@playahermosa.com', 
+    rol: 'admin', passwordCambiada: true
   },
   'tesorero': { 
-    password: '1234', 
-    nombre: 'Tesorero Sistema', 
-    email: 'tesorero@playahermosa.com', 
-    rol: 'tesorero', 
-    passwordCambiada: false
+    password: '1234', nombre: 'Tesorero Sistema', email: 'tesorero@playahermosa.com', 
+    rol: 'tesorero', passwordCambiada: false
   },
   'profesor': { 
-    password: '1234', 
-    nombre: 'Profesor Sistema', 
-    email: 'profesor@playahermosa.com', 
-    rol: 'profesor', 
-    passwordCambiada: false
+    password: '1234', nombre: 'Profesor Sistema', email: 'profesor@playahermosa.com', 
+    rol: 'profesor', passwordCambiada: false
   },
   'jgarcia': { 
-    password: '1234', 
-    nombre: 'Juan García', 
-    email: 'juan@email.com', 
-    rol: 'socio', 
-    passwordCambiada: false,
-    tipoSocio: 'Activo',
-    estado: 'Activo',
-    mesesEnDeuda: 0,
-    avisosPorDeuda: 0,
-    causalSeleccionada: 'Sin causal',
-    historialBaja: []
+    password: '1234', nombre: 'Juan García', email: 'juan@email.com', rol: 'socio', 
+    passwordCambiada: false, tipoSocio: 'Activo', estado: 'Activo', mesesEnDeuda: 0, 
+    avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: []
   },
   'mgonzalez': { 
-    password: '1234', 
-    nombre: 'María González', 
-    email: 'maria@email.com', 
-    rol: 'socio', 
-    passwordCambiada: false,
-    tipoSocio: 'Activo',
-    estado: 'Activo',
-    mesesEnDeuda: 1,
-    avisosPorDeuda: 0,
-    causalSeleccionada: 'Sin causal',
-    historialBaja: []
+    password: '1234', nombre: 'María González', email: 'maria@email.com', rol: 'socio', 
+    passwordCambiada: false, tipoSocio: 'Activo', estado: 'Activo', mesesEnDeuda: 1, 
+    avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: []
   },
   'aramirez': { 
-    password: '1234', 
-    nombre: 'Angel Antonio Ramirez Rey', 
-    email: 'aramirezcr81@gmail.com', 
-    rol: 'socio', 
-    passwordCambiada: false,
-    tipoSocio: 'Fundador',
-    estado: 'Activo',
-    mesesEnDeuda: 0,
-    avisosPorDeuda: 0,
-    causalSeleccionada: 'Sin causal',
-    historialBaja: []
+    password: '1234', nombre: 'Angel Antonio Ramirez Rey', email: 'aramirezcr81@gmail.com', rol: 'socio', 
+    passwordCambiada: false, tipoSocio: 'Fundador', estado: 'Activo', mesesEnDeuda: 0, 
+    avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: []
   }
 };
 
@@ -313,6 +302,19 @@ let eventosDB = JSON.parse(localStorage.getItem('eventosDB')) || [
 let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [
   { id: 1, titulo: 'Comunicado importante', descripcion: 'Se realizarán trabajos de mantenimiento en la zona', tipo: 'noticia' }
 ];
+
+// ===== PASSWORD VALIDATION =====
+function validarPasswordFuerte(password) {
+  const minLength = password.length >= 8;
+  const hasMayuscula = /[A-Z]/.test(password);
+  const hasNumero = /[0-9]/.test(password);
+  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  return minLength && hasMayuscula && hasNumero && hasSymbol;
+}
+
+function obtenerMensajePasswordFuerte() {
+  return `La contraseña debe cumplir:\n✓ Mínimo 8 caracteres\n✓ 1 letra mayúscula\n✓ 1 número\n✓ 1 símbolo (!@#$%^&*)\n\nEjemplo: Micontra123!`;
+}
 
 // ===== LOGIN =====
 function handleLogin(event) {
@@ -344,7 +346,50 @@ function handleLogout() {
   document.getElementById('loginForm').reset();
 }
 
-// ===== MENÚ DINÁMICO =====
+function pedirCambioPassword(usuario) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>🔐 Cambiar contraseña</h2>
+      <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Esta es tu primera vez. Debes crear una contraseña fuerte para tu seguridad.</p>
+      <div class="warning-box">${obtenerMensajePasswordFuerte()}</div>
+      <input type="password" id="newPassword" placeholder="Nueva contraseña" required>
+      <input type="password" id="confirmPassword" placeholder="Confirmar contraseña" required>
+      <button class="btn" onclick="guardarNuevaPassword('${usuario}')">Guardar nueva contraseña</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarNuevaPassword(usuario) {
+  const newPassword = document.getElementById('newPassword').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
+  
+  if (!newPassword || !confirmPassword) {
+    alert('Completa ambos campos');
+    return;
+  }
+  
+  if (newPassword !== confirmPassword) {
+    alert('Las contraseñas no coinciden');
+    return;
+  }
+  
+  if (!validarPasswordFuerte(newPassword)) {
+    alert(obtenerMensajePasswordFuerte());
+    return;
+  }
+  
+  usuariosDB[usuario].password = newPassword;
+  usuariosDB[usuario].passwordCambiada = true;
+  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+  
+  document.querySelector('.modal-overlay').remove();
+  alert('✅ Contraseña cambiada exitosamente');
+}
+
+// ===== MENU RENDERING =====
 function renderMenu(usuario) {
   const rol = usuariosDB[usuario].rol;
   let opciones = [];
@@ -385,6 +430,14 @@ function renderMenu(usuario) {
   mostrarSeccion(opciones[0].id);
 }
 
+function mostrarSeccion(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// ===== SECTIONS RENDERING =====
 function renderSecciones(rol) {
   let html = '';
   
@@ -392,13 +445,16 @@ function renderSecciones(rol) {
     html = `
       <div id="dashboard" class="section active">
         <h2 style="color: var(--navy); margin-bottom: 20px;">📊 Dashboard</h2>
-        <p>Bienvenido Admin - Tienes acceso a todo el sistema</p>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+          <div class="card" style="text-align: center;"><h3 id="totalSocios">0</h3><p>Socios</p></div>
+          <div class="card" style="text-align: center;"><h3 id="totalEventos">0</h3><p>Eventos</p></div>
+          <div class="card" style="text-align: center;"><h3 id="totalNoticias">0</h3><p>Noticias</p></div>
+        </div>
       </div>
       <div id="socios" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👥 Gestionar Socios</h2>
-        <button class="btn btn-small" onclick="abrirModalAgregarSocio()" style="width: auto; padding: 12px 20px; margin-bottom: 20px;">➕ Agregar</button>
         <button class="btn btn-small" onclick="mostrarHistorialBajas()" style="width: auto; padding: 12px 20px; margin-bottom: 20px; background: #6c757d;">📋 Historial de bajas</button>
-        <div id="tablaSOCIOS"></div>
+        <div id="tablaSocios"></div>
       </div>
       <div id="tesorero" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">💰 Panel Tesorero</h2>
@@ -406,7 +462,7 @@ function renderSecciones(rol) {
       </div>
       <div id="profesores" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👨‍🏫 Panel Profesores</h2>
-        <p>Panel de Profesores - Control de actividades</p>
+        <p>Gestión de profesores y actividades</p>
       </div>
       <div id="eventos" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">📅 Eventos</h2>
@@ -425,7 +481,7 @@ function renderSecciones(rol) {
       </div>
       <div id="socios" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👥 Ver Socios</h2>
-        <div id="tablaSOCIOS"></div>
+        <div id="tablaSocios"></div>
       </div>
     `;
   } else if (rol === 'profesor') {
@@ -436,12 +492,9 @@ function renderSecciones(rol) {
       </div>
       <div id="novedades" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">📢 Novedades</h2>
-        <div id="carouselProfesor" style="background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%); border-radius: 15px; padding: 30px; color: white; margin-bottom: 30px; min-height: 300px;">
-          <div id="carouselContent">
-            <h2 id="carouselTitle">Cargando...</h2>
-            <p id="carouselDescription">Por favor espera...</p>
-          </div>
-          <div id="carouselIndicators" style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;"></div>
+        <div class="carousel" id="carouselProf">
+          <div><h2 id="carouselTitleP">Cargando...</h2><p id="carouselDescP">Por favor espera...</p></div>
+          <div id="carouselIndP" class="carousel-indicators"></div>
         </div>
       </div>
     `;
@@ -449,114 +502,87 @@ function renderSecciones(rol) {
     html = `
       <div id="inicio" class="section active">
         <h2 style="color: var(--navy); margin-bottom: 20px;">🏠 Inicio</h2>
-        <p>Bienvenido socio</p>
+        <div class="carousel" id="carouselSoc">
+          <div><h2 id="carouselTitleS">Cargando...</h2><p id="carouselDescS">Por favor espera...</p></div>
+          <div id="carouselIndS" class="carousel-indicators"></div>
+        </div>
+        <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Próximas actividades</h3>
+        <div id="eventosLista"></div>
       </div>
       <div id="perfil" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👤 Mi Perfil</h2>
-        <p>Tu información</p>
+        <div class="card">
+          <p><strong>Nombre:</strong> <span id="profileName">-</span></p>
+          <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
+          <p><strong>Estado:</strong> <span id="profileStatus">-</span></p>
+        </div>
       </div>
     `;
   }
   
   document.getElementById('sectionsContainer').innerHTML = html;
   
-  // Cargar contenido
   if (rol === 'admin' || rol === 'tesorero') {
     cargarTablaSocios();
     cargarPanelTesorero();
+    actualizarDashboard();
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();
+  } else if (rol === 'socio') {
+    cargarPerfilSocio();
+    cargarCarouselSocio();
+    cargarEventosSocio();
   }
 }
 
-function mostrarSeccion(id) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
-}
-
-// ===== TABLA DE SOCIOS (solo activos) =====
+// ===== SOCIOS =====
 function cargarTablaSocios() {
-  let html = `
-    <table>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Email</th>
-          <th>Usuario</th>
-          <th>Estado</th>
-          <th>Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
+  let html = `<table><thead><tr><th>Nombre</th><th>Email</th><th>Usuario</th><th>Estado</th><th>Teléfono</th></tr></thead><tbody>`;
   
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol === 'socio' && u.estado === 'Activo') {
       const estado = u.mesesEnDeuda >= 1 ? '🔴 En suspenso' : '✅ Activo';
-      const colorEstado = u.mesesEnDeuda >= 1 ? '#dc3545' : '#28a745';
-      
-      html += `<tr>
-        <td>${u.nombre}</td>
-        <td>${u.email}</td>
-        <td><strong>${user}</strong></td>
-        <td><span class="status-badge" style="background: ${colorEstado}20; color: ${colorEstado};">${estado}</span></td>
-        <td>
-          <button class="btn btn-small" onclick="alert('Editar: ${user}')">Editar</button>
-          <button class="btn btn-small" onclick="abrirModalDarDeBaja('${user}')" style="background: #dc3545;">Dar de baja</button>
-        </td>
-      </tr>`;
+      html += `<tr><td>${u.nombre}</td><td>${u.email}</td><td><strong>${user}</strong></td><td>${estado}</td><td>${u.telefono || '-'}</td></tr>`;
     }
   }
   
   html += `</tbody></table>`;
-  document.getElementById('tablaSOCIOS').innerHTML = html;
+  document.getElementById('tablaSocios').innerHTML = html;
 }
 
 function mostrarHistorialBajas() {
-  let html = `<h3 style="color: var(--navy); margin: 20px 0;">📋 Historial de bajas</h3><table><thead><tr><th>Nombre</th><th>Motivo</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>`;
-  
+  let html = `<h3 style="color: var(--navy); margin: 20px 0;">📋 Historial de bajas</h3><table><thead><tr><th>Nombre</th><th>Motivo</th><th>Fecha</th></tr></thead><tbody>`;
   let hayBajas = false;
+  
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol === 'socio' && u.estado === 'Dado de baja') {
       hayBajas = true;
       const ultimaBaja = u.historialBaja[u.historialBaja.length - 1];
       const fecha = new Date(ultimaBaja.fecha).toLocaleDateString('es-ES');
-      html += `<tr>
-        <td>${u.nombre}</td>
-        <td>${ultimaBaja.motivo}</td>
-        <td>${fecha}</td>
-        <td><button class="btn btn-small" onclick="abrirModalReactivarSocio('${user}')" style="background: #28a745;">Reactivar</button></td>
-      </tr>`;
+      html += `<tr><td>${u.nombre}</td><td>${ultimaBaja.motivo}</td><td>${fecha}</td></tr>`;
     }
   }
   
   html += `</tbody></table>`;
+  if (!hayBajas) html = '<p style="color: var(--gray);">No hay socios dados de baja</p>';
   
-  if (!hayBajas) {
-    html = '<p style="color: var(--gray);">No hay socios dados de baja</p>';
-  }
-  
-  document.getElementById('tablaSOCIOS').innerHTML = html;
+  document.getElementById('tablaSocios').innerHTML = html;
 }
 
-// ===== PANEL TESORERO =====
+// ===== TESORERO =====
 function cargarPanelTesorero() {
   let html = `
-    <div class="form-section" style="margin-bottom: 30px;">
+    <div class="form-section">
       <h3>Registrar pago de socio</h3>
-      <select id="tesoreroSocio" style="margin-bottom: 10px;">
-        <option value="">-- Selecciona socio --</option>
+      <select id="tesoreroSocio"><option value="">-- Selecciona socio --</option>
   `;
   
   for (let user in usuariosDB) {
-    const u = usuariosDB[user];
-    if (u.rol === 'socio') {
-      html += `<option value="${user}">${u.nombre}</option>`;
+    if (usuariosDB[user].rol === 'socio') {
+      html += `<option value="${user}">${usuariosDB[user].nombre}</option>`;
     }
   }
   
@@ -565,9 +591,8 @@ function cargarPanelTesorero() {
     <input type="number" id="tesoreroAvisos" placeholder="Cantidad de avisos (0-3)" min="0" max="3">
     <button class="btn btn-small" onclick="guardarDeudasTesorero()">Guardar deuda</button>
     </div>
-    
     <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Estado de deudas</h3>
-    <table id="tablaDeudasTesorero" style="margin-top: 20px;"></table>
+    <table id="tablaDeudasTesorero"></table>
   `;
   
   document.getElementById('panelTesorero').innerHTML = html;
@@ -575,28 +600,13 @@ function cargarPanelTesorero() {
 }
 
 function cargarTablaDeudasTesorero() {
-  let html = `
-    <thead>
-      <tr>
-        <th>Socio</th>
-        <th>Meses en deuda</th>
-        <th>Avisos</th>
-        <th>Estado</th>
-      </tr>
-    </thead>
-    <tbody>
-  `;
+  let html = `<thead><tr><th>Socio</th><th>Meses en deuda</th><th>Avisos</th><th>Estado</th></tr></thead><tbody>`;
   
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol === 'socio' && u.estado === 'Activo') {
       const estado = u.mesesEnDeuda >= 1 ? '🔴 Suspenso' : '✅ Al día';
-      html += `<tr>
-        <td>${u.nombre}</td>
-        <td>${u.mesesEnDeuda}</td>
-        <td>${u.avisosPorDeuda}</td>
-        <td>${estado}</td>
-      </tr>`;
+      html += `<tr><td>${u.nombre}</td><td>${u.mesesEnDeuda}</td><td>${u.avisosPorDeuda}</td><td>${estado}</td></tr>`;
     }
   }
   
@@ -623,24 +633,19 @@ function guardarDeudasTesorero() {
   alert('✅ Deuda actualizada');
 }
 
-// ===== PANEL PROFESOR =====
+// ===== PROFESOR =====
 function cargarPanelProfesor() {
   const usuarioActual = localStorage.getItem('currentUser');
-  let html = '<table><thead><tr><th>Actividad</th><th>Día</th><th>Hora</th><th>Alumnos inscritos</th></tr></thead><tbody>';
+  let html = `<table><thead><tr><th>Actividad</th><th>Día</th><th>Hora</th><th>Alumnos inscritos</th></tr></thead><tbody>`;
   
   actividadesDB.forEach(act => {
     if (act.profesor === usuarioActual) {
       const alumnos = act.inscriptos.map(user => usuariosDB[user]?.nombre || user).join(', ');
-      html += `<tr>
-        <td><strong>${act.titulo}</strong></td>
-        <td>${act.dia}</td>
-        <td>${act.hora}</td>
-        <td>${alumnos || 'Sin inscritos'}</td>
-      </tr>`;
+      html += `<tr><td><strong>${act.titulo}</strong></td><td>${act.dia}</td><td>${act.hora}</td><td>${alumnos || 'Sin inscritos'}</td></tr>`;
     }
   });
   
-  html += '</tbody></table>';
+  html += `</tbody></table>`;
   document.getElementById('panelProfesor').innerHTML = html;
 }
 
@@ -649,40 +654,84 @@ function cargarCarouselProfesor() {
   if (allItems.length === 0) return;
   
   let currentIndex = 0;
-  function actualizarCarousel() {
+  function actualizar() {
     const item = allItems[currentIndex];
-    document.getElementById('carouselTitle').textContent = item.titulo;
-    document.getElementById('carouselDescription').textContent = item.descripcion;
+    document.getElementById('carouselTitleP').textContent = item.titulo;
+    document.getElementById('carouselDescP').textContent = item.descripcion;
     
-    let indicators = '';
+    let ind = '';
     for (let i = 0; i < allItems.length; i++) {
-      indicators += `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${i === currentIndex ? '#E8B020' : 'rgba(255,255,255,0.5)'}; cursor: pointer;" onclick="currentIndex=${i}; actualizarCarousel()"></div>`;
+      ind += `<div class="carousel-dot ${i === currentIndex ? 'active' : ''}" onclick="currentIndex=${i}; actualizar()"></div>`;
     }
-    document.getElementById('carouselIndicators').innerHTML = indicators;
+    document.getElementById('carouselIndP').innerHTML = ind;
   }
   
-  actualizarCarousel();
+  actualizar();
   setInterval(() => {
     currentIndex = (currentIndex + 1) % allItems.length;
-    actualizarCarousel();
+    actualizar();
   }, 5000);
 }
 
-// ===== FUNCIONES AUXILIARES =====
-function abrirModalAgregarSocio() {
-  alert('Modal agregar socio - Funcionalidad próxima');
+// ===== SOCIO =====
+function cargarPerfilSocio() {
+  const usuario = localStorage.getItem('currentUser');
+  const u = usuariosDB[usuario];
+  const estado = u.mesesEnDeuda >= 1 ? '🔴 En suspenso' : '✅ Activo';
+  
+  document.getElementById('profileName').textContent = u.nombre;
+  document.getElementById('profileEmail').textContent = u.email;
+  document.getElementById('profileStatus').textContent = estado;
 }
 
-function abrirModalDarDeBaja(usuario) {
-  alert('Modal dar de baja - Funcionalidad próxima');
+function cargarCarouselSocio() {
+  const allItems = [...eventosDB, ...noticiasDB];
+  if (allItems.length === 0) return;
+  
+  let currentIndex = 0;
+  function actualizar() {
+    const item = allItems[currentIndex];
+    document.getElementById('carouselTitleS').textContent = item.titulo;
+    document.getElementById('carouselDescS').textContent = item.descripcion;
+    
+    let ind = '';
+    for (let i = 0; i < allItems.length; i++) {
+      ind += `<div class="carousel-dot ${i === currentIndex ? 'active' : ''}" onclick="currentIndex=${i}; actualizar()"></div>`;
+    }
+    document.getElementById('carouselIndS').innerHTML = ind;
+  }
+  
+  actualizar();
+  setInterval(() => {
+    currentIndex = (currentIndex + 1) % allItems.length;
+    actualizar();
+  }, 5000);
 }
 
-function abrirModalReactivarSocio(usuario) {
-  alert('Modal reactivar - Funcionalidad próxima');
+function cargarEventosSocio() {
+  let html = '';
+  actividadesDB.forEach(act => {
+    html += `<div class="card"><h3>${act.titulo}</h3><p><strong>📅 ${act.dia} ${act.hora}</strong></p><p>${act.descripcion}</p><button class="btn btn-small" onclick="alert('✅ ¡Te anotaste!')">Me interesa</button></div>`;
+  });
+  document.getElementById('eventosLista').innerHTML = html;
 }
 
-function pedirCambioPassword(usuario) {
-  alert('Cambiar contraseña - Funcionalidad próxima');
+// ===== DASHBOARD =====
+function actualizarDashboard() {
+  let socios = 0, eventos = 0, noticias = 0;
+  
+  for (let user in usuariosDB) {
+    if (usuariosDB[user].rol === 'socio' && usuariosDB[user].estado === 'Activo') socios++;
+  }
+  
+  eventos = eventosDB.length;
+  noticias = noticiasDB.length;
+  
+  if (document.getElementById('totalSocios')) {
+    document.getElementById('totalSocios').textContent = socios;
+    document.getElementById('totalEventos').textContent = eventos;
+    document.getElementById('totalNoticias').textContent = noticias;
+  }
 }
 
 // ===== INIT =====
@@ -696,3 +745,7 @@ window.addEventListener('load', function() {
     renderMenu(currentUser);
   }
 });
+</script>
+
+</body>
+</html>

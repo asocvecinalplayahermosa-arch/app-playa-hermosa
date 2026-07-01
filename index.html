@@ -109,9 +109,10 @@
     transition: background 0.3s;
   }
   
-  .btn:hover {
-    background: var(--gold);
-  }
+  .btn:hover { background: var(--gold); }
+  .btn-small { padding: 8px 15px; font-size: 12px; width: auto; margin: 5px; }
+  .btn-danger { background: #dc3545; }
+  .btn-danger:hover { background: #c82333; }
   
   /* MAIN APP */
   .app-page { display: none; }
@@ -194,47 +195,55 @@
     border-left: 4px solid var(--gold);
   }
   
-  .card h3 {
-    color: var(--navy);
+  .card h3 { color: var(--navy); margin-bottom: 10px; }
+  .card p { color: var(--text); font-size: 14px; line-height: 1.6; }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  
+  table th {
+    background: var(--navy);
+    color: white;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+  }
+  
+  table td {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  table tr:hover { background: var(--cream); }
+  
+  .form-section {
+    background: var(--cream);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  
+  input, select, textarea {
+    width: 100%;
+    padding: 10px;
     margin-bottom: 10px;
+    border: 2px solid var(--gray);
+    border-radius: 5px;
+    font-family: inherit;
   }
   
-  .card p {
-    color: var(--text);
-    font-size: 14px;
-    line-height: 1.6;
-  }
-  
-  .error {
-    background: #f8d7da;
-    color: #721c24;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-  }
-  
-  .success {
-    background: #d4edda;
-    color: #155724;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--gold);
   }
   
   @media (max-width: 768px) {
-    .header {
-      flex-direction: column;
-      gap: 15px;
-      text-align: center;
-    }
-    
-    .menu {
-      flex-direction: column;
-    }
-    
-    .menu-btn {
-      width: 100%;
-    }
+    .header { flex-direction: column; gap: 15px; text-align: center; }
+    .menu { flex-direction: column; }
+    .menu-btn { width: 100%; }
   }
 </style>
 </head>
@@ -250,14 +259,20 @@
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="form-group">
         <label>Usuario</label>
-        <input type="text" id="username" placeholder="juan" required>
+        <input type="text" id="username" placeholder="juan o admin" required>
       </div>
       <div class="form-group">
         <label>Contraseña</label>
-        <input type="password" id="password" placeholder="1234" required>
+        <input type="password" id="password" placeholder="1234 o admin" required>
       </div>
       <button type="submit" class="btn">Ingresar</button>
     </form>
+    
+    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: var(--gray);">
+      <p><strong>Prueba:</strong></p>
+      <p>Usuario: juan | Contraseña: 1234</p>
+      <p style="margin-top: 10px;">Usuario: admin | Contraseña: admin</p>
+    </div>
   </div>
 </div>
 
@@ -272,20 +287,107 @@
       <div class="user-info">
         <p>Bienvenido,</p>
         <p style="color: var(--navy); font-weight: bold; font-size: 16px;" id="userDisplay">Juan García</p>
+        <p style="font-size: 11px; color: var(--gold); margin-top: 5px;" id="userRole">Socio</p>
         <button class="btn-logout" onclick="handleLogout()">Cerrar sesión</button>
       </div>
     </div>
     
-    <div class="menu">
-      <button class="menu-btn active" onclick="showSection('inicio', this)">📱 Inicio</button>
-      <button class="menu-btn" onclick="showSection('documentos', this)">📄 Documentos</button>
-      <button class="menu-btn" onclick="showSection('octogono', this)">🏛️ Octógono</button>
-      <button class="menu-btn" onclick="showSection('actividades', this)">📅 Actividades</button>
-      <button class="menu-btn" onclick="showSection('perfil', this)">👤 Mi Perfil</button>
+    <div id="adminMenuContainer" style="display: none;">
+      <div class="menu">
+        <button class="menu-btn" onclick="showSection('dashboard', this)">📊 Dashboard</button>
+        <button class="menu-btn" onclick="showSection('socios', this)">👥 Gestionar Socios</button>
+        <button class="menu-btn" onclick="showSection('agregarSocio', this)">➕ Agregar Socio</button>
+        <button class="menu-btn" onclick="showSection('configuracion', this)">⚙️ Configuración</button>
+      </div>
+    </div>
+    
+    <div id="userMenuContainer">
+      <div class="menu">
+        <button class="menu-btn active" onclick="showSection('inicio', this)">📱 Inicio</button>
+        <button class="menu-btn" onclick="showSection('documentos', this)">📄 Documentos</button>
+        <button class="menu-btn" onclick="showSection('octogono', this)">🏛️ Octógono</button>
+        <button class="menu-btn" onclick="showSection('actividades', this)">📅 Actividades</button>
+        <button class="menu-btn" onclick="showSection('perfil', this)">👤 Mi Perfil</button>
+      </div>
     </div>
     
     <div class="content">
-      <!-- INICIO -->
+      
+      <!-- ADMIN DASHBOARD -->
+      <div id="dashboard" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📊 Dashboard - Administrador</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+          <div class="card" style="text-align: center;">
+            <h3 id="totalSocios">0</h3>
+            <p>Socios registrados</p>
+          </div>
+          <div class="card" style="text-align: center;">
+            <h3 id="totalDeuda">$0</h3>
+            <p>Deuda pendiente</p>
+          </div>
+          <div class="card" style="text-align: center;">
+            <h3 id="alDia">0</h3>
+            <p>Cuotas al día</p>
+          </div>
+          <div class="card" style="text-align: center;">
+            <h3 id="conDeuda">0</h3>
+            <p>Socios con deuda</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- ADMIN SOCIOS -->
+      <div id="socios" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">👥 Gestionar Socios</h2>
+        <table id="tablasocios">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Email</th>
+              <th>Teléfono</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-socios"></tbody>
+        </table>
+      </div>
+      
+      <!-- ADMIN AGREGAR SOCIO -->
+      <div id="agregarSocio" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">➕ Agregar Nuevo Socio</h2>
+        <div class="form-section">
+          <input type="text" id="nuevoNombre" placeholder="Nombre completo" required>
+          <input type="email" id="nuevoEmail" placeholder="Email" required>
+          <input type="text" id="nuevoTelefono" placeholder="Teléfono">
+          <input type="text" id="nuevoUsuario" placeholder="Nombre de usuario (para login)">
+          <input type="password" id="nuevoPassword" placeholder="Contraseña">
+          <select id="nuevoEstado">
+            <option>Cuota al día</option>
+            <option>Con deuda</option>
+            <option>Inactivo</option>
+          </select>
+          <button class="btn" onclick="agregarNuevoSocio()">Guardar Socio</button>
+        </div>
+      </div>
+      
+      <!-- ADMIN CONFIGURACIÓN -->
+      <div id="configuracion" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">⚙️ Configuración</h2>
+        <div class="card">
+          <h3>Administrador</h3>
+          <p><strong>Nombre:</strong> Administrador del Sistema</p>
+          <p><strong>Email:</strong> admin@playahermosa.com</p>
+          <button class="btn btn-small" onclick="cambiarPasswordAdmin()">Cambiar Contraseña</button>
+        </div>
+        <div class="card">
+          <h3>Respaldo de datos</h3>
+          <p>Descarga todos los datos de socios en formato JSON</p>
+          <button class="btn btn-small" onclick="descargarDatos()">Descargar Datos</button>
+        </div>
+      </div>
+      
+      <!-- USUARIO: INICIO -->
       <div id="inicio" class="section active">
         <h2 style="color: var(--navy); margin-bottom: 20px;">¿Qué querés hacer?</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
@@ -312,122 +414,92 @@
         </div>
       </div>
       
-      <!-- DOCUMENTOS -->
+      <!-- USUARIO: DOCUMENTOS -->
       <div id="documentos" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">📄 Actas</h2>
-        <p style="color: var(--gray); margin-bottom: 20px;">12 documentos • Actualizado hoy</p>
-        
         <div class="card">
           <h3>Acta Reunión Junio 2026</h3>
           <p>PDF • 340 KB • 18 jun 2026</p>
-          <button class="btn" style="margin-top: 10px; max-width: 200px;">Descargar</button>
+          <button class="btn btn-small">Descargar</button>
         </div>
         <div class="card">
           <h3>Acta Reunión Mayo 2026</h3>
           <p>PDF • 280 KB • 15 may 2026</p>
-          <button class="btn" style="margin-top: 10px; max-width: 200px;">Descargar</button>
-        </div>
-        <div class="card">
-          <h3>Acta Asamblea Anual 2025</h3>
-          <p>PDF • 520 KB • 20 dic 2025</p>
-          <button class="btn" style="margin-top: 10px; max-width: 200px;">Descargar</button>
+          <button class="btn btn-small">Descargar</button>
         </div>
       </div>
       
-      <!-- OCTÓGONO -->
+      <!-- USUARIO: OCTÓGONO -->
       <div id="octogono" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">🏛️ Reservar Octógono</h2>
-        
         <div class="card">
           <h3>Tu situación</h3>
-          <p><strong>Estado:</strong> <span style="color: #28a745; font-weight: bold;">Cuota al día ✓</span></p>
-          <p style="margin-top: 10px;"><strong>Deuda pendiente:</strong> $0</p>
-        </div>
-        
-        <h3 style="color: var(--navy); margin: 30px 0 20px 0;">Disponibilidad</h3>
-        <div class="card">
-          <h3>Próximas fechas disponibles</h3>
-          <ul style="list-style: none; padding: 0;">
-            <li style="padding: 10px 0; border-bottom: 1px solid #eee;">📅 Sábado 6 de julio - 16:00 hs</li>
-            <li style="padding: 10px 0; border-bottom: 1px solid #eee;">📅 Sábado 13 de julio - 10:00 hs</li>
-            <li style="padding: 10px 0;">📅 Sábado 20 de julio - 14:00 hs</li>
-          </ul>
-          <button class="btn" style="margin-top: 15px;">Reservar ahora</button>
+          <p id="estadoSocio"><strong>Estado:</strong> Cargando...</p>
+          <p id="deudaSocio"><strong>Deuda:</strong> Cargando...</p>
         </div>
       </div>
       
-      <!-- ACTIVIDADES -->
+      <!-- USUARIO: ACTIVIDADES -->
       <div id="actividades" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">📅 Próximas actividades</h2>
-        
         <div class="card">
           <h3>🎂 Día del Abuelo</h3>
           <p><strong>Fecha:</strong> Sábado 28 de junio a las 16:00 hs</p>
-          <p><strong>Actividad:</strong> Chocolatada, torta frita y show en vivo</p>
-          <p style="margin-top: 10px; color: var(--text);">Dirigido a todos los socios mayores de 60 años. Entrada libre.</p>
-          <button class="btn" style="margin-top: 15px; max-width: 200px;">Me interesa</button>
-        </div>
-        
-        <div class="card">
-          <h3>🏃 Clase de yoga</h3>
-          <p><strong>Cuando:</strong> Martes y jueves 18:00 hs</p>
-          <p><strong>Lugar:</strong> Salón multiusos</p>
-          <p style="margin-top: 10px; color: var(--text);">Clases para todos los niveles. Inscripción abierta.</p>
-          <button class="btn" style="margin-top: 15px; max-width: 200px;">Inscribirse</button>
+          <button class="btn btn-small">Me interesa</button>
         </div>
       </div>
       
-      <!-- PERFIL -->
+      <!-- USUARIO: PERFIL -->
       <div id="perfil" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👤 Mi Perfil</h2>
-        
         <div class="card">
           <h3>Datos personales</h3>
-          <p><strong>Nombre:</strong> <span id="profileName">Juan García</span></p>
-          <p><strong>Socio desde:</strong> 2015</p>
-          <p><strong>Número de socio:</strong> 0042</p>
-          <p style="margin-top: 15px;"><strong>Email:</strong> juan@email.com</p>
-          <p><strong>Teléfono:</strong> +598 99 123 456</p>
-        </div>
-        
-        <div class="card">
-          <h3>Situación de cuota</h3>
-          <p><strong>Estado:</strong> <span style="color: #28a745; font-weight: bold;">Al día ✓</span></p>
-          <p><strong>Última cuota pagada:</strong> 30 de junio 2026</p>
-          <p><strong>Próximo vencimiento:</strong> 31 de julio 2026</p>
-          <p style="margin-top: 15px;"><strong>Deuda pendiente:</strong> $0</p>
+          <p><strong>Nombre:</strong> <span id="profileName">-</span></p>
+          <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
+          <p><strong>Teléfono:</strong> <span id="profilePhone">-</span></p>
+          <p style="margin-top: 15px;"><strong>Estado:</strong> <span id="profileStatus">-</span></p>
         </div>
       </div>
+      
     </div>
   </div>
 </div>
 
 <script>
-// BASE DE DATOS DE USUARIOS (localStorage)
-const usuarios = {
-  'juan': { password: '1234', nombre: 'Juan García', estado: 'Cuota al día' },
-  'maria': { password: '1234', nombre: 'María González', estado: 'Con deuda' },
-  'lucia': { password: '1234', nombre: 'Lucía López', estado: 'Profesora' },
-  'carlos': { password: '1234', nombre: 'Carlos Martinez', estado: 'Tesorero' }
+// BASE DE DATOS DE USUARIOS
+const usuariosDB = {
+  'juan': { password: '1234', nombre: 'Juan García', email: 'juan@email.com', telefono: '099 123 456', estado: 'Cuota al día', rol: 'socio' },
+  'maria': { password: '1234', nombre: 'María González', email: 'maria@email.com', telefono: '099 234 567', estado: 'Con deuda', rol: 'socio' },
+  'lucia': { password: '1234', nombre: 'Lucía López', email: 'lucia@email.com', telefono: '099 345 678', estado: 'Activa', rol: 'profesor' },
+  'carlos': { password: '1234', nombre: 'Carlos Martinez', email: 'carlos@email.com', telefono: '099 456 789', estado: 'Activo', rol: 'tesorero' },
+  'angel': { password: '1234', nombre: 'Angel Antonio Ramirez Rey', email: 'aramirezcr81@gmail.com', telefono: '099 173 152', estado: 'Cuota al día', rol: 'socio' },
+  'admin': { password: 'admin', nombre: 'Administrador', email: 'admin@playahermosa.com', telefono: 'N/A', estado: 'Admin', rol: 'admin' }
 };
 
 // LOGIN
 function handleLogin(event) {
   event.preventDefault();
-  
   const username = document.getElementById('username').value;
   const password = document.getElementById('password').value;
   
-  if (usuarios[username] && usuarios[username].password === password) {
-    // Guardar sesión
+  if (usuariosDB[username] && usuariosDB[username].password === password) {
     localStorage.setItem('currentUser', username);
-    localStorage.setItem('userName', usuarios[username].nombre);
-    
-    // Mostrar app
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('appPage').classList.add('active');
-    document.getElementById('userDisplay').textContent = usuarios[username].nombre;
-    document.getElementById('profileName').textContent = usuarios[username].nombre;
+    document.getElementById('userDisplay').textContent = usuariosDB[username].nombre;
+    document.getElementById('userRole').textContent = usuariosDB[username].rol.toUpperCase();
+    
+    const rol = usuariosDB[username].rol;
+    if (rol === 'admin') {
+      document.getElementById('adminMenuContainer').style.display = 'block';
+      document.getElementById('userMenuContainer').style.display = 'none';
+      mostrarDatos();
+      listarSocios();
+    } else {
+      document.getElementById('adminMenuContainer').style.display = 'none';
+      document.getElementById('userMenuContainer').style.display = 'block';
+      cargarPerfilUsuario(username);
+    }
   } else {
     alert('Usuario o contraseña incorrectos');
   }
@@ -436,7 +508,6 @@ function handleLogin(event) {
 // LOGOUT
 function handleLogout() {
   localStorage.removeItem('currentUser');
-  localStorage.removeItem('userName');
   document.getElementById('loginPage').style.display = 'flex';
   document.getElementById('appPage').classList.remove('active');
   document.getElementById('loginForm').reset();
@@ -444,27 +515,101 @@ function handleLogout() {
 
 // CAMBIAR SECCIÓN
 function showSection(sectionId, button) {
-  // Ocultar todas las secciones
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  
-  // Mostrar la sección seleccionada
   document.getElementById(sectionId).classList.add('active');
-  
-  // Actualizar botón activo
   document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
-  button.classList.add('active');
+  if (button) button.classList.add('active');
 }
 
-// VERIFICAR SI EXISTE SESIÓN
+// ADMIN: Mostrar datos
+function mostrarDatos() {
+  document.getElementById('totalSocios').textContent = Object.keys(usuariosDB).length - 1;
+}
+
+// ADMIN: Listar socios
+function listarSocios() {
+  let html = '';
+  for (let user in usuariosDB) {
+    if (usuariosDB[user].rol !== 'admin') {
+      const u = usuariosDB[user];
+      html += `<tr>
+        <td>${u.nombre}</td>
+        <td>${u.email}</td>
+        <td>${u.telefono}</td>
+        <td>${u.estado}</td>
+        <td><button class="btn btn-small" onclick="editarSocio('${user}')">Editar</button></td>
+      </tr>`;
+    }
+  }
+  document.getElementById('tbody-socios').innerHTML = html;
+}
+
+// ADMIN: Agregar socio
+function agregarNuevoSocio() {
+  const nombre = document.getElementById('nuevoNombre').value;
+  const email = document.getElementById('nuevoEmail').value;
+  const telefono = document.getElementById('nuevoTelefono').value;
+  const usuario = document.getElementById('nuevoUsuario').value;
+  const password = document.getElementById('nuevoPassword').value;
+  const estado = document.getElementById('nuevoEstado').value;
+  
+  if (!nombre || !email || !usuario || !password) {
+    alert('Completa todos los campos requeridos');
+    return;
+  }
+  
+  usuariosDB[usuario] = {
+    password, nombre, email, telefono, estado, rol: 'socio'
+  };
+  
+  alert('Socio agregado exitosamente');
+  document.getElementById('nuevoNombre').value = '';
+  document.getElementById('nuevoEmail').value = '';
+  document.getElementById('nuevoTelefono').value = '';
+  document.getElementById('nuevoUsuario').value = '';
+  document.getElementById('nuevoPassword').value = '';
+  
+  listarSocios();
+  mostrarDatos();
+}
+
+// USUARIO: Cargar perfil
+function cargarPerfilUsuario(username) {
+  const u = usuariosDB[username];
+  document.getElementById('profileName').textContent = u.nombre;
+  document.getElementById('profileEmail').textContent = u.email;
+  document.getElementById('profilePhone').textContent = u.telefono;
+  document.getElementById('profileStatus').textContent = u.estado;
+  document.getElementById('estadoSocio').innerHTML = `<strong>Estado:</strong> <span style="color: #28a745; font-weight: bold;">${u.estado}</span>`;
+  document.getElementById('deudaSocio').innerHTML = `<strong>Deuda:</strong> $0`;
+}
+
+// Verificar sesión
 window.addEventListener('load', function() {
   const currentUser = localStorage.getItem('currentUser');
-  if (currentUser) {
+  if (currentUser && usuariosDB[currentUser]) {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('appPage').classList.add('active');
-    document.getElementById('userDisplay').textContent = localStorage.getItem('userName');
-    document.getElementById('profileName').textContent = localStorage.getItem('userName');
+    document.getElementById('userDisplay').textContent = usuariosDB[currentUser].nombre;
+    document.getElementById('userRole').textContent = usuariosDB[currentUser].rol.toUpperCase();
+    
+    if (usuariosDB[currentUser].rol === 'admin') {
+      document.getElementById('adminMenuContainer').style.display = 'block';
+      document.getElementById('userMenuContainer').style.display = 'none';
+      mostrarDatos();
+      listarSocios();
+    } else {
+      document.getElementById('adminMenuContainer').style.display = 'none';
+      document.getElementById('userMenuContainer').style.display = 'block';
+      cargarPerfilUsuario(currentUser);
+    }
   }
 });
+
+// Funciones stub
+function editarSocio(user) { alert('Editar: ' + user); }
+function cambiarPasswordAdmin() { alert('Cambiar contraseña'); }
+function descargarDatos() { alert('Descargar datos'); }
 </script>
 
 </body>

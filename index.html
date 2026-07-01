@@ -606,10 +606,52 @@ window.addEventListener('load', function() {
   }
 });
 
-// Funciones stub
-function editarSocio(user) { alert('Editar: ' + user); }
-function cambiarPasswordAdmin() { alert('Cambiar contraseña'); }
-function descargarDatos() { alert('Descargar datos'); }
+// MODAL DE EDICIÓN
+function editarSocio(user) {
+  const u = usuariosDB[user];
+  const nuevoNombre = prompt('Nombre:', u.nombre);
+  if (!nuevoNombre) return;
+  
+  const nuevoEmail = prompt('Email:', u.email);
+  if (!nuevoEmail) return;
+  
+  const nuevoTelefono = prompt('Teléfono:', u.telefono);
+  if (!nuevoTelefono) return;
+  
+  const nuevoEstado = prompt('Estado (Cuota al día / Con deuda / Inactivo):', u.estado);
+  if (!nuevoEstado) return;
+  
+  usuariosDB[user].nombre = nuevoNombre;
+  usuariosDB[user].email = nuevoEmail;
+  usuariosDB[user].telefono = nuevoTelefono;
+  usuariosDB[user].estado = nuevoEstado;
+  
+  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+  alert('Socio actualizado exitosamente');
+  listarSocios();
+}
+
+function cambiarPasswordAdmin() {
+  const nuevaPassword = prompt('Nueva contraseña para admin:');
+  if (nuevaPassword && nuevaPassword.length >= 4) {
+    usuariosDB['admin'].password = nuevaPassword;
+    localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+    alert('Contraseña actualizada');
+  } else {
+    alert('La contraseña debe tener al menos 4 caracteres');
+  }
+}
+
+function descargarDatos() {
+  const dataStr = JSON.stringify(usuariosDB, null, 2);
+  const dataBlob = new Blob([dataStr], {type: 'application/json'});
+  const url = URL.createObjectURL(dataBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'socios_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  link.click();
+  alert('Datos descargados exitosamente');
+}
 </script>
 
 </body>

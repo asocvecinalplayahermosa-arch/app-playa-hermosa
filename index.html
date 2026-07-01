@@ -516,8 +516,17 @@ function renderSecciones(rol) {
         <div id="panelTesorero"></div>
       </div>
       <div id="profesores" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">👨‍🏫 Panel Profesores</h2>
-        <p>Gestión de profesores y actividades</p>
+        <div class="socios-toolbar">
+          <h2 style="color: var(--navy);">👨‍🏫 Profesores</h2>
+          <button class="btn-add-circle" onclick="abrirModalProfesor()" title="Agregar nuevo profesor">+</button>
+        </div>
+        <div id="tablaProfesores"></div>
+
+        <div class="socios-toolbar" style="margin-top: 35px;">
+          <h2 style="color: var(--navy);">🎯 Actividades / Clases</h2>
+          <button class="btn-add-circle" onclick="abrirModalActividad()" title="Agregar nueva actividad">+</button>
+        </div>
+        <div id="tablaActividades"></div>
       </div>
       <div id="eventos" class="section">
         <div class="socios-toolbar">
@@ -591,6 +600,7 @@ function renderSecciones(rol) {
     actualizarDashboard();
     if (rol === 'admin') cargarTablaEventos();
     if (rol === 'admin') cargarTablaNoticias();
+    if (rol === 'admin') { cargarTablaProfesores(); cargarTablaActividades(); }
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();
@@ -1033,6 +1043,199 @@ function eliminarNoticia(id) {
   actualizarDashboard();
 }
 
+// ===== PROFESORES (admin) =====
+function cargarTablaProfesores() {
+  let html = `<table><thead><tr><th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Teléfono</th><th>Acciones</th></tr></thead><tbody>`;
+  let hayProfesores = false;
+
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.rol !== 'profesor') continue;
+    hayProfesores = true;
+    const nombreCompleto = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
+    html += `<tr>
+      <td>${nombreCompleto}</td>
+      <td>${u.email}</td>
+      <td><strong>${user}</strong></td>
+      <td>${u.telefono || '-'}</td>
+      <td><button class="btn-editar" onclick="abrirModalProfesor('${user}')">Editar</button></td>
+    </tr>`;
+  }
+
+  if (!hayProfesores) html += `<tr><td colspan="5" style="color: var(--gray); text-align:center;">No hay profesores registrados</td></tr>`;
+
+  html += `</tbody></table>`;
+  document.getElementById('tablaProfesores').innerHTML = html;
+}
+
+function abrirModalProfesor(usuarioExistente) {
+  const editando = !!usuarioExistente;
+  const u = editando ? usuariosDB[usuarioExistente] : null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar profesor' : '➕ Agregar nuevo profesor'}</h2>
+      <label style="font-size:12px; font-weight:600;">Nombre</label>
+      <input type="text" id="profNombre" placeholder="Nombre" value="${editando ? u.nombre : ''}">
+      <label style="font-size:12px; font-weight:600;">Primer Apellido</label>
+      <input type="text" id="profApellido1" placeholder="Primer apellido" value="${editando ? (u.apellido1 || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Segundo Apellido</label>
+      <input type="text" id="profApellido2" placeholder="Segundo apellido (opcional)" value="${editando ? (u.apellido2 || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Teléfono</label>
+      <input type="text" id="profTelefono" placeholder="Teléfono" value="${editando ? (u.telefono || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Correo electrónico</label>
+      <input type="email" id="profEmail" placeholder="Correo electrónico" value="${editando ? u.email : ''}">
+      <button class="btn" onclick="guardarProfesor(${editando ? `'${usuarioExistente}'` : 'null'})">Guardar Profesor</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarProfesor(usuarioExistente) {
+  const nombre = document.getElementById('profNombre').value.trim();
+  const apellido1 = document.getElementById('profApellido1').value.trim();
+  const apellido2 = document.getElementById('profApellido2').value.trim();
+  const telefono = document.getElementById('profTelefono').value.trim();
+  const email = document.getElementById('profEmail').value.trim();
+
+  if (!nombre || !apellido1 || !email) {
+    alert('Nombre, primer apellido y email son obligatorios');
+    return;
+  }
+
+  if (usuarioExistente) {
+    const u = usuariosDB[usuarioExistente];
+    u.nombre = nombre;
+    u.apellido1 = apellido1;
+    u.apellido2 = apellido2;
+    u.telefono = telefono;
+    u.email = email;
+    guardarTodo();
+    document.querySelector('.modal-overlay').remove();
+    cargarTablaProfesores();
+    cargarTablaActividades();
+    alert('✅ Profesor actualizado');
+  } else {
+    const usuario = generarUsuario(nombre, apellido1, apellido2);
+    usuariosDB[usuario] = {
+      password: '1234',
+      nombre, apellido1, apellido2, telefono, email,
+      rol: 'profesor',
+      passwordCambiada: false
+    };
+    guardarTodo();
+    document.querySelector('.modal-overlay').remove();
+    cargarTablaProfesores();
+    alert(`✅ Profesor creado con usuario: ${usuario}\nContraseña inicial: 1234`);
+  }
+}
+
+// ===== ACTIVIDADES / CLASES (admin) =====
+function cargarTablaActividades() {
+  let html = `<table><thead><tr><th>Actividad</th><th>Profesor</th><th>Día</th><th>Hora</th><th>Inscriptos</th><th>Acciones</th></tr></thead><tbody>`;
+
+  if (actividadesDB.length === 0) {
+    html += `<tr><td colspan="6" style="color: var(--gray); text-align:center;">No hay actividades cargadas</td></tr>`;
+  }
+
+  actividadesDB.forEach(act => {
+    const prof = usuariosDB[act.profesor];
+    const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : act.profesor;
+    html += `<tr>
+      <td><strong>${act.titulo}</strong></td>
+      <td>${nombreProf}</td>
+      <td>${act.dia}</td>
+      <td>${act.hora}</td>
+      <td>${act.inscriptos.length}</td>
+      <td>
+        <button class="btn-editar" onclick="abrirModalActividad(${act.id})">Editar</button>
+        <button class="btn-baja-rojo" onclick="eliminarActividad(${act.id})">Eliminar</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('tablaActividades').innerHTML = html;
+}
+
+function abrirModalActividad(idExistente) {
+  const editando = idExistente !== undefined;
+  const act = editando ? actividadesDB.find(a => a.id === idExistente) : null;
+
+  let opcionesProfesores = '';
+  for (let user in usuariosDB) {
+    if (usuariosDB[user].rol === 'profesor') {
+      const nombreProf = `${usuariosDB[user].nombre} ${usuariosDB[user].apellido1 || ''}`.trim();
+      opcionesProfesores += `<option value="${user}" ${editando && act.profesor === user ? 'selected' : ''}>${nombreProf}</option>`;
+    }
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar actividad' : '➕ Agregar nueva actividad'}</h2>
+      <label style="font-size:12px; font-weight:600;">Título</label>
+      <input type="text" id="actTitulo" placeholder="Título de la actividad" value="${editando ? act.titulo : ''}">
+      <label style="font-size:12px; font-weight:600;">Profesor a cargo</label>
+      <select id="actProfesor">
+        <option value="">-- Selecciona profesor --</option>
+        ${opcionesProfesores}
+      </select>
+      <label style="font-size:12px; font-weight:600;">Día</label>
+      <input type="text" id="actDia" placeholder="Ej: Martes y Jueves" value="${editando ? act.dia : ''}">
+      <label style="font-size:12px; font-weight:600;">Hora</label>
+      <input type="time" id="actHora" value="${editando ? act.hora : ''}">
+      <label style="font-size:12px; font-weight:600;">Descripción</label>
+      <textarea id="actDescripcion" placeholder="Descripción de la actividad">${editando ? act.descripcion : ''}</textarea>
+      <button class="btn" onclick="guardarActividad(${editando ? idExistente : 'null'})">Guardar Actividad</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarActividad(idExistente) {
+  const titulo = document.getElementById('actTitulo').value.trim();
+  const profesor = document.getElementById('actProfesor').value;
+  const dia = document.getElementById('actDia').value.trim();
+  const hora = document.getElementById('actHora').value;
+  const descripcion = document.getElementById('actDescripcion').value.trim();
+
+  if (!titulo || !profesor || !dia) {
+    alert('Título, profesor y día son obligatorios');
+    return;
+  }
+
+  if (idExistente !== null && idExistente !== undefined) {
+    const act = actividadesDB.find(a => a.id === idExistente);
+    act.titulo = titulo;
+    act.profesor = profesor;
+    act.dia = dia;
+    act.hora = hora;
+    act.descripcion = descripcion;
+    alert('✅ Actividad actualizada');
+  } else {
+    const nuevoId = actividadesDB.length ? Math.max(...actividadesDB.map(a => a.id)) + 1 : 1;
+    actividadesDB.push({ id: nuevoId, titulo, profesor, descripcion, dia, hora, inscriptos: [] });
+    alert('✅ Actividad creada');
+  }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaActividades();
+}
+
+function eliminarActividad(id) {
+  if (!confirm('¿Seguro que querés eliminar esta actividad?')) return;
+  actividadesDB = actividadesDB.filter(a => a.id !== id);
+  guardarTodo();
+  cargarTablaActividades();
+}
+
 // ===== TESORERO =====
 function cargarPanelTesorero() {
   let html = `
@@ -1097,12 +1300,12 @@ function guardarDeudasTesorero() {
 // ===== PROFESOR =====
 function cargarPanelProfesor() {
   const usuarioActual = localStorage.getItem('currentUser');
-  let html = `<table><thead><tr><th>Actividad</th><th>Día</th><th>Hora</th><th>Alumnos inscritos</th></tr></thead><tbody>`;
+  let html = `<table><thead><tr><th>Actividad</th><th>Día</th><th>Hora</th><th>Cantidad</th><th>Alumnos inscritos</th></tr></thead><tbody>`;
   
   actividadesDB.forEach(act => {
     if (act.profesor === usuarioActual) {
       const alumnos = act.inscriptos.map(user => usuariosDB[user]?.nombre || user).join(', ');
-      html += `<tr><td><strong>${act.titulo}</strong></td><td>${act.dia}</td><td>${act.hora}</td><td>${alumnos || 'Sin inscritos'}</td></tr>`;
+      html += `<tr><td><strong>${act.titulo}</strong></td><td>${act.dia}</td><td>${act.hora}</td><td style="text-align:center;"><strong>${act.inscriptos.length}</strong></td><td>${alumnos || 'Sin inscritos'}</td></tr>`;
     }
   });
   
@@ -1170,11 +1373,42 @@ function cargarCarouselSocio() {
 }
 
 function cargarEventosSocio() {
+  const usuarioActual = localStorage.getItem('currentUser');
   let html = '';
   actividadesDB.forEach(act => {
-    html += `<div class="card"><h3>${act.titulo}</h3><p><strong>📅 ${act.dia} ${act.hora}</strong></p><p>${act.descripcion}</p><button class="btn btn-small" onclick="alert('✅ ¡Te anotaste!')">Me interesa</button></div>`;
+    const inscripto = act.inscriptos.includes(usuarioActual);
+    const cantidad = act.inscriptos.length;
+    html += `<div class="card">
+      <h3>${act.titulo}</h3>
+      <p><strong>📅 ${act.dia} ${act.hora}</strong></p>
+      <p>${act.descripcion}</p>
+      <p style="font-size:12px; color: var(--gray); margin-top:8px;">👥 ${cantidad} ${cantidad === 1 ? 'inscripto' : 'inscriptos'}</p>
+      ${inscripto
+        ? `<button class="btn btn-small" style="background:#dc3545;" onclick="cancelarInscripcion(${act.id})">Cancelar inscripción</button>`
+        : `<button class="btn btn-small" onclick="anotarseActividad(${act.id})">Anotarme</button>`
+      }
+    </div>`;
   });
   document.getElementById('eventosLista').innerHTML = html;
+}
+
+function anotarseActividad(id) {
+  const usuarioActual = localStorage.getItem('currentUser');
+  const act = actividadesDB.find(a => a.id === id);
+  if (!act.inscriptos.includes(usuarioActual)) {
+    act.inscriptos.push(usuarioActual);
+    guardarTodo();
+  }
+  cargarEventosSocio();
+  alert('✅ ¡Te anotaste en ' + act.titulo + '!');
+}
+
+function cancelarInscripcion(id) {
+  const usuarioActual = localStorage.getItem('currentUser');
+  const act = actividadesDB.find(a => a.id === id);
+  act.inscriptos = act.inscriptos.filter(u => u !== usuarioActual);
+  guardarTodo();
+  cargarEventosSocio();
 }
 
 // ===== DASHBOARD =====

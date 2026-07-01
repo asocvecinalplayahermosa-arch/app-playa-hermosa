@@ -207,6 +207,20 @@
   }
   .status-activo { background: #d4edda; color: #155724; }
   .status-suspenso { background: #f8d7da; color: #721c24; }
+  .btn-baja-gris { background: #6c757d; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; }
+  .btn-baja-rojo { background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; }
+  .btn-baja-verde { background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: bold; }
+  .btn-editar { background: var(--navy2); color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 5px; }
+  .btn-add-circle {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--gold2); color: white; border: none;
+    font-size: 20px; cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .btn-add-circle:hover { background: var(--gold); }
+  .socios-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  select.causal-select { margin-bottom: 0; padding: 6px; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -262,30 +276,30 @@
 // ===== BASE DE DATOS =====
 let usuariosDB = JSON.parse(localStorage.getItem('usuariosDB')) || {
   'admin': { 
-    password: 'admin', nombre: 'Administrador', email: 'admin@playahermosa.com', 
+    password: 'admin', nombre: 'Administrador', apellido1: '', apellido2: '', email: 'admin@playahermosa.com', 
     rol: 'admin', passwordCambiada: true
   },
   'tesorero': { 
-    password: '1234', nombre: 'Tesorero Sistema', email: 'tesorero@playahermosa.com', 
+    password: '1234', nombre: 'Tesorero Sistema', apellido1: '', apellido2: '', email: 'tesorero@playahermosa.com', 
     rol: 'tesorero', passwordCambiada: false
   },
   'profesor': { 
-    password: '1234', nombre: 'Profesor Sistema', email: 'profesor@playahermosa.com', 
+    password: '1234', nombre: 'Profesor Sistema', apellido1: '', apellido2: '', email: 'profesor@playahermosa.com', 
     rol: 'profesor', passwordCambiada: false
   },
   'jgarcia': { 
-    password: '1234', nombre: 'Juan García', email: 'juan@email.com', rol: 'socio', 
-    passwordCambiada: false, tipoSocio: 'Activo', estado: 'Activo', mesesEnDeuda: 0, 
+    password: '1234', nombre: 'Juan', apellido1: 'García', apellido2: '', email: 'juan@email.com', rol: 'socio', 
+    passwordCambiada: false, telefono: '', direccion: '', tipoSocio: 'Activo', estado: 'Activo', mesesEnDeuda: 0, 
     avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: []
   },
   'mgonzalez': { 
-    password: '1234', nombre: 'María González', email: 'maria@email.com', rol: 'socio', 
-    passwordCambiada: false, tipoSocio: 'Activo', estado: 'Activo', mesesEnDeuda: 1, 
+    password: '1234', nombre: 'María', apellido1: 'González', apellido2: '', email: 'maria@email.com', rol: 'socio', 
+    passwordCambiada: false, telefono: '', direccion: '', tipoSocio: 'Activo', estado: 'Activo', mesesEnDeuda: 1, 
     avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: []
   },
   'aramirez': { 
-    password: '1234', nombre: 'Angel Antonio Ramirez Rey', email: 'aramirezcr81@gmail.com', rol: 'socio', 
-    passwordCambiada: false, tipoSocio: 'Fundador', estado: 'Activo', mesesEnDeuda: 0, 
+    password: '1234', nombre: 'Angel Antonio', apellido1: 'Ramirez', apellido2: 'Rey', email: 'aramirezcr81@gmail.com', rol: 'socio', 
+    passwordCambiada: false, telefono: '', direccion: '', tipoSocio: 'Fundador', estado: 'Activo', mesesEnDeuda: 0, 
     avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: []
   }
 };
@@ -303,6 +317,43 @@ let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [
   { id: 1, titulo: 'Comunicado importante', descripcion: 'Se realizarán trabajos de mantenimiento en la zona', tipo: 'noticia' }
 ];
 
+function guardarTodo() {
+  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+  localStorage.setItem('actividadesDB', JSON.stringify(actividadesDB));
+  localStorage.setItem('eventosDB', JSON.stringify(eventosDB));
+  localStorage.setItem('noticiasDB', JSON.stringify(noticiasDB));
+}
+
+// ===== GENERADOR AUTOMÁTICO DE USUARIO =====
+function normalizarTexto(str) {
+  return (str || '').toString().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/g, '');
+}
+
+function generarUsuario(nombre, apellido1, apellido2) {
+  const inicial = normalizarTexto(nombre).charAt(0);
+  const ap1 = normalizarTexto(apellido1);
+  const ap2 = normalizarTexto(apellido2);
+
+  let candidato = inicial + ap1;
+  if (!usuariosDB[candidato]) return candidato;
+
+  if (ap2) {
+    candidato = inicial + ap1 + ap2.substring(0, 2);
+    if (!usuariosDB[candidato]) return candidato;
+
+    candidato = inicial + ap1 + ap2;
+    if (!usuariosDB[candidato]) return candidato;
+  }
+
+  // último recurso: agregar número
+  let i = 2;
+  let base = inicial + ap1;
+  while (usuariosDB[base + i]) i++;
+  return base + i;
+}
+
 // ===== PASSWORD VALIDATION =====
 function validarPasswordFuerte(password) {
   const minLength = password.length >= 8;
@@ -319,7 +370,7 @@ function obtenerMensajePasswordFuerte() {
 // ===== LOGIN =====
 function handleLogin(event) {
   event.preventDefault();
-  const username = document.getElementById('username').value;
+  const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value;
   
   if (usuariosDB[username] && usuariosDB[username].password === password) {
@@ -383,7 +434,7 @@ function guardarNuevaPassword(usuario) {
   
   usuariosDB[usuario].password = newPassword;
   usuariosDB[usuario].passwordCambiada = true;
-  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+  guardarTodo();
   
   document.querySelector('.modal-overlay').remove();
   alert('✅ Contraseña cambiada exitosamente');
@@ -434,7 +485,7 @@ function mostrarSeccion(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  if (window.event && window.event.target) window.event.target.classList.add('active');
 }
 
 // ===== SECTIONS RENDERING =====
@@ -452,8 +503,12 @@ function renderSecciones(rol) {
         </div>
       </div>
       <div id="socios" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">👥 Gestionar Socios</h2>
-        <button class="btn btn-small" onclick="mostrarHistorialBajas()" style="width: auto; padding: 12px 20px; margin-bottom: 20px; background: #6c757d;">📋 Historial de bajas</button>
+        <div class="socios-toolbar">
+          <h2 style="color: var(--navy);">👥 Gestionar Socios</h2>
+          <button class="btn-add-circle" onclick="abrirModalSocio()" title="Agregar nuevo socio">+</button>
+        </div>
+        <button class="btn btn-small" onclick="mostrarHistorialBajas()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: #6c757d;">📋 Historial de bajas</button>
+        <button class="btn btn-small" onclick="cargarTablaSocios()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: var(--navy2);">👥 Ver socios activos</button>
         <div id="tablaSocios"></div>
       </div>
       <div id="tesorero" class="section">
@@ -465,8 +520,11 @@ function renderSecciones(rol) {
         <p>Gestión de profesores y actividades</p>
       </div>
       <div id="eventos" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📅 Eventos</h2>
-        <p>Gestión de eventos</p>
+        <div class="socios-toolbar">
+          <h2 style="color: var(--navy);">📅 Eventos</h2>
+          <button class="btn-add-circle" onclick="abrirModalEvento()" title="Agregar nuevo evento">+</button>
+        </div>
+        <div id="tablaEventos"></div>
       </div>
       <div id="noticias" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">📢 Noticias</h2>
@@ -526,6 +584,7 @@ function renderSecciones(rol) {
     cargarTablaSocios();
     cargarPanelTesorero();
     actualizarDashboard();
+    if (rol === 'admin') cargarTablaEventos();
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();
@@ -536,40 +595,353 @@ function renderSecciones(rol) {
   }
 }
 
-// ===== SOCIOS =====
+// ===== SOCIOS: helpers de causal/baja =====
+function tieneCausalPorDeuda(u) {
+  return (u.mesesEnDeuda || 0) > 3 && (u.avisosPorDeuda || 0) >= 3;
+}
+
+function tieneCausal(u) {
+  return tieneCausalPorDeuda(u) || (u.causalSeleccionada && u.causalSeleccionada !== 'Sin causal');
+}
+
+function descripcionCausal(u) {
+  const motivos = [];
+  if (tieneCausalPorDeuda(u)) motivos.push(`Deuda (${u.mesesEnDeuda} meses, ${u.avisosPorDeuda} avisos)`);
+  if (u.causalSeleccionada && u.causalSeleccionada !== 'Sin causal') motivos.push(u.causalSeleccionada);
+  return motivos.length ? motivos.join(' + ') : 'Sin causal';
+}
+
+// ===== SOCIOS: tabla =====
 function cargarTablaSocios() {
-  let html = `<table><thead><tr><th>Nombre</th><th>Email</th><th>Usuario</th><th>Estado</th><th>Teléfono</th></tr></thead><tbody>`;
-  
+  let html = `<table><thead><tr>
+    <th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Tipo de socio</th><th>Teléfono</th>
+    <th>Estado</th><th>Causal de baja</th><th>Acciones</th>
+  </tr></thead><tbody>`;
+
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
-    if (u.rol === 'socio' && u.estado === 'Activo') {
-      const estado = u.mesesEnDeuda >= 1 ? '🔴 En suspenso' : '✅ Activo';
-      html += `<tr><td>${u.nombre}</td><td>${u.email}</td><td><strong>${user}</strong></td><td>${estado}</td><td>${u.telefono || '-'}</td></tr>`;
+    if (u.rol !== 'socio') continue;
+
+    const nombreCompleto = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
+    const activo = u.estado === 'Activo';
+    const estadoTexto = activo ? '✅ Activo' : '❌ Dado de baja';
+
+    let botonBaja = '';
+    if (activo) {
+      const colorClase = tieneCausal(u) ? 'btn-baja-rojo' : 'btn-baja-gris';
+      botonBaja = `<button class="${colorClase}" onclick="abrirModalBaja('${user}')">Dar de baja</button>`;
+    } else {
+      botonBaja = `<button class="btn-baja-verde" onclick="abrirModalReactivar('${user}')">Reactivar</button>`;
     }
+
+    const selectorCausal = activo ? `
+      <select class="causal-select" onchange="cambiarCausal('${user}', this.value)">
+        <option value="Sin causal" ${u.causalSeleccionada === 'Sin causal' ? 'selected' : ''}>Sin causal</option>
+        <option value="Por Asamblea" ${u.causalSeleccionada === 'Por Asamblea' ? 'selected' : ''}>🏛️ Por Asamblea</option>
+        <option value="Por Error" ${u.causalSeleccionada === 'Por Error' ? 'selected' : ''}>❌ Por Error</option>
+        <option value="Por Otros" ${u.causalSeleccionada === 'Por Otros' ? 'selected' : ''}>📋 Por Otros</option>
+      </select>` : `<span style="font-size:12px; color: var(--gray);">${descripcionCausal(u)}</span>`;
+
+    html += `<tr>
+      <td>${nombreCompleto}</td>
+      <td>${u.email}</td>
+      <td><strong>${user}</strong></td>
+      <td>${u.tipoSocio || '-'}</td>
+      <td>${u.telefono || '-'}</td>
+      <td>${estadoTexto}</td>
+      <td>${selectorCausal}</td>
+      <td>
+        <button class="btn-editar" onclick="abrirModalSocio('${user}')">Editar</button>
+        ${botonBaja}
+      </td>
+    </tr>`;
   }
-  
+
   html += `</tbody></table>`;
   document.getElementById('tablaSocios').innerHTML = html;
 }
 
+function cambiarCausal(usuario, valor) {
+  usuariosDB[usuario].causalSeleccionada = valor;
+  guardarTodo();
+  cargarTablaSocios();
+}
+
+// ===== SOCIOS: modal agregar / editar =====
+function abrirModalSocio(usuarioExistente) {
+  const editando = !!usuarioExistente;
+  const u = editando ? usuariosDB[usuarioExistente] : null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar socio' : '➕ Agregar nuevo socio'}</h2>
+      <label style="font-size:12px; font-weight:600;">Nombre</label>
+      <input type="text" id="socioNombre" placeholder="Nombre" value="${editando ? u.nombre : ''}">
+      <label style="font-size:12px; font-weight:600;">Primer Apellido</label>
+      <input type="text" id="socioApellido1" placeholder="Primer apellido" value="${editando ? (u.apellido1 || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Segundo Apellido</label>
+      <input type="text" id="socioApellido2" placeholder="Segundo apellido (opcional)" value="${editando ? (u.apellido2 || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Teléfono</label>
+      <input type="text" id="socioTelefono" placeholder="Teléfono" value="${editando ? (u.telefono || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Dirección</label>
+      <input type="text" id="socioDireccion" placeholder="Dirección" value="${editando ? (u.direccion || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Correo electrónico</label>
+      <input type="email" id="socioEmail" placeholder="Correo electrónico" value="${editando ? u.email : ''}">
+      <label style="font-size:12px; font-weight:600;">Tipo de socio</label>
+      <select id="socioTipo">
+        <option value="Fundador" ${editando && u.tipoSocio === 'Fundador' ? 'selected' : ''}>🏛️ Fundador</option>
+        <option value="Activo" ${editando && u.tipoSocio === 'Activo' ? 'selected' : ''}>👥 Activo</option>
+        <option value="Honorario" ${editando && u.tipoSocio === 'Honorario' ? 'selected' : ''}>🌟 Honorario</option>
+        <option value="Suscriptor" ${editando && u.tipoSocio === 'Suscriptor' ? 'selected' : ''}>🧒 Suscriptor</option>
+      </select>
+      <button class="btn" onclick="guardarSocio(${editando ? `'${usuarioExistente}'` : 'null'})">Guardar Socio</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarSocio(usuarioExistente) {
+  const nombre = document.getElementById('socioNombre').value.trim();
+  const apellido1 = document.getElementById('socioApellido1').value.trim();
+  const apellido2 = document.getElementById('socioApellido2').value.trim();
+  const telefono = document.getElementById('socioTelefono').value.trim();
+  const direccion = document.getElementById('socioDireccion').value.trim();
+  const email = document.getElementById('socioEmail').value.trim();
+  const tipoSocio = document.getElementById('socioTipo').value;
+
+  if (!nombre || !apellido1 || !email) {
+    alert('Nombre, primer apellido y email son obligatorios');
+    return;
+  }
+
+  if (usuarioExistente) {
+    // EDITAR
+    const u = usuariosDB[usuarioExistente];
+    u.nombre = nombre;
+    u.apellido1 = apellido1;
+    u.apellido2 = apellido2;
+    u.telefono = telefono;
+    u.direccion = direccion;
+    u.email = email;
+    u.tipoSocio = tipoSocio;
+    guardarTodo();
+    document.querySelector('.modal-overlay').remove();
+    cargarTablaSocios();
+    actualizarDashboard();
+    alert('✅ Socio actualizado');
+  } else {
+    // NUEVO
+    const usuario = generarUsuario(nombre, apellido1, apellido2);
+    usuariosDB[usuario] = {
+      password: '1234',
+      nombre, apellido1, apellido2, telefono, direccion, email,
+      rol: 'socio',
+      passwordCambiada: false,
+      tipoSocio,
+      estado: 'Activo',
+      mesesEnDeuda: 0,
+      avisosPorDeuda: 0,
+      causalSeleccionada: 'Sin causal',
+      historialBaja: []
+    };
+    guardarTodo();
+    document.querySelector('.modal-overlay').remove();
+    cargarTablaSocios();
+    actualizarDashboard();
+    alert(`✅ Socio creado con usuario: ${usuario}\nContraseña inicial: 1234`);
+  }
+}
+
+// ===== SOCIOS: dar de baja =====
+function abrirModalBaja(usuario) {
+  const u = usuariosDB[usuario];
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>🚫 Dar de baja a ${u.nombre}</h2>
+      <div class="warning-box">CAUSAL DETECTADA: ${descripcionCausal(u)}</div>
+      <label style="font-size:12px; font-weight:600;">Motivo de la baja</label>
+      <select id="bajaMotivo">
+        <option value="Deuda">Deuda (más de 3 meses + 3 avisos)</option>
+        <option value="Asamblea">Decisión de Asamblea</option>
+        <option value="Otro">Otro motivo</option>
+      </select>
+      <label style="font-size:12px; font-weight:600;">Detalles</label>
+      <textarea id="bajaDetalles" placeholder="Detalles adicionales sobre la baja..."></textarea>
+      <button class="btn" style="background:#dc3545;" onclick="confirmarBaja('${usuario}')">Confirmar baja</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function confirmarBaja(usuario) {
+  const motivo = document.getElementById('bajaMotivo').value;
+  const detalles = document.getElementById('bajaDetalles').value.trim();
+  const admin = localStorage.getItem('currentUser');
+
+  const u = usuariosDB[usuario];
+  u.estado = 'Dado de baja';
+  u.historialBaja.push({
+    fecha: new Date().toISOString(),
+    motivo,
+    detalles,
+    quien: admin
+  });
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaSocios();
+  actualizarDashboard();
+  alert('✅ Socio dado de baja');
+}
+
+// ===== SOCIOS: reactivar =====
+function abrirModalReactivar(usuario) {
+  const u = usuariosDB[usuario];
+  let historialHtml = '';
+  u.historialBaja.forEach(h => {
+    const fecha = new Date(h.fecha).toLocaleDateString('es-ES');
+    historialHtml += `<p style="margin-bottom:8px; font-size:13px;"><strong>${fecha}</strong> - ${h.motivo} (por ${h.quien})${h.detalles ? '<br>' + h.detalles : ''}</p>`;
+  });
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>🔄 Reactivar a ${u.nombre}</h2>
+      <h3 style="margin: 15px 0 10px 0; color: var(--navy);">Historial de bajas</h3>
+      <div class="warning-box">${historialHtml || 'Sin historial'}</div>
+      <button class="btn" style="background:#28a745;" onclick="confirmarReactivacion('${usuario}')">Confirmar reactivación</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function confirmarReactivacion(usuario) {
+  const u = usuariosDB[usuario];
+  u.estado = 'Activo';
+  u.causalSeleccionada = 'Sin causal';
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaSocios();
+  actualizarDashboard();
+  alert('✅ Socio reactivado');
+}
+
+// ===== SOCIOS: historial general =====
 function mostrarHistorialBajas() {
-  let html = `<h3 style="color: var(--navy); margin: 20px 0;">📋 Historial de bajas</h3><table><thead><tr><th>Nombre</th><th>Motivo</th><th>Fecha</th></tr></thead><tbody>`;
+  let html = `<h3 style="color: var(--navy); margin: 20px 0;">📋 Historial de bajas</h3><table><thead><tr><th>Nombre</th><th>Motivo</th><th>Detalles</th><th>Quién</th><th>Fecha</th><th>Estado actual</th></tr></thead><tbody>`;
   let hayBajas = false;
-  
+
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
-    if (u.rol === 'socio' && u.estado === 'Dado de baja') {
+    if (u.rol === 'socio' && u.historialBaja && u.historialBaja.length > 0) {
       hayBajas = true;
-      const ultimaBaja = u.historialBaja[u.historialBaja.length - 1];
-      const fecha = new Date(ultimaBaja.fecha).toLocaleDateString('es-ES');
-      html += `<tr><td>${u.nombre}</td><td>${ultimaBaja.motivo}</td><td>${fecha}</td></tr>`;
+      u.historialBaja.forEach(h => {
+        const fecha = new Date(h.fecha).toLocaleDateString('es-ES');
+        html += `<tr><td>${u.nombre} ${u.apellido1 || ''}</td><td>${h.motivo}</td><td>${h.detalles || '-'}</td><td>${h.quien}</td><td>${fecha}</td><td>${u.estado}</td></tr>`;
+      });
     }
   }
-  
+
   html += `</tbody></table>`;
-  if (!hayBajas) html = '<p style="color: var(--gray);">No hay socios dados de baja</p>';
-  
+  if (!hayBajas) html = '<p style="color: var(--gray);">No hay socios con historial de baja</p>';
+
   document.getElementById('tablaSocios').innerHTML = html;
+}
+
+// ===== EVENTOS =====
+function cargarTablaEventos() {
+  let html = `<table><thead><tr><th>Título</th><th>Fecha</th><th>Hora</th><th>Descripción</th><th>Acciones</th></tr></thead><tbody>`;
+
+  if (eventosDB.length === 0) {
+    html += `<tr><td colspan="5" style="color: var(--gray); text-align:center;">No hay eventos cargados</td></tr>`;
+  }
+
+  eventosDB.forEach(ev => {
+    const fecha = ev.fecha ? new Date(ev.fecha + 'T00:00:00').toLocaleDateString('es-ES') : '-';
+    html += `<tr>
+      <td><strong>${ev.titulo}</strong></td>
+      <td>${fecha}</td>
+      <td>${ev.hora || '-'}</td>
+      <td>${ev.descripcion}</td>
+      <td>
+        <button class="btn-editar" onclick="abrirModalEvento(${ev.id})">Editar</button>
+        <button class="btn-baja-rojo" onclick="eliminarEvento(${ev.id})">Eliminar</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('tablaEventos').innerHTML = html;
+}
+
+function abrirModalEvento(idExistente) {
+  const editando = idExistente !== undefined;
+  const ev = editando ? eventosDB.find(e => e.id === idExistente) : null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar evento' : '➕ Agregar nuevo evento'}</h2>
+      <label style="font-size:12px; font-weight:600;">Título</label>
+      <input type="text" id="eventoTitulo" placeholder="Título del evento" value="${editando ? ev.titulo : ''}">
+      <label style="font-size:12px; font-weight:600;">Fecha</label>
+      <input type="date" id="eventoFecha" value="${editando ? ev.fecha : ''}">
+      <label style="font-size:12px; font-weight:600;">Hora</label>
+      <input type="time" id="eventoHora" value="${editando ? ev.hora : ''}">
+      <label style="font-size:12px; font-weight:600;">Descripción</label>
+      <textarea id="eventoDescripcion" placeholder="Descripción del evento">${editando ? ev.descripcion : ''}</textarea>
+      <button class="btn" onclick="guardarEvento(${editando ? idExistente : 'null'})">Guardar Evento</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarEvento(idExistente) {
+  const titulo = document.getElementById('eventoTitulo').value.trim();
+  const fecha = document.getElementById('eventoFecha').value;
+  const hora = document.getElementById('eventoHora').value;
+  const descripcion = document.getElementById('eventoDescripcion').value.trim();
+
+  if (!titulo || !fecha) {
+    alert('Título y fecha son obligatorios');
+    return;
+  }
+
+  if (idExistente !== null && idExistente !== undefined) {
+    const ev = eventosDB.find(e => e.id === idExistente);
+    ev.titulo = titulo;
+    ev.fecha = fecha;
+    ev.hora = hora;
+    ev.descripcion = descripcion;
+    alert('✅ Evento actualizado');
+  } else {
+    const nuevoId = eventosDB.length ? Math.max(...eventosDB.map(e => e.id)) + 1 : 1;
+    eventosDB.push({ id: nuevoId, titulo, fecha, hora, descripcion, tipo: 'evento' });
+    alert('✅ Evento creado');
+  }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaEventos();
+  actualizarDashboard();
+}
+
+function eliminarEvento(id) {
+  if (!confirm('¿Seguro que querés eliminar este evento?')) return;
+  eventosDB = eventosDB.filter(e => e.id !== id);
+  guardarTodo();
+  cargarTablaEventos();
+  actualizarDashboard();
 }
 
 // ===== TESORERO =====
@@ -581,8 +953,8 @@ function cargarPanelTesorero() {
   `;
   
   for (let user in usuariosDB) {
-    if (usuariosDB[user].rol === 'socio') {
-      html += `<option value="${user}">${usuariosDB[user].nombre}</option>`;
+    if (usuariosDB[user].rol === 'socio' && usuariosDB[user].estado === 'Activo') {
+      html += `<option value="${user}">${usuariosDB[user].nombre} ${usuariosDB[user].apellido1 || ''}</option>`;
     }
   }
   
@@ -605,8 +977,8 @@ function cargarTablaDeudasTesorero() {
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol === 'socio' && u.estado === 'Activo') {
-      const estado = u.mesesEnDeuda >= 1 ? '🔴 Suspenso' : '✅ Al día';
-      html += `<tr><td>${u.nombre}</td><td>${u.mesesEnDeuda}</td><td>${u.avisosPorDeuda}</td><td>${estado}</td></tr>`;
+      const estado = tieneCausalPorDeuda(u) ? '🔴 Causal por deuda' : (u.mesesEnDeuda >= 1 ? '⚠️ En deuda' : '✅ Al día');
+      html += `<tr><td>${u.nombre} ${u.apellido1 || ''}</td><td>${u.mesesEnDeuda}</td><td>${u.avisosPorDeuda}</td><td>${estado}</td></tr>`;
     }
   }
   
@@ -627,7 +999,7 @@ function guardarDeudasTesorero() {
   usuariosDB[usuario].mesesEnDeuda = meses;
   usuariosDB[usuario].avisosPorDeuda = avisos;
   
-  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+  guardarTodo();
   cargarTablaSocios();
   cargarTablaDeudasTesorero();
   alert('✅ Deuda actualizada');
@@ -677,9 +1049,9 @@ function cargarCarouselProfesor() {
 function cargarPerfilSocio() {
   const usuario = localStorage.getItem('currentUser');
   const u = usuariosDB[usuario];
-  const estado = u.mesesEnDeuda >= 1 ? '🔴 En suspenso' : '✅ Activo';
+  const estado = tieneCausal(u) ? '🔴 En suspenso' : '✅ Activo';
   
-  document.getElementById('profileName').textContent = u.nombre;
+  document.getElementById('profileName').textContent = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
   document.getElementById('profileEmail').textContent = u.email;
   document.getElementById('profileStatus').textContent = estado;
 }

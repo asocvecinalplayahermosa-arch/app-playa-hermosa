@@ -117,60 +117,6 @@
   }
   .card h3 { color: var(--navy); margin-bottom: 10px; }
   .card p { color: var(--text); font-size: 14px; line-height: 1.6; }
-  .carousel {
-    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
-    border-radius: 15px;
-    padding: 30px;
-    color: white;
-    margin-bottom: 30px;
-    min-height: 300px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    position: relative;
-  }
-  .carousel-content h2 { font-size: 32px; margin-bottom: 15px; }
-  .carousel-content p { font-size: 16px; line-height: 1.6; margin-bottom: 15px; }
-  .carousel-badge {
-    display: inline-block;
-    background: var(--gold2);
-    color: var(--navy);
-    padding: 8px 15px;
-    border-radius: 20px;
-    font-weight: bold;
-    margin-bottom: 15px;
-    font-size: 12px;
-  }
-  .carousel-buttons { display: flex; gap: 10px; margin-top: 20px; }
-  .carousel-btn {
-    padding: 10px 20px;
-    background: var(--gold2);
-    color: var(--navy);
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  .carousel-indicators { display: flex; gap: 10px; margin-top: 20px; justify-content: center; }
-  .carousel-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.5);
-    cursor: pointer;
-  }
-  .carousel-dot.active { background: var(--gold2); }
-  .form-section { background: var(--cream); padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-  input, select, textarea {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-    border: 2px solid var(--gray);
-    border-radius: 5px;
-    font-family: inherit;
-    font-size: 14px;
-  }
-  textarea { min-height: 100px; resize: vertical; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -204,7 +150,7 @@
     background: white;
     padding: 30px;
     border-radius: 10px;
-    max-width: 400px;
+    max-width: 500px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.3);
   }
   .modal-content h2 { color: var(--navy); margin-bottom: 15px; }
@@ -215,12 +161,28 @@
     margin-bottom: 20px;
     font-size: 12px;
     color: #856404;
-    white-space: pre-line;
   }
-  @media (max-width: 768px) {
-    .header { flex-direction: column; gap: 15px; }
-    .carousel { min-height: 250px; }
+  .form-section { background: var(--cream); padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+  input, select, textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 2px solid var(--gray);
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 14px;
   }
+  textarea { min-height: 100px; resize: vertical; }
+  .status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+  .status-activo { background: #d4edda; color: #155724; }
+  .status-suspenso { background: #f8d7da; color: #721c24; }
+  .status-baja { background: #e2e3e5; color: #383d41; }
 </style>
 </head>
 <body>
@@ -235,11 +197,11 @@
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="form-group">
         <label>Usuario</label>
-        <input type="text" id="username" placeholder="juan o admin" required>
+        <input type="text" id="username" placeholder="admin, tesorero, jgarcia..." required>
       </div>
       <div class="form-group">
         <label>Contraseña</label>
-        <input type="password" id="password" placeholder="1234 o admin" required>
+        <input type="password" id="password" placeholder="1234" required>
       </div>
       <button type="submit" class="btn">Ingresar</button>
     </form>
@@ -257,197 +219,19 @@
       <div class="user-info">
         <p>Bienvenido,</p>
         <p style="color: var(--navy); font-weight: bold; font-size: 16px;" id="userDisplay">Usuario</p>
+        <p style="font-size: 11px; color: var(--gold);" id="userRole">Rol</p>
         <button class="btn-logout" onclick="handleLogout()">Cerrar sesión</button>
       </div>
     </div>
     
-    <!-- MENÚ ADMIN -->
-    <div id="adminMenuContainer" style="display: none;">
-      <div class="menu">
-        <button class="menu-btn" onclick="showSection('dashboard', this)">📊 Dashboard</button>
-        <button class="menu-btn" onclick="showSection('socios', this)">👥 Socios</button>
-        <button class="menu-btn" onclick="showSection('eventos', this)">📅 Eventos</button>
-        <button class="menu-btn" onclick="showSection('noticias', this)">📢 Noticias</button>
-      </div>
-    </div>
-    
-    <!-- MENÚ USUARIO -->
-    <div id="userMenuContainer">
-      <div class="menu">
-        <button class="menu-btn active" onclick="showSection('inicio', this)">🏠 Inicio</button>
-        <button class="menu-btn" onclick="showSection('documentos', this)">📄 Documentos</button>
-        <button class="menu-btn" onclick="showSection('perfil', this)">👤 Perfil</button>
-      </div>
+    <!-- MENÚ DINÁMICO -->
+    <div id="menuContainer">
+      <div class="menu" id="menuButtons"></div>
     </div>
     
     <div class="content">
-      
-      <!-- USUARIO: INICIO CON CARRUSEL -->
-      <div id="inicio" class="section active">
-        <h2 style="color: var(--navy); margin-bottom: 30px;">Inicio</h2>
-        
-        <!-- CARRUSEL -->
-        <div class="carousel" id="carousel">
-          <div class="carousel-content" id="carouselContent">
-            <span class="carousel-badge" id="carouselBadge">EVENTO</span>
-            <h2 id="carouselTitle">Cargando...</h2>
-            <p id="carouselDescription">Por favor espera...</p>
-            <small id="carouselDate" style="color: rgba(255,255,255,0.8);"></small>
-          </div>
-          <div class="carousel-buttons" id="carouselButtons"></div>
-          <div class="carousel-indicators" id="carouselIndicators"></div>
-        </div>
-        
-        <h3 style="color: var(--navy); margin: 40px 0 20px 0;">Próximas actividades</h3>
-        <div id="eventosLista"></div>
-      </div>
-      
-      <!-- ADMIN: DASHBOARD -->
-      <div id="dashboard" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📊 Dashboard</h2>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
-          <div class="card" style="text-align: center;">
-            <h3 id="totalSocios">0</h3>
-            <p>Socios</p>
-          </div>
-          <div class="card" style="text-align: center;">
-            <h3 id="totalEventos">0</h3>
-            <p>Eventos</p>
-          </div>
-          <div class="card" style="text-align: center;">
-            <h3 id="totalNoticias">0</h3>
-            <p>Noticias</p>
-          </div>
-        </div>
-      </div>
-      
-      <!-- ADMIN: SOCIOS -->
-      <div id="socios" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">👥 Gestionar Socios</h2>
-        
-        <button class="btn btn-small" onclick="abrirModalAgregarSocio()" style="width: auto; padding: 12px 20px; font-size: 16px; margin-bottom: 30px;">
-          ➕ Agregar nuevo socio
-        </button>
-        
-        <h3 style="color: var(--navy); margin-bottom: 15px;">Socios registrados</h3>
-        <table id="tablaSocios">
-          <thead>
-            <tr>
-              <th>Nombre completo</th>
-              <th>Email</th>
-              <th>Usuario</th>
-              <th>Tipo de socio</th>
-              <th>Teléfono</th>
-              <th>Causal de baja</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-socios"></tbody>
-        </table>
-      </div>
-      
-      <!-- ADMIN: EVENTOS -->
-      <div id="eventos" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📅 Gestionar Eventos</h2>
-        
-        <div class="form-section">
-          <h3>Agregar nuevo evento</h3>
-          <input type="text" id="eventoTitulo" placeholder="Título del evento" required>
-          <input type="date" id="eventoFecha" required>
-          <input type="time" id="eventoHora">
-          <textarea id="eventoDescripcion" placeholder="Descripción del evento"></textarea>
-          <button class="btn btn-small" onclick="agregarEvento()">Guardar Evento</button>
-        </div>
-        
-        <h3 style="color: var(--navy); margin-top: 30px; margin-bottom: 15px;">Eventos creados</h3>
-        <table id="tablaEventos">
-          <thead>
-            <tr>
-              <th>Título</th>
-              <th>Fecha</th>
-              <th>Hora</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-eventos"></tbody>
-        </table>
-      </div>
-      
-      <!-- ADMIN: NOTICIAS -->
-      <div id="noticias" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📢 Gestionar Noticias</h2>
-        
-        <div class="form-section">
-          <h3>Agregar nueva noticia</h3>
-          <input type="text" id="noticiaTitulo" placeholder="Título de la noticia" required>
-          <textarea id="noticiaDescripcion" placeholder="Contenido de la noticia"></textarea>
-          <button class="btn btn-small" onclick="agregarNoticia()">Guardar Noticia</button>
-        </div>
-        
-        <h3 style="color: var(--navy); margin-top: 30px; margin-bottom: 15px;">Noticias creadas</h3>
-        <table id="tablaNoticias">
-          <thead>
-            <tr>
-              <th>Título</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="tbody-noticias"></tbody>
-        </table>
-      </div>
-      
-      <!-- USUARIO: DOCUMENTOS -->
-      <div id="documentos" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📄 Documentos</h2>
-        <div class="card">
-          <h3>Acta Reunión Junio 2026</h3>
-          <p>PDF • 340 KB</p>
-          <button class="btn btn-small">Descargar</button>
-        </div>
-      </div>
-      
-      <!-- USUARIO: PERFIL -->
-      <div id="perfil" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">👤 Mi Perfil</h2>
-        <div class="card">
-          <p><strong>Nombre:</strong> <span id="profileName">-</span></p>
-          <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
-          <p><strong>Usuario:</strong> <span id="profileUsername">-</span></p>
-          <button class="btn btn-small" onclick="mostrarCambioPassword()">Cambiar contraseña</button>
-        </div>
-      </div>
-      
-    </div>
-  </div>
-</div>
-
-<!-- MODAL AGREGAR SOCIO -->
-<div id="modalAgregarSocio" class="modal-overlay" style="display: none;">
-  <div class="modal-content" style="max-width: 500px;">
-    <h2>➕ Agregar nuevo socio</h2>
-    
-    <input type="text" id="modalNombre" placeholder="Nombre" required>
-    <input type="text" id="modalPrimerApellido" placeholder="Primer apellido" required>
-    <input type="text" id="modalSegundoApellido" placeholder="Segundo apellido">
-    <input type="text" id="modalTelefono" placeholder="Teléfono">
-    <input type="text" id="modalDireccion" placeholder="Dirección">
-    <input type="email" id="modalEmail" placeholder="Correo electrónico" required>
-    
-    <select id="modalTipoSocio" required style="margin-bottom: 10px;">
-      <option value="">-- Selecciona tipo de socio --</option>
-      <option value="Fundador">🏛️ Fundador</option>
-      <option value="Activo">👥 Activo</option>
-      <option value="Honorario">🌟 Honorario</option>
-      <option value="Suscriptor">🧒 Suscriptor</option>
-    </select>
-    
-    <p style="font-size: 12px; color: var(--gray); margin-bottom: 15px;">
-      ℹ️ El usuario se generará automáticamente. Contraseña inicial: <strong>1234</strong>
-    </p>
-    
-    <div style="display: flex; gap: 10px;">
-      <button class="btn" onclick="guardarNuevoSocio()" style="flex: 1;">Guardar Socio</button>
-      <button class="btn" onclick="cerrarModalAgregarSocio()" style="flex: 1; background: #dc3545;">Cancelar</button>
+      <!-- Secciones se cargan dinámicamente -->
+      <div id="sectionsContainer"></div>
     </div>
   </div>
 </div>
@@ -455,6 +239,20 @@
 <script>
 // ===== BASE DE DATOS =====
 let usuariosDB = JSON.parse(localStorage.getItem('usuariosDB')) || {
+  'admin': { 
+    password: 'admin', 
+    nombre: 'Administrador', 
+    email: 'admin@playahermosa.com', 
+    rol: 'admin', 
+    passwordCambiada: true
+  },
+  'tesorero': { 
+    password: '1234', 
+    nombre: 'Tesorero Sistema', 
+    email: 'tesorero@playahermosa.com', 
+    rol: 'tesorero', 
+    passwordCambiada: false
+  },
   'jgarcia': { 
     password: '1234', 
     nombre: 'Juan García', 
@@ -476,7 +274,7 @@ let usuariosDB = JSON.parse(localStorage.getItem('usuariosDB')) || {
     passwordCambiada: false,
     tipoSocio: 'Activo',
     estado: 'Activo',
-    mesesEnDeuda: 0,
+    mesesEnDeuda: 1,
     avisosPorDeuda: 0,
     causalSeleccionada: 'Sin causal',
     historialBaja: []
@@ -493,166 +291,11 @@ let usuariosDB = JSON.parse(localStorage.getItem('usuariosDB')) || {
     avisosPorDeuda: 0,
     causalSeleccionada: 'Sin causal',
     historialBaja: []
-  },
-  'admin': { 
-    password: 'admin', 
-    nombre: 'Administrador', 
-    email: 'admin@playahermosa.com', 
-    rol: 'admin', 
-    passwordCambiada: true,
-    estado: 'Activo'
   }
 };
 
-let eventosDB = JSON.parse(localStorage.getItem('eventosDB')) || [
-  { id: 1, titulo: 'Día del Abuelo', fecha: '2026-06-28', hora: '16:00', descripcion: 'Chocolatada, torta frita y show en vivo', tipo: 'evento' }
-];
-
-let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [
-  { id: 1, titulo: 'Comunicado importante', descripcion: 'Se realizarán trabajos de mantenimiento en la zona', tipo: 'noticia' }
-];
-
-let currentCarouselIndex = 0;
-let allItems = [];
-
-// ===== VALIDAR PASSWORD FUERTE =====
-function validarPasswordFuerte(password) {
-  const minLength = password.length >= 8;
-  const hasMayuscula = /[A-Z]/.test(password);
-  const hasNumero = /[0-9]/.test(password);
-  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-  return minLength && hasMayuscula && hasNumero && hasSymbol;
-}
-
-function obtenerMensajePasswordFuerte() {
-  return `La contraseña debe cumplir:\n✓ Mínimo 8 caracteres\n✓ 1 letra mayúscula\n✓ 1 número\n✓ 1 símbolo (!@#$%^&*)\n\nEjemplo: Micontra123!`;
-}
-
-// ===== PEDIR CAMBIO PASSWORD =====
-function pedirCambioPassword(usuario) {
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <h2>🔐 Cambiar contraseña</h2>
-      <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Esta es tu primera vez. Debes crear una contraseña fuerte para tu seguridad.</p>
-      
-      <div class="warning-box">${obtenerMensajePasswordFuerte()}</div>
-      
-      <input type="password" id="newPassword" placeholder="Nueva contraseña" required>
-      <input type="password" id="confirmPassword" placeholder="Confirmar contraseña" required>
-      
-      <button class="btn" onclick="guardarNuevaPassword('${usuario}')">Guardar nueva contraseña</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-function guardarNuevaPassword(usuario) {
-  const newPassword = document.getElementById('newPassword').value;
-  const confirmPassword = document.getElementById('confirmPassword').value;
-  
-  if (!newPassword || !confirmPassword) {
-    alert('Completa ambos campos');
-    return;
-  }
-  
-  if (newPassword !== confirmPassword) {
-    alert('Las contraseñas no coinciden');
-    return;
-  }
-  
-  if (!validarPasswordFuerte(newPassword)) {
-    alert(obtenerMensajePasswordFuerte());
-    return;
-  }
-  
-  usuariosDB[usuario].password = newPassword;
-  usuariosDB[usuario].passwordCambiada = true;
-  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
-  
-  document.querySelector('.modal-overlay').remove();
-  alert('✅ Contraseña cambiada exitosamente');
-}
-
-function mostrarCambioPassword() {
-  const usuario = localStorage.getItem('currentUser');
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <h2>🔐 Cambiar contraseña</h2>
-      <div class="warning-box">${obtenerMensajePasswordFuerte()}</div>
-      <input type="password" id="oldPassword" placeholder="Contraseña actual" required>
-      <input type="password" id="newPassword2" placeholder="Nueva contraseña" required>
-      <input type="password" id="confirmPassword2" placeholder="Confirmar contraseña" required>
-      <button class="btn" onclick="cambiarPasswordUsuario('${usuario}')">Guardar contraseña</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-function cambiarPasswordUsuario(usuario) {
-  const oldPassword = document.getElementById('oldPassword').value;
-  const newPassword = document.getElementById('newPassword2').value;
-  const confirmPassword = document.getElementById('confirmPassword2').value;
-  
-  if (usuariosDB[usuario].password !== oldPassword) {
-    alert('La contraseña actual es incorrecta');
-    return;
-  }
-  
-  if (newPassword !== confirmPassword) {
-    alert('Las contraseñas no coinciden');
-    return;
-  }
-  
-  if (!validarPasswordFuerte(newPassword)) {
-    alert(obtenerMensajePasswordFuerte());
-    return;
-  }
-  
-  usuariosDB[usuario].password = newPassword;
-  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
-  document.querySelector('.modal-overlay').remove();
-  alert('✅ Contraseña actualizada');
-}
-
-// ===== GENERAR USUARIO AUTOMÁTICO =====
-function generarUsuario(nombreCompleto) {
-  const partes = nombreCompleto.trim().split(/\s+/);
-  
-  if (partes.length < 2) {
-    return partes[0].toLowerCase();
-  }
-  
-  const nombre = partes[0];
-  const apellidos = partes.slice(1);
-  
-  let usuarioBase = nombre[0].toLowerCase() + apellidos[0].toLowerCase();
-  
-  if (!usuariosDB[usuarioBase]) {
-    return usuarioBase;
-  }
-  
-  if (apellidos.length > 1) {
-    let usuarioConSegundo = usuarioBase + apellidos[1].substring(0, 2).toLowerCase();
-    if (!usuariosDB[usuarioConSegundo]) {
-      return usuarioConSegundo;
-    }
-    
-    let usuarioConSegundoCompleto = usuarioBase + apellidos[1].toLowerCase();
-    if (!usuariosDB[usuarioConSegundoCompleto]) {
-      return usuarioConSegundoCompleto;
-    }
-  }
-  
-  let contador = 1;
-  while (usuariosDB[usuarioBase + contador]) {
-    contador++;
-  }
-  return usuarioBase + contador;
-}
+let eventosDB = JSON.parse(localStorage.getItem('eventosDB')) || [];
+let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [];
 
 // ===== LOGIN =====
 function handleLogin(event) {
@@ -665,25 +308,13 @@ function handleLogin(event) {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('appPage').classList.add('active');
     document.getElementById('userDisplay').textContent = usuariosDB[username].nombre;
+    document.getElementById('userRole').textContent = usuariosDB[username].rol.toUpperCase();
     
     if (!usuariosDB[username].passwordCambiada && usuariosDB[username].rol !== 'admin') {
       setTimeout(() => pedirCambioPassword(username), 500);
     }
     
-    if (usuariosDB[username].rol === 'admin') {
-      document.getElementById('adminMenuContainer').style.display = 'block';
-      document.getElementById('userMenuContainer').style.display = 'none';
-      actualizarDashboard();
-      listarSocios();
-      listarEventos();
-      listarNoticias();
-    } else {
-      document.getElementById('adminMenuContainer').style.display = 'none';
-      document.getElementById('userMenuContainer').style.display = 'block';
-      cargarPerfilUsuario(username);
-      inicializarCarrusel();
-      listarEventosUsuario();
-    }
+    renderMenu(username);
   } else {
     alert('Usuario o contraseña incorrectos');
   }
@@ -696,476 +327,275 @@ function handleLogout() {
   document.getElementById('loginForm').reset();
 }
 
-function showSection(sectionId, button) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-  document.getElementById(sectionId).classList.add('active');
-  document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
-  if (button) button.classList.add('active');
-}
-
-// ===== CARRUSEL =====
-function inicializarCarrusel() {
-  allItems = [...eventosDB, ...noticiasDB];
-  if (allItems.length === 0) return;
-  actualizarCarrusel();
-  setInterval(() => {
-    currentCarouselIndex = (currentCarouselIndex + 1) % allItems.length;
-    actualizarCarrusel();
-  }, 5000);
-}
-
-function actualizarCarrusel() {
-  if (allItems.length === 0) return;
-  const item = allItems[currentCarouselIndex];
-  const badge = item.tipo === 'evento' ? 'EVENTO' : 'NOTICIA';
-  const fechaHora = item.tipo === 'evento' ? `📅 ${item.fecha} ${item.hora}` : '';
+// ===== MENÚ DINÁMICO =====
+function renderMenu(usuario) {
+  const rol = usuariosDB[usuario].rol;
+  let opciones = [];
   
-  document.getElementById('carouselBadge').textContent = badge;
-  document.getElementById('carouselTitle').textContent = item.titulo;
-  document.getElementById('carouselDescription').textContent = item.descripcion;
-  document.getElementById('carouselDate').textContent = fechaHora;
-  
-  let indicators = '';
-  for (let i = 0; i < allItems.length; i++) {
-    indicators += `<div class="carousel-dot ${i === currentCarouselIndex ? 'active' : ''}" onclick="currentCarouselIndex=${i}; actualizarCarrusel()"></div>`;
-  }
-  document.getElementById('carouselIndicators').innerHTML = indicators;
-  
-  const btnHTML = item.tipo === 'evento' 
-    ? '<button class="carousel-btn" onclick="alert(\'✅ ¡Te anotaste!\')">Me interesa</button>'
-    : '<button class="carousel-btn" onclick="alert(\'✅ Noticia leída\')">Leer más</button>';
-  document.getElementById('carouselButtons').innerHTML = btnHTML;
-}
-
-// ===== SOCIOS CON MODAL =====
-
-function abrirModalAgregarSocio() {
-  document.getElementById('modalAgregarSocio').style.display = 'flex';
-}
-
-function cerrarModalAgregarSocio() {
-  document.getElementById('modalAgregarSocio').style.display = 'none';
-  limpiarFormularioSocio();
-}
-
-function limpiarFormularioSocio() {
-  document.getElementById('modalNombre').value = '';
-  document.getElementById('modalPrimerApellido').value = '';
-  document.getElementById('modalSegundoApellido').value = '';
-  document.getElementById('modalTelefono').value = '';
-  document.getElementById('modalDireccion').value = '';
-  document.getElementById('modalEmail').value = '';
-  document.getElementById('modalTipoSocio').value = '';
-}
-
-function generarUsuarioDesdeModal() {
-  const nombre = document.getElementById('modalNombre').value;
-  const primerApellido = document.getElementById('modalPrimerApellido').value;
-  
-  if (!nombre || !primerApellido) return '';
-  
-  let usuarioBase = nombre[0].toLowerCase() + primerApellido.toLowerCase();
-  
-  if (!usuariosDB[usuarioBase]) {
-    return usuarioBase;
+  if (rol === 'admin') {
+    opciones = [
+      { id: 'dashboard', label: '📊 Dashboard' },
+      { id: 'socios', label: '👥 Socios' },
+      { id: 'tesorero', label: '💰 Tesorero' },
+      { id: 'profesores', label: '👨‍🏫 Profesores' },
+      { id: 'eventos', label: '📅 Eventos' },
+      { id: 'noticias', label: '📢 Noticias' }
+    ];
+  } else if (rol === 'tesorero') {
+    opciones = [
+      { id: 'tesorero', label: '💰 Panel Tesorero' },
+      { id: 'socios', label: '👥 Ver Socios' }
+    ];
+  } else if (rol === 'socio') {
+    opciones = [
+      { id: 'inicio', label: '🏠 Inicio' },
+      { id: 'perfil', label: '👤 Perfil' }
+    ];
   }
   
-  const segundoApellido = document.getElementById('modalSegundoApellido').value;
-  if (segundoApellido) {
-    let usuarioConSegundo = usuarioBase + segundoApellido.substring(0, 2).toLowerCase();
-    if (!usuariosDB[usuarioConSegundo]) {
-      return usuarioConSegundo;
-    }
-    
-    let usuarioConSegundoCompleto = usuarioBase + segundoApellido.toLowerCase();
-    if (!usuariosDB[usuarioConSegundoCompleto]) {
-      return usuarioConSegundoCompleto;
-    }
-  }
-  
-  let contador = 1;
-  while (usuariosDB[usuarioBase + contador]) {
-    contador++;
-  }
-  return usuarioBase + contador;
-}
-
-function guardarNuevoSocio() {
-  const nombre = document.getElementById('modalNombre').value;
-  const primerApellido = document.getElementById('modalPrimerApellido').value;
-  const segundoApellido = document.getElementById('modalSegundoApellido').value;
-  const telefono = document.getElementById('modalTelefono').value;
-  const direccion = document.getElementById('modalDireccion').value;
-  const email = document.getElementById('modalEmail').value;
-  const tipoSocio = document.getElementById('modalTipoSocio').value;
-  
-  if (!nombre || !primerApellido || !email || !tipoSocio) {
-    alert('Completa los campos obligatorios: Nombre, Primer Apellido, Email y Tipo de socio');
-    return;
-  }
-  
-  const nombreCompleto = segundoApellido 
-    ? `${nombre} ${primerApellido} ${segundoApellido}` 
-    : `${nombre} ${primerApellido}`;
-  
-  const usuario = generarUsuarioDesdeModal();
-  
-  if (!usuario) {
-    alert('No se pudo generar un usuario único');
-    return;
-  }
-  
-  usuariosDB[usuario] = {
-    nombre: nombreCompleto,
-    primerApellido,
-    segundoApellido,
-    email,
-    telefono,
-    direccion,
-    tipoSocio,
-    password: '1234',
-    rol: 'socio',
-    passwordCambiada: false,
-    estado: 'Activo',
-    mesesEnDeuda: 0,
-    avisosPorDeuda: 0,
-    causalSeleccionada: 'Sin causal',
-    historialBaja: []
-  };
-  
-  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
-  
-  cerrarModalAgregarSocio();
-  listarSocios();
-  actualizarDashboard();
-  alert(`✅ Socio agregado\n\nNombre: ${nombreCompleto}\nUsuario: ${usuario}\nContraseña: 1234\n\nDeberá cambiarla al ingresar`);
-}
-
-// Detectar si hay causal de baja
-function tieneCausalBaja(usuario) {
-  const u = usuariosDB[usuario];
-  if (!u) return false;
-  
-  // Si ya está dado de baja
-  if (u.estado === 'Dado de baja') {
-    return false;
-  }
-  
-  // Causal por deuda: > 3 meses Y 3 avisos
-  const avisosPorDeuda = u.avisosPorDeuda || 0;
-  const mesesEnDeuda = u.mesesEnDeuda || 0;
-  
-  if (mesesEnDeuda >= 3 && avisosPorDeuda >= 3) {
-    return true;
-  }
-  
-  // Causal seleccionada (Asamblea, Error, Otros)
-  const causalSeleccionada = u.causalSeleccionada || 'Sin causal';
-  if (causalSeleccionada !== 'Sin causal') {
-    return true;
-  }
-  
-  return false;
-}
-
-// Obtener motivo de causal
-function obtenerMotivoCausal(usuario) {
-  const u = usuariosDB[usuario];
-  
-  const avisosPorDeuda = u.avisosPorDeuda || 0;
-  const mesesEnDeuda = u.mesesEnDeuda || 0;
-  
-  if (mesesEnDeuda >= 3 && avisosPorDeuda >= 3) {
-    return `Deuda de ${mesesEnDeuda} meses + ${avisosPorDeuda} avisos`;
-  }
-  
-  const causalSeleccionada = u.causalSeleccionada || 'Sin causal';
-  if (causalSeleccionada !== 'Sin causal') {
-    return causalSeleccionada;
-  }
-  
-  return 'Sin causal';
-}
-
-// Cambiar causal de baja
-function cambiarCausal(usuario, event) {
-  const causal = event.target.value;
-  usuariosDB[usuario].causalSeleccionada = causal;
-  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
-  listarSocios();
-}
-
-function listarSocios() {
   let html = '';
+  opciones.forEach((opt, idx) => {
+    html += `<button class="menu-btn ${idx === 0 ? 'active' : ''}" onclick="mostrarSeccion('${opt.id}')">${opt.label}</button>`;
+  });
+  document.getElementById('menuButtons').innerHTML = html;
+  
+  renderSecciones(rol);
+  mostrarSeccion(opciones[0].id);
+}
+
+function renderSecciones(rol) {
+  let html = '';
+  
+  if (rol === 'admin') {
+    html = `
+      <div id="dashboard" class="section active">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📊 Dashboard</h2>
+        <p>Bienvenido Admin - Tienes acceso a todo el sistema</p>
+      </div>
+      <div id="socios" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">👥 Gestionar Socios</h2>
+        <button class="btn btn-small" onclick="abrirModalAgregarSocio()" style="width: auto; padding: 12px 20px; margin-bottom: 20px;">➕ Agregar</button>
+        <button class="btn btn-small" onclick="mostrarHistorialBajas()" style="width: auto; padding: 12px 20px; margin-bottom: 20px; background: #6c757d;">📋 Historial de bajas</button>
+        <div id="tablaSOCIOS"></div>
+      </div>
+      <div id="tesorero" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">💰 Panel Tesorero</h2>
+        <div id="panelTesorero"></div>
+      </div>
+      <div id="profesores" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">👨‍🏫 Panel Profesores</h2>
+        <p>Panel de Profesores - Control de actividades</p>
+      </div>
+      <div id="eventos" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📅 Eventos</h2>
+        <p>Gestión de eventos</p>
+      </div>
+      <div id="noticias" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📢 Noticias</h2>
+        <p>Gestión de noticias</p>
+      </div>
+    `;
+  } else if (rol === 'tesorero') {
+    html = `
+      <div id="tesorero" class="section active">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">💰 Panel Tesorero</h2>
+        <div id="panelTesorero"></div>
+      </div>
+      <div id="socios" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">👥 Ver Socios</h2>
+        <div id="tablaSOCIOS"></div>
+      </div>
+    `;
+  } else if (rol === 'socio') {
+    html = `
+      <div id="inicio" class="section active">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">🏠 Inicio</h2>
+        <p>Bienvenido socio</p>
+      </div>
+      <div id="perfil" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">👤 Mi Perfil</h2>
+        <p>Tu información</p>
+      </div>
+    `;
+  }
+  
+  document.getElementById('sectionsContainer').innerHTML = html;
+  
+  // Cargar contenido
+  if (rol === 'admin' || rol === 'tesorero') {
+    cargarTablaSocios();
+    cargarPanelTesorero();
+  }
+}
+
+function mostrarSeccion(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// ===== TABLA DE SOCIOS (solo activos) =====
+function cargarTablaSocios() {
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Email</th>
+          <th>Usuario</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+  
   for (let user in usuariosDB) {
-    if (usuariosDB[user].rol !== 'admin') {
-      const u = usuariosDB[user];
-      const tieneCausal = tieneCausalBaja(user);
-      const estado = u.estado || 'Activo';
-      const causalActual = u.causalSeleccionada || 'Sin causal';
-      
-      let botonBaja = '';
-      if (estado === 'Dado de baja') {
-        botonBaja = `<button class="btn btn-small" onclick="abrirModalReactivarSocio('${user}')" style="background: #28a745;">Reactivar</button>`;
-      } else {
-        const colorBoton = tieneCausal ? '#dc3545' : '#6c757d';
-        botonBaja = `<button class="btn btn-small" onclick="abrirModalDarDeBaja('${user}')" style="background: ${colorBoton};">Dar de baja</button>`;
-      }
-      
-      const selectorCausal = estado === 'Dado de baja' ? 
-        `<span style="color: #999;">Dado de baja</span>` :
-        `<select onchange="cambiarCausal('${user}', event)" style="padding: 5px; border: 2px solid ${tieneCausal ? '#dc3545' : '#ddd'}; border-radius: 4px; font-size: 12px; cursor: pointer;">
-          <option value="Sin causal" ${causalActual === 'Sin causal' ? 'selected' : ''}>Sin causal</option>
-          <option value="Por Asamblea" ${causalActual === 'Por Asamblea' ? 'selected' : ''}>🏛️ Por Asamblea</option>
-          <option value="Por Error" ${causalActual === 'Por Error' ? 'selected' : ''}>❌ Por Error</option>
-          <option value="Por Otros" ${causalActual === 'Por Otros' ? 'selected' : ''}>📋 Por Otros</option>
-        </select>`;
+    const u = usuariosDB[user];
+    if (u.rol === 'socio' && u.estado === 'Activo') {
+      const estado = u.mesesEnDeuda >= 1 ? '🔴 En suspenso' : '✅ Activo';
+      const colorEstado = u.mesesEnDeuda >= 1 ? '#dc3545' : '#28a745';
       
       html += `<tr>
         <td>${u.nombre}</td>
         <td>${u.email}</td>
         <td><strong>${user}</strong></td>
-        <td>${u.tipoSocio || 'Activo'}</td>
-        <td>${u.telefono || '-'}</td>
-        <td>${selectorCausal}</td>
-        <td style="display: flex; gap: 5px;">
+        <td><span class="status-badge" style="background: ${colorEstado}20; color: ${colorEstado};">${estado}</span></td>
+        <td>
           <button class="btn btn-small" onclick="alert('Editar: ${user}')">Editar</button>
-          ${botonBaja}
+          <button class="btn btn-small" onclick="abrirModalDarDeBaja('${user}')" style="background: #dc3545;">Dar de baja</button>
         </td>
       </tr>`;
     }
   }
-  document.getElementById('tbody-socios').innerHTML = html;
+  
+  html += `</tbody></table>`;
+  document.getElementById('tablaSOCIOS').innerHTML = html;
 }
 
-// Modal para dar de baja
+function mostrarHistorialBajas() {
+  let html = `<h3 style="color: var(--navy); margin: 20px 0;">📋 Historial de bajas</h3><table><thead><tr><th>Nombre</th><th>Motivo</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>`;
+  
+  let hayBajas = false;
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.rol === 'socio' && u.estado === 'Dado de baja') {
+      hayBajas = true;
+      const ultimaBaja = u.historialBaja[u.historialBaja.length - 1];
+      const fecha = new Date(ultimaBaja.fecha).toLocaleDateString('es-ES');
+      html += `<tr>
+        <td>${u.nombre}</td>
+        <td>${ultimaBaja.motivo}</td>
+        <td>${fecha}</td>
+        <td><button class="btn btn-small" onclick="abrirModalReactivarSocio('${user}')" style="background: #28a745;">Reactivar</button></td>
+      </tr>`;
+    }
+  }
+  
+  html += `</tbody></table>`;
+  
+  if (!hayBajas) {
+    html = '<p style="color: var(--gray);">No hay socios dados de baja</p>';
+  }
+  
+  document.getElementById('tablaSOCIOS').innerHTML = html;
+}
+
+// ===== PANEL TESORERO =====
+function cargarPanelTesorero() {
+  let html = `
+    <div class="form-section" style="margin-bottom: 30px;">
+      <h3>Registrar pago de socio</h3>
+      <select id="tesoreroSocio" style="margin-bottom: 10px;">
+        <option value="">-- Selecciona socio --</option>
+  `;
+  
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.rol === 'socio') {
+      html += `<option value="${user}">${u.nombre}</option>`;
+    }
+  }
+  
+  html += `</select>
+    <input type="number" id="tesoreroMeses" placeholder="Meses sin pagar (0 = al día)" min="0">
+    <input type="number" id="tesoreroAvisos" placeholder="Cantidad de avisos (0-3)" min="0" max="3">
+    <button class="btn btn-small" onclick="guardarDeudasTesorero()">Guardar deuda</button>
+    </div>
+    
+    <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Estado de deudas</h3>
+    <table id="tablaDeudasTesorero" style="margin-top: 20px;"></table>
+  `;
+  
+  document.getElementById('panelTesorero').innerHTML = html;
+  cargarTablaDeudasTesorero();
+}
+
+function cargarTablaDeudasTesorero() {
+  let html = `
+    <thead>
+      <tr>
+        <th>Socio</th>
+        <th>Meses en deuda</th>
+        <th>Avisos</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+  `;
+  
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.rol === 'socio' && u.estado === 'Activo') {
+      const estado = u.mesesEnDeuda >= 1 ? '🔴 Suspenso' : '✅ Al día';
+      html += `<tr>
+        <td>${u.nombre}</td>
+        <td>${u.mesesEnDeuda}</td>
+        <td>${u.avisosPorDeuda}</td>
+        <td>${estado}</td>
+      </tr>`;
+    }
+  }
+  
+  html += `</tbody>`;
+  document.getElementById('tablaDeudasTesorero').innerHTML = html;
+}
+
+function guardarDeudasTesorero() {
+  const usuario = document.getElementById('tesoreroSocio').value;
+  const meses = parseInt(document.getElementById('tesoreroMeses').value) || 0;
+  const avisos = parseInt(document.getElementById('tesoreroAvisos').value) || 0;
+  
+  if (!usuario) {
+    alert('Selecciona un socio');
+    return;
+  }
+  
+  usuariosDB[usuario].mesesEnDeuda = meses;
+  usuariosDB[usuario].avisosPorDeuda = avisos;
+  
+  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+  cargarTablaSocios();
+  cargarTablaDeudasTesorero();
+  alert('✅ Deuda actualizada');
+}
+
+// ===== FUNCIONES AUXILIARES =====
+function abrirModalAgregarSocio() {
+  alert('Modal agregar socio - Funcionalidad próxima');
+}
+
 function abrirModalDarDeBaja(usuario) {
-  const u = usuariosDB[usuario];
-  const tieneCausal = tieneCausalBaja(usuario);
-  const motivoCausal = obtenerMotivoCausal(usuario);
-  
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal-content" style="max-width: 500px;">
-      <h2>⚠️ Dar de baja a socio</h2>
-      <p style="margin-bottom: 15px;"><strong>Socio:</strong> ${u.nombre}</p>
-      
-      ${tieneCausal ? `<div class="warning-box" style="background: #f8d7da; color: #721c24; margin-bottom: 20px;">⚠️ CAUSAL DETECTADA:<br>${motivoCausal}</div>` : ''}
-      
-      <p style="margin-bottom: 15px;"><strong>Motivo de baja:</strong></p>
-      <select id="modalMotivoBaja" style="margin-bottom: 15px;">
-        <option value="">-- Selecciona motivo --</option>
-        <option value="Deuda">💳 Deuda > 3 meses (3 avisos)</option>
-        <option value="Asamblea">🏛️ Decisión de Asamblea</option>
-        <option value="Otro">📋 Otro motivo</option>
-      </select>
-      
-      <textarea id="modalDetallesBaja" placeholder="Detalles adicionales (opcional)" style="min-height: 80px;"></textarea>
-      
-      <div style="display: flex; gap: 10px;">
-        <button class="btn" onclick="guardarDarDeBaja('${usuario}')" style="flex: 1; background: #dc3545;">Dar de baja</button>
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="flex: 1; background: #6c757d;">Cancelar</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
+  alert('Modal dar de baja - Funcionalidad próxima');
 }
 
-function guardarDarDeBaja(usuario) {
-  const motivo = document.getElementById('modalMotivoBaja').value;
-  const detalles = document.getElementById('modalDetallesBaja').value;
-  const usuarioAdmin = localStorage.getItem('currentUser');
-  
-  if (!motivo) {
-    alert('Selecciona un motivo de baja');
-    return;
-  }
-  
-  // Inicializar historial si no existe
-  if (!usuariosDB[usuario].historialBaja) {
-    usuariosDB[usuario].historialBaja = [];
-  }
-  
-  // Registrar la baja
-  usuariosDB[usuario].historialBaja.push({
-    fecha: new Date().toISOString(),
-    motivo: motivo,
-    detalles: detalles,
-    dadoDeBajaPor: usuarioAdmin
-  });
-  
-  // Cambiar estado
-  usuariosDB[usuario].estado = 'Dado de baja';
-  
-  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
-  document.querySelector('.modal-overlay').remove();
-  listarSocios();
-  alert(`✅ ${usuariosDB[usuario].nombre} ha sido dado de baja`);
-}
-
-// Modal para reactivar
 function abrirModalReactivarSocio(usuario) {
-  const u = usuariosDB[usuario];
-  const historial = u.historialBaja || [];
-  
-  let historialHTML = '';
-  if (historial.length > 0) {
-    const ultimaBaja = historial[historial.length - 1];
-    const fecha = new Date(ultimaBaja.fecha).toLocaleDateString('es-ES');
-    historialHTML = `
-      <div class="warning-box" style="background: #e2e3e5; color: #383d41; margin-bottom: 20px;">
-        <strong>Última baja:</strong><br>
-        Fecha: ${fecha}<br>
-        Motivo: ${ultimaBaja.motivo}<br>
-        Dado de baja por: ${ultimaBaja.dadoDeBajaPor}
-        ${ultimaBaja.detalles ? `<br>Detalles: ${ultimaBaja.detalles}` : ''}
-      </div>
-    `;
-  }
-  
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal-content" style="max-width: 500px;">
-      <h2>♻️ Reactivar socio</h2>
-      <p style="margin-bottom: 15px;"><strong>Socio:</strong> ${u.nombre}</p>
-      
-      ${historialHTML}
-      
-      <p style="margin-bottom: 15px;">¿Deseas reactivar a este socio?</p>
-      
-      <div style="display: flex; gap: 10px;">
-        <button class="btn" onclick="guardarReactivarSocio('${usuario}')" style="flex: 1; background: #28a745;">Sí, reactivar</button>
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="flex: 1; background: #6c757d;">Cancelar</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
+  alert('Modal reactivar - Funcionalidad próxima');
 }
 
-function guardarReactivarSocio(usuario) {
-  usuariosDB[usuario].estado = 'Activo';
-  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
-  document.querySelector('.modal-overlay').remove();
-  listarSocios();
-  alert(`✅ ${usuariosDB[usuario].nombre} ha sido reactivado`);
-}
-
-// ===== EVENTOS =====
-function agregarEvento() {
-  const titulo = document.getElementById('eventoTitulo').value;
-  const fecha = document.getElementById('eventoFecha').value;
-  const hora = document.getElementById('eventoHora').value;
-  const descripcion = document.getElementById('eventoDescripcion').value;
-  
-  if (!titulo || !fecha) {
-    alert('Completa título y fecha');
-    return;
-  }
-  
-  eventosDB.push({ id: Date.now(), titulo, fecha, hora, descripcion, tipo: 'evento' });
-  localStorage.setItem('eventosDB', JSON.stringify(eventosDB));
-  
-  document.getElementById('eventoTitulo').value = '';
-  document.getElementById('eventoFecha').value = '';
-  document.getElementById('eventoHora').value = '';
-  document.getElementById('eventoDescripcion').value = '';
-  
-  listarEventos();
-  actualizarDashboard();
-  inicializarCarrusel();
-  alert('✅ Evento agregado');
-}
-
-function listarEventos() {
-  let html = '';
-  eventosDB.forEach(e => {
-    html += `<tr>
-      <td>${e.titulo}</td>
-      <td>${e.fecha}</td>
-      <td>${e.hora || '-'}</td>
-      <td><button class="btn btn-small" onclick="eliminarEvento(${e.id})">Eliminar</button></td>
-    </tr>`;
-  });
-  document.getElementById('tbody-eventos').innerHTML = html;
-}
-
-function eliminarEvento(id) {
-  eventosDB = eventosDB.filter(e => e.id !== id);
-  localStorage.setItem('eventosDB', JSON.stringify(eventosDB));
-  listarEventos();
-  actualizarDashboard();
-  inicializarCarrusel();
-}
-
-// ===== NOTICIAS =====
-function agregarNoticia() {
-  const titulo = document.getElementById('noticiaTitulo').value;
-  const descripcion = document.getElementById('noticiaDescripcion').value;
-  
-  if (!titulo || !descripcion) {
-    alert('Completa título y descripción');
-    return;
-  }
-  
-  noticiasDB.push({ id: Date.now(), titulo, descripcion, tipo: 'noticia' });
-  localStorage.setItem('noticiasDB', JSON.stringify(noticiasDB));
-  
-  document.getElementById('noticiaTitulo').value = '';
-  document.getElementById('noticiaDescripcion').value = '';
-  
-  listarNoticias();
-  actualizarDashboard();
-  inicializarCarrusel();
-  alert('✅ Noticia agregada');
-}
-
-function listarNoticias() {
-  let html = '';
-  noticiasDB.forEach(n => {
-    html += `<tr>
-      <td>${n.titulo}</td>
-      <td><button class="btn btn-small" onclick="eliminarNoticia(${n.id})">Eliminar</button></td>
-    </tr>`;
-  });
-  document.getElementById('tbody-noticias').innerHTML = html;
-}
-
-function eliminarNoticia(id) {
-  noticiasDB = noticiasDB.filter(n => n.id !== id);
-  localStorage.setItem('noticiasDB', JSON.stringify(noticiasDB));
-  listarNoticias();
-  actualizarDashboard();
-  inicializarCarrusel();
-}
-
-// ===== USUARIO =====
-function cargarPerfilUsuario(username) {
-  const u = usuariosDB[username];
-  document.getElementById('profileName').textContent = u.nombre;
-  document.getElementById('profileEmail').textContent = u.email;
-  document.getElementById('profileUsername').textContent = username;
-}
-
-function listarEventosUsuario() {
-  let html = '';
-  eventosDB.forEach(e => {
-    html += `<div class="card">
-      <h3>${e.titulo}</h3>
-      <p><strong>📅 ${e.fecha} ${e.hora || ''}</strong></p>
-      <p>${e.descripcion}</p>
-      <button class="btn btn-small" onclick="alert('✅ ¡Te anotaste!')">Me interesa</button>
-    </div>`;
-  });
-  document.getElementById('eventosLista').innerHTML = html;
-}
-
-// ===== DASHBOARD =====
-function actualizarDashboard() {
-  document.getElementById('totalSocios').textContent = Object.keys(usuariosDB).length - 1;
-  document.getElementById('totalEventos').textContent = eventosDB.length;
-  document.getElementById('totalNoticias').textContent = noticiasDB.length;
+function pedirCambioPassword(usuario) {
+  alert('Cambiar contraseña - Funcionalidad próxima');
 }
 
 // ===== INIT =====
@@ -1175,24 +605,7 @@ window.addEventListener('load', function() {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('appPage').classList.add('active');
     document.getElementById('userDisplay').textContent = usuariosDB[currentUser].nombre;
-    
-    if (usuariosDB[currentUser].rol === 'admin') {
-      document.getElementById('adminMenuContainer').style.display = 'block';
-      document.getElementById('userMenuContainer').style.display = 'none';
-      actualizarDashboard();
-      listarSocios();
-      listarEventos();
-      listarNoticias();
-    } else {
-      document.getElementById('adminMenuContainer').style.display = 'none';
-      document.getElementById('userMenuContainer').style.display = 'block';
-      cargarPerfilUsuario(currentUser);
-      inicializarCarrusel();
-      listarEventosUsuario();
-    }
+    document.getElementById('userRole').textContent = usuariosDB[currentUser].rol.toUpperCase();
+    renderMenu(currentUser);
   }
 });
-</script>
-
-</body>
-</html>

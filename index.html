@@ -88,7 +88,6 @@
     border: 2px solid var(--gray);
     border-radius: 8px;
     font-size: 14px;
-    transition: border-color 0.3s;
   }
   
   .form-group input:focus {
@@ -106,13 +105,10 @@
     font-weight: bold;
     cursor: pointer;
     font-size: 16px;
-    transition: background 0.3s;
   }
   
   .btn:hover { background: var(--gold); }
   .btn-small { padding: 8px 15px; font-size: 12px; width: auto; margin: 5px; }
-  .btn-danger { background: #dc3545; }
-  .btn-danger:hover { background: #c82333; }
   
   /* MAIN APP */
   .app-page { display: none; }
@@ -129,10 +125,7 @@
     align-items: center;
   }
   
-  .header h1 {
-    color: var(--navy);
-    font-size: 24px;
-  }
+  .header h1 { color: var(--navy); font-size: 24px; }
   
   .user-info {
     text-align: right;
@@ -168,7 +161,6 @@
     border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
-    transition: all 0.3s;
   }
   
   .menu-btn.active {
@@ -198,6 +190,101 @@
   .card h3 { color: var(--navy); margin-bottom: 10px; }
   .card p { color: var(--text); font-size: 14px; line-height: 1.6; }
   
+  /* CARRUSEL */
+  .carousel {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+    border-radius: 15px;
+    padding: 30px;
+    color: white;
+    margin-bottom: 30px;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+  }
+  
+  .carousel-content h2 {
+    font-size: 32px;
+    margin-bottom: 15px;
+  }
+  
+  .carousel-content p {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 15px;
+  }
+  
+  .carousel-badge {
+    display: inline-block;
+    background: var(--gold2);
+    color: var(--navy);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    font-size: 12px;
+  }
+  
+  .carousel-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  
+  .carousel-btn {
+    padding: 10px 20px;
+    background: var(--gold2);
+    color: var(--navy);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  
+  .carousel-indicators {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+    justify-content: center;
+  }
+  
+  .carousel-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.5);
+    cursor: pointer;
+  }
+  
+  .carousel-dot.active {
+    background: var(--gold2);
+  }
+  
+  /* FORMULARIOS */
+  .form-section {
+    background: var(--cream);
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+  
+  input, select, textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 2px solid var(--gray);
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 14px;
+  }
+  
+  textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+  
+  /* TABLA */
   table {
     width: 100%;
     border-collapse: collapse;
@@ -219,31 +306,9 @@
   
   table tr:hover { background: var(--cream); }
   
-  .form-section {
-    background: var(--cream);
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-  }
-  
-  input, select, textarea {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-    border: 2px solid var(--gray);
-    border-radius: 5px;
-    font-family: inherit;
-  }
-  
-  input:focus, select:focus, textarea:focus {
-    outline: none;
-    border-color: var(--gold);
-  }
-  
   @media (max-width: 768px) {
-    .header { flex-direction: column; gap: 15px; text-align: center; }
-    .menu { flex-direction: column; }
-    .menu-btn { width: 100%; }
+    .header { flex-direction: column; gap: 15px; }
+    .carousel { min-height: 250px; }
   }
 </style>
 </head>
@@ -253,7 +318,7 @@
 <div id="loginPage" class="login-page">
   <div class="login-box">
     <div class="logo">🌅</div>
-    <h1>Asociación Vecinal<br>Playa Hermosa</h1>
+    <h1>Playa Hermosa</h1>
     <p>PORTAL DEL SOCIO</p>
     
     <form id="loginForm" onsubmit="handleLogin(event)">
@@ -267,12 +332,6 @@
       </div>
       <button type="submit" class="btn">Ingresar</button>
     </form>
-    
-    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee; font-size: 12px; color: var(--gray);">
-      <p><strong>Prueba:</strong></p>
-      <p>Usuario: juan | Contraseña: 1234</p>
-      <p style="margin-top: 10px;">Usuario: admin | Contraseña: admin</p>
-    </div>
   </div>
 </div>
 
@@ -286,65 +345,80 @@
       </div>
       <div class="user-info">
         <p>Bienvenido,</p>
-        <p style="color: var(--navy); font-weight: bold; font-size: 16px;" id="userDisplay">Juan García</p>
-        <p style="font-size: 11px; color: var(--gold); margin-top: 5px;" id="userRole">Socio</p>
+        <p style="color: var(--navy); font-weight: bold; font-size: 16px;" id="userDisplay">Usuario</p>
         <button class="btn-logout" onclick="handleLogout()">Cerrar sesión</button>
       </div>
     </div>
     
+    <!-- MENÚ ADMIN -->
     <div id="adminMenuContainer" style="display: none;">
       <div class="menu">
         <button class="menu-btn" onclick="showSection('dashboard', this)">📊 Dashboard</button>
-        <button class="menu-btn" onclick="showSection('socios', this)">👥 Gestionar Socios</button>
-        <button class="menu-btn" onclick="showSection('agregarSocio', this)">➕ Agregar Socio</button>
-        <button class="menu-btn" onclick="showSection('configuracion', this)">⚙️ Configuración</button>
+        <button class="menu-btn" onclick="showSection('socios', this)">👥 Socios</button>
+        <button class="menu-btn" onclick="showSection('eventos', this)">📅 Eventos</button>
+        <button class="menu-btn" onclick="showSection('noticias', this)">📢 Noticias</button>
       </div>
     </div>
     
+    <!-- MENÚ USUARIO -->
     <div id="userMenuContainer">
       <div class="menu">
-        <button class="menu-btn active" onclick="showSection('inicio', this)">📱 Inicio</button>
+        <button class="menu-btn active" onclick="showSection('inicio', this)">🏠 Inicio</button>
         <button class="menu-btn" onclick="showSection('documentos', this)">📄 Documentos</button>
         <button class="menu-btn" onclick="showSection('octogono', this)">🏛️ Octógono</button>
-        <button class="menu-btn" onclick="showSection('actividades', this)">📅 Actividades</button>
-        <button class="menu-btn" onclick="showSection('perfil', this)">👤 Mi Perfil</button>
+        <button class="menu-btn" onclick="showSection('perfil', this)">👤 Perfil</button>
       </div>
     </div>
     
     <div class="content">
       
-      <!-- ADMIN DASHBOARD -->
+      <!-- USUARIO: INICIO CON CARRUSEL -->
+      <div id="inicio" class="section active">
+        <h2 style="color: var(--navy); margin-bottom: 30px;">Inicio</h2>
+        
+        <!-- CARRUSEL -->
+        <div class="carousel" id="carousel">
+          <div class="carousel-content" id="carouselContent">
+            <span class="carousel-badge" id="carouselBadge">EVENTO</span>
+            <h2 id="carouselTitle">Cargando...</h2>
+            <p id="carouselDescription">Por favor espera...</p>
+            <small id="carouselDate" style="color: rgba(255,255,255,0.8);"></small>
+          </div>
+          <div class="carousel-buttons" id="carouselButtons"></div>
+          <div class="carousel-indicators" id="carouselIndicators"></div>
+        </div>
+        
+        <h3 style="color: var(--navy); margin: 40px 0 20px 0;">Próximas actividades</h3>
+        <div id="eventosLista"></div>
+      </div>
+      
+      <!-- ADMIN: DASHBOARD -->
       <div id="dashboard" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📊 Dashboard - Administrador</h2>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📊 Dashboard</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
           <div class="card" style="text-align: center;">
             <h3 id="totalSocios">0</h3>
-            <p>Socios registrados</p>
+            <p>Socios</p>
           </div>
           <div class="card" style="text-align: center;">
-            <h3 id="totalDeuda">$0</h3>
-            <p>Deuda pendiente</p>
+            <h3 id="totalEventos">0</h3>
+            <p>Eventos</p>
           </div>
           <div class="card" style="text-align: center;">
-            <h3 id="alDia">0</h3>
-            <p>Cuotas al día</p>
-          </div>
-          <div class="card" style="text-align: center;">
-            <h3 id="conDeuda">0</h3>
-            <p>Socios con deuda</p>
+            <h3 id="totalNoticias">0</h3>
+            <p>Noticias</p>
           </div>
         </div>
       </div>
       
-      <!-- ADMIN SOCIOS -->
+      <!-- ADMIN: SOCIOS -->
       <div id="socios" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👥 Gestionar Socios</h2>
-        <table id="tablasocios">
+        <table id="tablaSocios">
           <thead>
             <tr>
               <th>Nombre</th>
               <th>Email</th>
-              <th>Teléfono</th>
               <th>Estado</th>
               <th>Acciones</th>
             </tr>
@@ -353,78 +427,62 @@
         </table>
       </div>
       
-      <!-- ADMIN AGREGAR SOCIO -->
-      <div id="agregarSocio" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">➕ Agregar Nuevo Socio</h2>
+      <!-- ADMIN: EVENTOS -->
+      <div id="eventos" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📅 Gestionar Eventos</h2>
+        
         <div class="form-section">
-          <input type="text" id="nuevoNombre" placeholder="Nombre completo" required>
-          <input type="email" id="nuevoEmail" placeholder="Email" required>
-          <input type="text" id="nuevoTelefono" placeholder="Teléfono">
-          <input type="text" id="nuevoUsuario" placeholder="Nombre de usuario (para login)">
-          <input type="password" id="nuevoPassword" placeholder="Contraseña">
-          <select id="nuevoEstado">
-            <option>Cuota al día</option>
-            <option>Con deuda</option>
-            <option>Inactivo</option>
-          </select>
-          <button class="btn" onclick="agregarNuevoSocio()">Guardar Socio</button>
-        </div>
-      </div>
-      
-      <!-- ADMIN CONFIGURACIÓN -->
-      <div id="configuracion" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">⚙️ Configuración</h2>
-        <div class="card">
-          <h3>Administrador</h3>
-          <p><strong>Nombre:</strong> Administrador del Sistema</p>
-          <p><strong>Email:</strong> admin@playahermosa.com</p>
-          <button class="btn btn-small" onclick="cambiarPasswordAdmin()">Cambiar Contraseña</button>
-        </div>
-        <div class="card">
-          <h3>Respaldo de datos</h3>
-          <p>Descarga todos los datos de socios en formato JSON</p>
-          <button class="btn btn-small" onclick="descargarDatos()">Descargar Datos</button>
-        </div>
-      </div>
-      
-      <!-- USUARIO: INICIO -->
-      <div id="inicio" class="section active">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">¿Qué querés hacer?</h2>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-          <div class="card" style="text-align: center; cursor: pointer;" onclick="showSection('documentos', document.querySelectorAll('.menu-btn')[1])">
-            <h3>📄 Documentos</h3>
-            <p>Ver actas y comunicados</p>
-          </div>
-          <div class="card" style="text-align: center; cursor: pointer;" onclick="showSection('octogono', document.querySelectorAll('.menu-btn')[2])">
-            <h3>🏛️ Octógono</h3>
-            <p>Reservar el salón</p>
-          </div>
-          <div class="card" style="text-align: center; cursor: pointer;" onclick="showSection('actividades', document.querySelectorAll('.menu-btn')[3])">
-            <h3>📅 Actividades</h3>
-            <p>Ver eventos próximos</p>
-          </div>
+          <h3>Agregar nuevo evento</h3>
+          <input type="text" id="eventoTitulo" placeholder="Título del evento" required>
+          <input type="date" id="eventoFecha" required>
+          <input type="time" id="eventoHora">
+          <textarea id="eventoDescripcion" placeholder="Descripción del evento"></textarea>
+          <button class="btn btn-small" onclick="agregarEvento()">Guardar Evento</button>
         </div>
         
-        <h3 style="color: var(--navy); margin-top: 40px; margin-bottom: 20px;">📢 Próximos eventos</h3>
-        <div class="card">
-          <h3>🎂 Día del Abuelo</h3>
-          <p><strong>📅 28 de junio</strong></p>
-          <p>Chocolatada, torta frita y show en vivo</p>
-          <p style="margin-top: 10px; color: var(--gold); font-weight: bold;">⏰ Sábado 16:00 hs</p>
+        <h3 style="color: var(--navy); margin-top: 30px; margin-bottom: 15px;">Eventos creados</h3>
+        <table id="tablaEventos">
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th>Fecha</th>
+              <th>Hora</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-eventos"></tbody>
+        </table>
+      </div>
+      
+      <!-- ADMIN: NOTICIAS -->
+      <div id="noticias" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📢 Gestionar Noticias</h2>
+        
+        <div class="form-section">
+          <h3>Agregar nueva noticia</h3>
+          <input type="text" id="noticiaTitulo" placeholder="Título de la noticia" required>
+          <textarea id="noticiaDescripcion" placeholder="Contenido de la noticia"></textarea>
+          <button class="btn btn-small" onclick="agregarNoticia()">Guardar Noticia</button>
         </div>
+        
+        <h3 style="color: var(--navy); margin-top: 30px; margin-bottom: 15px;">Noticias creadas</h3>
+        <table id="tablaNoticias">
+          <thead>
+            <tr>
+              <th>Título</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-noticias"></tbody>
+        </table>
       </div>
       
       <!-- USUARIO: DOCUMENTOS -->
       <div id="documentos" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📄 Actas</h2>
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📄 Documentos</h2>
         <div class="card">
           <h3>Acta Reunión Junio 2026</h3>
-          <p>PDF • 340 KB • 18 jun 2026</p>
-          <button class="btn btn-small">Descargar</button>
-        </div>
-        <div class="card">
-          <h3>Acta Reunión Mayo 2026</h3>
-          <p>PDF • 280 KB • 15 may 2026</p>
+          <p>PDF • 340 KB</p>
           <button class="btn btn-small">Descargar</button>
         </div>
       </div>
@@ -434,18 +492,7 @@
         <h2 style="color: var(--navy); margin-bottom: 20px;">🏛️ Reservar Octógono</h2>
         <div class="card">
           <h3>Tu situación</h3>
-          <p id="estadoSocio"><strong>Estado:</strong> Cargando...</p>
-          <p id="deudaSocio"><strong>Deuda:</strong> Cargando...</p>
-        </div>
-      </div>
-      
-      <!-- USUARIO: ACTIVIDADES -->
-      <div id="actividades" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📅 Próximas actividades</h2>
-        <div class="card">
-          <h3>🎂 Día del Abuelo</h3>
-          <p><strong>Fecha:</strong> Sábado 28 de junio a las 16:00 hs</p>
-          <button class="btn btn-small">Me interesa</button>
+          <p id="estadoReserva">Cuota al día ✓</p>
         </div>
       </div>
       
@@ -453,11 +500,8 @@
       <div id="perfil" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👤 Mi Perfil</h2>
         <div class="card">
-          <h3>Datos personales</h3>
           <p><strong>Nombre:</strong> <span id="profileName">-</span></p>
           <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
-          <p><strong>Teléfono:</strong> <span id="profilePhone">-</span></p>
-          <p style="margin-top: 15px;"><strong>Estado:</strong> <span id="profileStatus">-</span></p>
         </div>
       </div>
       
@@ -466,17 +510,29 @@
 </div>
 
 <script>
-// BASE DE DATOS DE USUARIOS
+// ===== BASE DE DATOS =====
 const usuariosDB = {
-  'juan': { password: '1234', nombre: 'Juan García', email: 'juan@email.com', telefono: '099 123 456', estado: 'Cuota al día', rol: 'socio' },
-  'maria': { password: '1234', nombre: 'María González', email: 'maria@email.com', telefono: '099 234 567', estado: 'Con deuda', rol: 'socio' },
-  'lucia': { password: '1234', nombre: 'Lucía López', email: 'lucia@email.com', telefono: '099 345 678', estado: 'Activa', rol: 'profesor' },
-  'carlos': { password: '1234', nombre: 'Carlos Martinez', email: 'carlos@email.com', telefono: '099 456 789', estado: 'Activo', rol: 'tesorero' },
-  'angel': { password: '1234', nombre: 'Angel Antonio Ramirez Rey', email: 'aramirezcr81@gmail.com', telefono: '099 173 152', estado: 'Cuota al día', rol: 'socio' },
-  'admin': { password: 'admin', nombre: 'Administrador', email: 'admin@playahermosa.com', telefono: 'N/A', estado: 'Admin', rol: 'admin' }
+  'juan': { password: '1234', nombre: 'Juan García', email: 'juan@email.com', rol: 'socio' },
+  'maria': { password: '1234', nombre: 'María González', email: 'maria@email.com', rol: 'socio' },
+  'angel': { password: '1234', nombre: 'Angel Antonio Ramirez Rey', email: 'aramirezcr81@gmail.com', rol: 'socio' },
+  'admin': { password: 'admin', nombre: 'Administrador', email: 'admin@playahermosa.com', rol: 'admin' }
 };
 
-// LOGIN
+// Cargar datos del localStorage
+let eventosDB = JSON.parse(localStorage.getItem('eventosDB')) || [
+  { id: 1, titulo: 'Día del Abuelo', fecha: '2026-06-28', hora: '16:00', descripcion: 'Chocolatada, torta frita y show en vivo', tipo: 'evento' },
+  { id: 2, titulo: 'Clase de yoga', fecha: '2026-07-02', hora: '18:00', descripcion: 'Clases para todos los niveles', tipo: 'evento' }
+];
+
+let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [
+  { id: 1, titulo: 'Comunicado importante', descripcion: 'Se realizarán trabajos de mantenimiento en la zona', tipo: 'noticia' }
+];
+
+let currentCarouselIndex = 0;
+let allItems = [];
+
+// ===== FUNCIONES PRINCIPALES =====
+
 function handleLogin(event) {
   event.preventDefault();
   const username = document.getElementById('username').value;
@@ -487,25 +543,26 @@ function handleLogin(event) {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('appPage').classList.add('active');
     document.getElementById('userDisplay').textContent = usuariosDB[username].nombre;
-    document.getElementById('userRole').textContent = usuariosDB[username].rol.toUpperCase();
     
-    const rol = usuariosDB[username].rol;
-    if (rol === 'admin') {
+    if (usuariosDB[username].rol === 'admin') {
       document.getElementById('adminMenuContainer').style.display = 'block';
       document.getElementById('userMenuContainer').style.display = 'none';
-      mostrarDatos();
+      actualizarDashboard();
       listarSocios();
+      listarEventos();
+      listarNoticias();
     } else {
       document.getElementById('adminMenuContainer').style.display = 'none';
       document.getElementById('userMenuContainer').style.display = 'block';
       cargarPerfilUsuario(username);
+      inicializarCarrusel();
+      listarEventosUsuario();
     }
   } else {
     alert('Usuario o contraseña incorrectos');
   }
 }
 
-// LOGOUT
 function handleLogout() {
   localStorage.removeItem('currentUser');
   document.getElementById('loginPage').style.display = 'flex';
@@ -513,7 +570,6 @@ function handleLogout() {
   document.getElementById('loginForm').reset();
 }
 
-// CAMBIAR SECCIÓN
 function showSection(sectionId, button) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.getElementById(sectionId).classList.add('active');
@@ -521,12 +577,147 @@ function showSection(sectionId, button) {
   if (button) button.classList.add('active');
 }
 
-// ADMIN: Mostrar datos
-function mostrarDatos() {
-  document.getElementById('totalSocios').textContent = Object.keys(usuariosDB).length - 1;
+// ===== CARRUSEL =====
+
+function inicializarCarrusel() {
+  allItems = [...eventosDB, ...noticiasDB];
+  if (allItems.length === 0) return;
+  
+  actualizarCarrusel();
+  setInterval(() => {
+    currentCarouselIndex = (currentCarouselIndex + 1) % allItems.length;
+    actualizarCarrusel();
+  }, 5000);
 }
 
-// ADMIN: Listar socios
+function actualizarCarrusel() {
+  if (allItems.length === 0) return;
+  
+  const item = allItems[currentCarouselIndex];
+  const badge = item.tipo === 'evento' ? 'EVENTO' : 'NOTICIA';
+  const fechaHora = item.tipo === 'evento' ? `📅 ${item.fecha} ${item.hora}` : '';
+  
+  document.getElementById('carouselBadge').textContent = badge;
+  document.getElementById('carouselTitle').textContent = item.titulo;
+  document.getElementById('carouselDescription').textContent = item.descripcion;
+  document.getElementById('carouselDate').textContent = fechaHora;
+  
+  // Actualizar indicadores
+  let indicators = '';
+  for (let i = 0; i < allItems.length; i++) {
+    indicators += `<div class="carousel-dot ${i === currentCarouselIndex ? 'active' : ''}" onclick="currentCarouselIndex=${i}; actualizarCarrusel()"></div>`;
+  }
+  document.getElementById('carouselIndicators').innerHTML = indicators;
+  
+  // Botones
+  const btnHTML = item.tipo === 'evento' 
+    ? '<button class="carousel-btn" onclick="alert(\'Me interesa!\')">Me interesa</button>'
+    : '<button class="carousel-btn" onclick="alert(\'Noticia leída\')">Leer más</button>';
+  document.getElementById('carouselButtons').innerHTML = btnHTML;
+}
+
+// ===== EVENTOS =====
+
+function agregarEvento() {
+  const titulo = document.getElementById('eventoTitulo').value;
+  const fecha = document.getElementById('eventoFecha').value;
+  const hora = document.getElementById('eventoHora').value;
+  const descripcion = document.getElementById('eventoDescripcion').value;
+  
+  if (!titulo || !fecha) {
+    alert('Completa título y fecha');
+    return;
+  }
+  
+  const evento = {
+    id: Date.now(),
+    titulo, fecha, hora, descripcion, tipo: 'evento'
+  };
+  
+  eventosDB.push(evento);
+  localStorage.setItem('eventosDB', JSON.stringify(eventosDB));
+  
+  document.getElementById('eventoTitulo').value = '';
+  document.getElementById('eventoFecha').value = '';
+  document.getElementById('eventoHora').value = '';
+  document.getElementById('eventoDescripcion').value = '';
+  
+  listarEventos();
+  actualizarDashboard();
+  inicializarCarrusel();
+  alert('✅ Evento agregado');
+}
+
+function listarEventos() {
+  let html = '';
+  eventosDB.forEach(e => {
+    html += `<tr>
+      <td>${e.titulo}</td>
+      <td>${e.fecha}</td>
+      <td>${e.hora || '-'}</td>
+      <td><button class="btn btn-small" onclick="eliminarEvento(${e.id})">Eliminar</button></td>
+    </tr>`;
+  });
+  document.getElementById('tbody-eventos').innerHTML = html;
+}
+
+function eliminarEvento(id) {
+  eventosDB = eventosDB.filter(e => e.id !== id);
+  localStorage.setItem('eventosDB', JSON.stringify(eventosDB));
+  listarEventos();
+  actualizarDashboard();
+  inicializarCarrusel();
+}
+
+// ===== NOTICIAS =====
+
+function agregarNoticia() {
+  const titulo = document.getElementById('noticiaTitulo').value;
+  const descripcion = document.getElementById('noticiaDescripcion').value;
+  
+  if (!titulo || !descripcion) {
+    alert('Completa título y descripción');
+    return;
+  }
+  
+  const noticia = {
+    id: Date.now(),
+    titulo, descripcion, tipo: 'noticia'
+  };
+  
+  noticiasDB.push(noticia);
+  localStorage.setItem('noticiasDB', JSON.stringify(noticiasDB));
+  
+  document.getElementById('noticiaTitulo').value = '';
+  document.getElementById('noticiaDescripcion').value = '';
+  
+  listarNoticias();
+  actualizarDashboard();
+  inicializarCarrusel();
+  alert('✅ Noticia agregada');
+}
+
+function listarNoticias() {
+  let html = '';
+  noticiasDB.forEach(n => {
+    html += `<tr>
+      <td>${n.titulo}</td>
+      <td><button class="btn btn-small" onclick="eliminarNoticia(${n.id})">Eliminar</button></td>
+    </tr>`;
+  });
+  document.getElementById('tbody-noticias').innerHTML = html;
+}
+
+function eliminarNoticia(id) {
+  noticiasDB = noticiasDB.filter(n => n.id !== id);
+  localStorage.setItem('noticiasDB', JSON.stringify(noticiasDB));
+  listarNoticias();
+  actualizarDashboard();
+  inicializarCarrusel();
+}
+
+// ===== SOCIOS =====
+
 function listarSocios() {
   let html = '';
   for (let user in usuariosDB) {
@@ -535,123 +726,68 @@ function listarSocios() {
       html += `<tr>
         <td>${u.nombre}</td>
         <td>${u.email}</td>
-        <td>${u.telefono}</td>
-        <td>${u.estado}</td>
-        <td><button class="btn btn-small" onclick="editarSocio('${user}')">Editar</button></td>
+        <td>Activo</td>
+        <td><button class="btn btn-small" onclick="alert('Editar: ${user}')">Editar</button></td>
       </tr>`;
     }
   }
   document.getElementById('tbody-socios').innerHTML = html;
 }
 
-// ADMIN: Agregar socio
-function agregarNuevoSocio() {
-  const nombre = document.getElementById('nuevoNombre').value;
-  const email = document.getElementById('nuevoEmail').value;
-  const telefono = document.getElementById('nuevoTelefono').value;
-  const usuario = document.getElementById('nuevoUsuario').value;
-  const password = document.getElementById('nuevoPassword').value;
-  const estado = document.getElementById('nuevoEstado').value;
-  
-  if (!nombre || !email || !usuario || !password) {
-    alert('Completa todos los campos requeridos');
-    return;
-  }
-  
-  usuariosDB[usuario] = {
-    password, nombre, email, telefono, estado, rol: 'socio'
-  };
-  
-  alert('Socio agregado exitosamente');
-  document.getElementById('nuevoNombre').value = '';
-  document.getElementById('nuevoEmail').value = '';
-  document.getElementById('nuevoTelefono').value = '';
-  document.getElementById('nuevoUsuario').value = '';
-  document.getElementById('nuevoPassword').value = '';
-  
-  listarSocios();
-  mostrarDatos();
-}
+// ===== USUARIO =====
 
-// USUARIO: Cargar perfil
 function cargarPerfilUsuario(username) {
   const u = usuariosDB[username];
   document.getElementById('profileName').textContent = u.nombre;
   document.getElementById('profileEmail').textContent = u.email;
-  document.getElementById('profilePhone').textContent = u.telefono;
-  document.getElementById('profileStatus').textContent = u.estado;
-  document.getElementById('estadoSocio').innerHTML = `<strong>Estado:</strong> <span style="color: #28a745; font-weight: bold;">${u.estado}</span>`;
-  document.getElementById('deudaSocio').innerHTML = `<strong>Deuda:</strong> $0`;
 }
 
-// Verificar sesión
+function listarEventosUsuario() {
+  let html = '';
+  eventosDB.forEach(e => {
+    html += `<div class="card">
+      <h3>${e.titulo}</h3>
+      <p><strong>📅 ${e.fecha} ${e.hora || ''}</strong></p>
+      <p>${e.descripcion}</p>
+      <button class="btn btn-small" onclick="alert('¡Te anotaste!')">Me interesa</button>
+    </div>`;
+  });
+  document.getElementById('eventosLista').innerHTML = html;
+}
+
+// ===== DASHBOARD =====
+
+function actualizarDashboard() {
+  document.getElementById('totalSocios').textContent = Object.keys(usuariosDB).length - 1;
+  document.getElementById('totalEventos').textContent = eventosDB.length;
+  document.getElementById('totalNoticias').textContent = noticiasDB.length;
+}
+
+// ===== INIT =====
+
 window.addEventListener('load', function() {
   const currentUser = localStorage.getItem('currentUser');
   if (currentUser && usuariosDB[currentUser]) {
     document.getElementById('loginPage').style.display = 'none';
     document.getElementById('appPage').classList.add('active');
     document.getElementById('userDisplay').textContent = usuariosDB[currentUser].nombre;
-    document.getElementById('userRole').textContent = usuariosDB[currentUser].rol.toUpperCase();
     
     if (usuariosDB[currentUser].rol === 'admin') {
       document.getElementById('adminMenuContainer').style.display = 'block';
       document.getElementById('userMenuContainer').style.display = 'none';
-      mostrarDatos();
+      actualizarDashboard();
       listarSocios();
+      listarEventos();
+      listarNoticias();
     } else {
       document.getElementById('adminMenuContainer').style.display = 'none';
       document.getElementById('userMenuContainer').style.display = 'block';
       cargarPerfilUsuario(currentUser);
+      inicializarCarrusel();
+      listarEventosUsuario();
     }
   }
 });
-
-// MODAL DE EDICIÓN
-function editarSocio(user) {
-  const u = usuariosDB[user];
-  const nuevoNombre = prompt('Nombre:', u.nombre);
-  if (!nuevoNombre) return;
-  
-  const nuevoEmail = prompt('Email:', u.email);
-  if (!nuevoEmail) return;
-  
-  const nuevoTelefono = prompt('Teléfono:', u.telefono);
-  if (!nuevoTelefono) return;
-  
-  const nuevoEstado = prompt('Estado (Cuota al día / Con deuda / Inactivo):', u.estado);
-  if (!nuevoEstado) return;
-  
-  usuariosDB[user].nombre = nuevoNombre;
-  usuariosDB[user].email = nuevoEmail;
-  usuariosDB[user].telefono = nuevoTelefono;
-  usuariosDB[user].estado = nuevoEstado;
-  
-  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
-  alert('Socio actualizado exitosamente');
-  listarSocios();
-}
-
-function cambiarPasswordAdmin() {
-  const nuevaPassword = prompt('Nueva contraseña para admin:');
-  if (nuevaPassword && nuevaPassword.length >= 4) {
-    usuariosDB['admin'].password = nuevaPassword;
-    localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
-    alert('Contraseña actualizada');
-  } else {
-    alert('La contraseña debe tener al menos 4 caracteres');
-  }
-}
-
-function descargarDatos() {
-  const dataStr = JSON.stringify(usuariosDB, null, 2);
-  const dataBlob = new Blob([dataStr], {type: 'application/json'});
-  const url = URL.createObjectURL(dataBlob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = 'socios_backup_' + new Date().toISOString().slice(0,10) + '.json';
-  link.click();
-  alert('Datos descargados exitosamente');
-}
 </script>
 
 </body>

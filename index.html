@@ -290,17 +290,17 @@ let usuariosDB = JSON.parse(localStorage.getItem('usuariosDB')) || {
   'jgarcia': { 
     password: '1234', nombre: 'Juan', apellido1: 'García', apellido2: '', email: 'juan@email.com', rol: 'socio', 
     passwordCambiada: false, telefono: '', direccion: '', tipoSocio: 'Activo', estado: 'Activo', mesesEnDeuda: 0, 
-    avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: []
+    avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: [], historialPagos: [], historialAvisos: []
   },
   'mgonzalez': { 
     password: '1234', nombre: 'María', apellido1: 'González', apellido2: '', email: 'maria@email.com', rol: 'socio', 
     passwordCambiada: false, telefono: '', direccion: '', tipoSocio: 'Activo', estado: 'Activo', mesesEnDeuda: 1, 
-    avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: []
+    avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: [], historialPagos: [], historialAvisos: []
   },
   'aramirez': { 
     password: '1234', nombre: 'Angel Antonio', apellido1: 'Ramirez', apellido2: 'Rey', email: 'aramirezcr81@gmail.com', rol: 'socio', 
     passwordCambiada: false, telefono: '', direccion: '', tipoSocio: 'Fundador', estado: 'Activo', mesesEnDeuda: 0, 
-    avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: []
+    avisosPorDeuda: 0, causalSeleccionada: 'Sin causal', historialBaja: [], historialPagos: [], historialAvisos: []
   }
 };
 
@@ -323,6 +323,21 @@ function guardarTodo() {
   localStorage.setItem('eventosDB', JSON.stringify(eventosDB));
   localStorage.setItem('noticiasDB', JSON.stringify(noticiasDB));
 }
+
+// ===== MIGRACIÓN: asegura que los socios ya guardados tengan los campos nuevos =====
+function migrarDatosSocios() {
+  let huboCambios = false;
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.rol === 'socio') {
+      if (!Array.isArray(u.historialPagos)) { u.historialPagos = []; huboCambios = true; }
+      if (!Array.isArray(u.historialAvisos)) { u.historialAvisos = []; huboCambios = true; }
+      if (typeof u.avisosPorDeuda !== 'number') { u.avisosPorDeuda = u.historialAvisos.length; huboCambios = true; }
+    }
+  }
+  if (huboCambios) guardarTodo();
+}
+migrarDatosSocios();
 
 // ===== GENERADOR AUTOMÁTICO DE USUARIO =====
 function normalizarTexto(str) {
@@ -574,6 +589,7 @@ function renderSecciones(rol) {
     html = `
       <div id="inicio" class="section active">
         <h2 style="color: var(--navy); margin-bottom: 20px;">🏠 Inicio</h2>
+        <div id="avisoDeudaSocio"></div>
         <div class="carousel" id="carouselSoc">
           <div><h2 id="carouselTitleS">Cargando...</h2><p id="carouselDescS">Por favor espera...</p></div>
           <div id="carouselIndS" class="carousel-indicators"></div>
@@ -588,6 +604,8 @@ function renderSecciones(rol) {
           <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
           <p><strong>Estado:</strong> <span id="profileStatus">-</span></p>
         </div>
+        <h3 style="color: var(--navy); margin: 25px 0 15px 0;">💰 Mis pagos</h3>
+        <div id="misPagosSocio"></div>
       </div>
     `;
   }
@@ -761,7 +779,9 @@ function guardarSocio(usuarioExistente) {
       mesesEnDeuda: 0,
       avisosPorDeuda: 0,
       causalSeleccionada: 'Sin causal',
-      historialBaja: []
+      historialBaja: [],
+      historialPagos: [],
+      historialAvisos: []
     };
     guardarTodo();
     document.querySelector('.modal-overlay').remove();
@@ -1240,7 +1260,7 @@ function eliminarActividad(id) {
 function cargarPanelTesorero() {
   let html = `
     <div class="form-section">
-      <h3>Registrar pago de socio</h3>
+      <h3>Actualizar meses en deuda</h3>
       <select id="tesoreroSocio"><option value="">-- Selecciona socio --</option>
   `;
   
@@ -1252,10 +1272,9 @@ function cargarPanelTesorero() {
   
   html += `</select>
     <input type="number" id="tesoreroMeses" placeholder="Meses sin pagar (0 = al día)" min="0">
-    <input type="number" id="tesoreroAvisos" placeholder="Cantidad de avisos (0-3)" min="0" max="3">
-    <button class="btn btn-small" onclick="guardarDeudasTesorero()">Guardar deuda</button>
+    <button class="btn btn-small" onclick="guardarDeudasTesorero()">Actualizar meses en deuda</button>
     </div>
-    <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Estado de deudas</h3>
+    <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Estado de deudas y acciones</h3>
     <table id="tablaDeudasTesorero"></table>
   `;
   
@@ -1264,13 +1283,23 @@ function cargarPanelTesorero() {
 }
 
 function cargarTablaDeudasTesorero() {
-  let html = `<thead><tr><th>Socio</th><th>Meses en deuda</th><th>Avisos</th><th>Estado</th></tr></thead><tbody>`;
+  let html = `<thead><tr><th>Socio</th><th>Meses en deuda</th><th>Avisos enviados</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>`;
   
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol === 'socio' && u.estado === 'Activo') {
       const estado = tieneCausalPorDeuda(u) ? '🔴 Causal por deuda' : (u.mesesEnDeuda >= 1 ? '⚠️ En deuda' : '✅ Al día');
-      html += `<tr><td>${u.nombre} ${u.apellido1 || ''}</td><td>${u.mesesEnDeuda}</td><td>${u.avisosPorDeuda}</td><td>${estado}</td></tr>`;
+      html += `<tr>
+        <td>${u.nombre} ${u.apellido1 || ''}</td>
+        <td>${u.mesesEnDeuda}</td>
+        <td>${(u.historialAvisos || []).length}</td>
+        <td>${estado}</td>
+        <td>
+          <button class="btn-editar" onclick="abrirModalPago('${user}')">💰 Registrar pago</button>
+          <button class="btn-baja-gris" onclick="abrirModalAviso('${user}')">📨 Enviar aviso</button>
+          <button class="btn-baja-verde" onclick="abrirModalHistorialSocio('${user}')">📋 Historial</button>
+        </td>
+      </tr>`;
     }
   }
   
@@ -1281,7 +1310,6 @@ function cargarTablaDeudasTesorero() {
 function guardarDeudasTesorero() {
   const usuario = document.getElementById('tesoreroSocio').value;
   const meses = parseInt(document.getElementById('tesoreroMeses').value) || 0;
-  const avisos = parseInt(document.getElementById('tesoreroAvisos').value) || 0;
   
   if (!usuario) {
     alert('Selecciona un socio');
@@ -1289,12 +1317,154 @@ function guardarDeudasTesorero() {
   }
   
   usuariosDB[usuario].mesesEnDeuda = meses;
-  usuariosDB[usuario].avisosPorDeuda = avisos;
   
   guardarTodo();
   cargarTablaSocios();
   cargarTablaDeudasTesorero();
   alert('✅ Deuda actualizada');
+}
+
+// ===== TESORERO: registrar pago + recibo =====
+function abrirModalPago(usuario) {
+  const u = usuariosDB[usuario];
+  const hoy = new Date().toISOString().split('T')[0];
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>💰 Registrar pago - ${u.nombre}</h2>
+      <label style="font-size:12px; font-weight:600;">Monto</label>
+      <input type="number" id="pagoMonto" placeholder="Monto pagado" min="0" step="0.01">
+      <label style="font-size:12px; font-weight:600;">Concepto / período</label>
+      <input type="text" id="pagoConcepto" placeholder="Ej: Cuota social - Julio 2026">
+      <label style="font-size:12px; font-weight:600;">Fecha</label>
+      <input type="date" id="pagoFecha" value="${hoy}">
+      <button class="btn" onclick="confirmarPago('${usuario}')">Registrar y generar recibo</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function confirmarPago(usuario) {
+  const monto = parseFloat(document.getElementById('pagoMonto').value);
+  const concepto = document.getElementById('pagoConcepto').value.trim();
+  const fecha = document.getElementById('pagoFecha').value;
+  const tesorero = localStorage.getItem('currentUser');
+
+  if (!monto || monto <= 0 || !concepto || !fecha) {
+    alert('Completa monto, concepto y fecha correctamente');
+    return;
+  }
+
+  const u = usuariosDB[usuario];
+  const pago = { fecha, monto, concepto, registradoPor: tesorero };
+  u.historialPagos.push(pago);
+  guardarTodo();
+
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaDeudasTesorero();
+  mostrarRecibo(usuario, pago);
+}
+
+function mostrarRecibo(usuario, pago) {
+  const u = usuariosDB[usuario];
+  const numeroRecibo = u.historialPagos.length;
+  const fechaFormateada = new Date(pago.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content" id="reciboImprimible">
+      <h2>🧾 Recibo de pago</h2>
+      <div class="card" style="border-left-color: var(--navy2);">
+        <p><strong>Asociación Vecinal Playa Hermosa</strong></p>
+        <p style="font-size:12px; color: var(--gray); margin-bottom: 10px;">Recibo Nº ${numeroRecibo}</p>
+        <p><strong>Socio:</strong> ${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}</p>
+        <p><strong>Usuario:</strong> ${usuario}</p>
+        <p><strong>Concepto:</strong> ${pago.concepto}</p>
+        <p><strong>Monto:</strong> $${pago.monto.toFixed(2)}</p>
+        <p><strong>Fecha:</strong> ${fechaFormateada}</p>
+        <p><strong>Registrado por:</strong> ${pago.registradoPor}</p>
+      </div>
+      <button class="btn" onclick="window.print()">🖨️ Imprimir recibo</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+// ===== TESORERO: enviar aviso por deuda =====
+function abrirModalAviso(usuario) {
+  const u = usuariosDB[usuario];
+  const mensajeDefault = `Estimado/a ${u.nombre}, le informamos que a la fecha registra ${u.mesesEnDeuda} mes(es) de cuota social impaga. Le solicitamos regularizar su situación a la brevedad para evitar la aplicación de causales de baja.`;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>📨 Enviar aviso a ${u.nombre}</h2>
+      <div class="warning-box">Este socio ya recibió ${(u.historialAvisos || []).length} aviso(s) previamente. Tras 3 avisos + más de 3 meses de deuda, el botón "Dar de baja" se pone rojo automáticamente.</div>
+      <label style="font-size:12px; font-weight:600;">Mensaje del aviso</label>
+      <textarea id="avisoMensaje">${mensajeDefault}</textarea>
+      <button class="btn" onclick="confirmarAviso('${usuario}')">Enviar aviso</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function confirmarAviso(usuario) {
+  const mensaje = document.getElementById('avisoMensaje').value.trim();
+  const tesorero = localStorage.getItem('currentUser');
+
+  if (!mensaje) {
+    alert('El mensaje no puede estar vacío');
+    return;
+  }
+
+  const u = usuariosDB[usuario];
+  u.historialAvisos.push({ fecha: new Date().toISOString(), mensaje, enviadoPor: tesorero });
+  u.avisosPorDeuda = u.historialAvisos.length;
+  guardarTodo();
+
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaDeudasTesorero();
+  cargarTablaSocios();
+  alert('✅ Aviso registrado. El socio lo verá al ingresar a su cuenta.');
+}
+
+// ===== TESORERO: ver historial completo de un socio =====
+function abrirModalHistorialSocio(usuario) {
+  const u = usuariosDB[usuario];
+
+  let pagosHtml = (u.historialPagos || []).length
+    ? u.historialPagos.map(p => {
+        const f = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+        return `<p style="font-size:13px; margin-bottom:6px;">💰 <strong>${f}</strong> - ${p.concepto} - $${p.monto.toFixed(2)}</p>`;
+      }).join('')
+    : '<p style="font-size:13px; color: var(--gray);">Sin pagos registrados</p>';
+
+  let avisosHtml = (u.historialAvisos || []).length
+    ? u.historialAvisos.map(a => {
+        const f = new Date(a.fecha).toLocaleDateString('es-ES');
+        return `<p style="font-size:13px; margin-bottom:6px;">📨 <strong>${f}</strong> - ${a.mensaje}</p>`;
+      }).join('')
+    : '<p style="font-size:13px; color: var(--gray);">Sin avisos enviados</p>';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>📋 Historial de ${u.nombre}</h2>
+      <h3 style="margin: 15px 0 10px 0; color: var(--navy); font-size:14px;">Pagos</h3>
+      <div class="warning-box">${pagosHtml}</div>
+      <h3 style="margin: 15px 0 10px 0; color: var(--navy); font-size:14px;">Avisos por deuda</h3>
+      <div class="warning-box">${avisosHtml}</div>
+      <button class="btn" style="background:#6c757d;" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
 }
 
 // ===== PROFESOR =====
@@ -1346,6 +1516,38 @@ function cargarPerfilSocio() {
   document.getElementById('profileName').textContent = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
   document.getElementById('profileEmail').textContent = u.email;
   document.getElementById('profileStatus').textContent = estado;
+
+  // Aviso de deuda / avisos pendientes (visible en Inicio)
+  const avisoDiv = document.getElementById('avisoDeudaSocio');
+  if (avisoDiv) {
+    if (u.mesesEnDeuda > 0 || (u.historialAvisos || []).length > 0) {
+      const ultimoAviso = (u.historialAvisos || []).length ? u.historialAvisos[u.historialAvisos.length - 1] : null;
+      avisoDiv.innerHTML = `
+        <div class="warning-box" style="margin-bottom: 20px;">
+          ⚠️ <strong>Tenés una cuota social pendiente.</strong>
+          ${u.mesesEnDeuda > 0 ? `\nMeses adeudados: ${u.mesesEnDeuda}` : ''}
+          ${ultimoAviso ? `\n\nÚltimo aviso recibido (${new Date(ultimoAviso.fecha).toLocaleDateString('es-ES')}): ${ultimoAviso.mensaje}` : ''}
+        </div>`;
+    } else {
+      avisoDiv.innerHTML = '';
+    }
+  }
+
+  // Mis pagos
+  const pagosDiv = document.getElementById('misPagosSocio');
+  if (pagosDiv) {
+    if ((u.historialPagos || []).length === 0) {
+      pagosDiv.innerHTML = '<p style="color: var(--gray); font-size:13px;">Todavía no tenés pagos registrados</p>';
+    } else {
+      let html = `<table><thead><tr><th>Fecha</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
+      u.historialPagos.slice().reverse().forEach(p => {
+        const f = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+        html += `<tr><td>${f}</td><td>${p.concepto}</td><td>$${p.monto.toFixed(2)}</td></tr>`;
+      });
+      html += `</tbody></table>`;
+      pagosDiv.innerHTML = html;
+    }
+  }
 }
 
 function cargarCarouselSocio() {

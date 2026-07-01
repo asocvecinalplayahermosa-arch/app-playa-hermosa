@@ -520,7 +520,7 @@ function renderSecciones(rol) {
       <div id="socios" class="section">
         <div class="socios-toolbar">
           <h2 style="color: var(--navy);">👥 Gestionar Socios</h2>
-          <button class="btn-add-circle" onclick="abrirModalSocio()" title="Agregar nuevo socio">+</button>
+          <button class="btn btn-small" onclick="abrirModalSocio()" style="width: auto; padding: 10px 16px; background: var(--gold2); font-weight:bold;">➕ Agregar nuevo socio</button>
         </div>
         <button class="btn btn-small" onclick="mostrarHistorialBajas()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: #6c757d;">📋 Historial de bajas</button>
         <button class="btn btn-small" onclick="cargarTablaSocios()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: var(--navy2);">👥 Ver socios activos</button>
@@ -652,29 +652,26 @@ function cargarTablaSocios() {
     <th>Estado</th><th>Causal de baja</th><th>Acciones</th>
   </tr></thead><tbody>`;
 
+  let hayActivos = false;
+
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol !== 'socio') continue;
+    if (u.estado !== 'Activo') continue; // los dados de baja solo se ven en el Historial de bajas
+    hayActivos = true;
 
     const nombreCompleto = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
-    const activo = u.estado === 'Activo';
-    const estadoTexto = activo ? '✅ Activo' : '❌ Dado de baja';
 
-    let botonBaja = '';
-    if (activo) {
-      const colorClase = tieneCausal(u) ? 'btn-baja-rojo' : 'btn-baja-gris';
-      botonBaja = `<button class="${colorClase}" onclick="abrirModalBaja('${user}')">Dar de baja</button>`;
-    } else {
-      botonBaja = `<button class="btn-baja-verde" onclick="abrirModalReactivar('${user}')">Reactivar</button>`;
-    }
+    const colorClase = tieneCausal(u) ? 'btn-baja-rojo' : 'btn-baja-gris';
+    const botonBaja = `<button class="${colorClase}" onclick="abrirModalBaja('${user}')">Dar de baja</button>`;
 
-    const selectorCausal = activo ? `
+    const selectorCausal = `
       <select class="causal-select" onchange="cambiarCausal('${user}', this.value)">
         <option value="Sin causal" ${u.causalSeleccionada === 'Sin causal' ? 'selected' : ''}>Sin causal</option>
         <option value="Por Asamblea" ${u.causalSeleccionada === 'Por Asamblea' ? 'selected' : ''}>🏛️ Por Asamblea</option>
         <option value="Por Error" ${u.causalSeleccionada === 'Por Error' ? 'selected' : ''}>❌ Por Error</option>
         <option value="Por Otros" ${u.causalSeleccionada === 'Por Otros' ? 'selected' : ''}>📋 Por Otros</option>
-      </select>` : `<span style="font-size:12px; color: var(--gray);">${descripcionCausal(u)}</span>`;
+      </select>`;
 
     html += `<tr>
       <td>${nombreCompleto}</td>
@@ -682,13 +679,17 @@ function cargarTablaSocios() {
       <td><strong>${user}</strong></td>
       <td>${u.tipoSocio || '-'}</td>
       <td>${u.telefono || '-'}</td>
-      <td>${estadoTexto}</td>
+      <td>✅ Activo</td>
       <td>${selectorCausal}</td>
       <td>
         <button class="btn-editar" onclick="abrirModalSocio('${user}')">Editar</button>
         ${botonBaja}
       </td>
     </tr>`;
+  }
+
+  if (!hayActivos) {
+    html += `<tr><td colspan="8" style="color: var(--gray); text-align:center;">No hay socios activos</td></tr>`;
   }
 
   html += `</tbody></table>`;
@@ -872,16 +873,20 @@ function confirmarReactivacion(usuario) {
 
 // ===== SOCIOS: historial general =====
 function mostrarHistorialBajas() {
-  let html = `<h3 style="color: var(--navy); margin: 20px 0;">📋 Historial de bajas</h3><table><thead><tr><th>Nombre</th><th>Motivo</th><th>Detalles</th><th>Quién</th><th>Fecha</th><th>Estado actual</th></tr></thead><tbody>`;
+  let html = `<h3 style="color: var(--navy); margin: 20px 0;">📋 Historial de bajas</h3><table><thead><tr><th>Nombre</th><th>Motivo</th><th>Detalles</th><th>Quién</th><th>Fecha</th><th>Estado actual</th><th>Acciones</th></tr></thead><tbody>`;
   let hayBajas = false;
 
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol === 'socio' && u.historialBaja && u.historialBaja.length > 0) {
       hayBajas = true;
-      u.historialBaja.forEach(h => {
+      u.historialBaja.forEach((h, idx) => {
+        const esUltima = idx === u.historialBaja.length - 1;
         const fecha = new Date(h.fecha).toLocaleDateString('es-ES');
-        html += `<tr><td>${u.nombre} ${u.apellido1 || ''}</td><td>${h.motivo}</td><td>${h.detalles || '-'}</td><td>${h.quien}</td><td>${fecha}</td><td>${u.estado}</td></tr>`;
+        const acciones = (esUltima && u.estado === 'Dado de baja')
+          ? `<button class="btn-baja-verde" onclick="abrirModalReactivar('${user}')">Reactivar</button>`
+          : '';
+        html += `<tr><td>${u.nombre} ${u.apellido1 || ''}</td><td>${h.motivo}</td><td>${h.detalles || '-'}</td><td>${h.quien}</td><td>${fecha}</td><td>${u.estado}</td><td>${acciones}</td></tr>`;
       });
     }
   }

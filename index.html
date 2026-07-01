@@ -338,6 +338,7 @@
               <th>Usuario</th>
               <th>Tipo de socio</th>
               <th>Teléfono</th>
+              <th>Causal de baja</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -454,10 +455,53 @@
 <script>
 // ===== BASE DE DATOS =====
 let usuariosDB = JSON.parse(localStorage.getItem('usuariosDB')) || {
-  'jgarcia': { password: '1234', nombre: 'Juan García', email: 'juan@email.com', rol: 'socio', passwordCambiada: false },
-  'mgonzalez': { password: '1234', nombre: 'María González', email: 'maria@email.com', rol: 'socio', passwordCambiada: false },
-  'aramirez': { password: '1234', nombre: 'Angel Antonio Ramirez Rey', email: 'aramirezcr81@gmail.com', rol: 'socio', passwordCambiada: false },
-  'admin': { password: 'admin', nombre: 'Administrador', email: 'admin@playahermosa.com', rol: 'admin', passwordCambiada: true }
+  'jgarcia': { 
+    password: '1234', 
+    nombre: 'Juan García', 
+    email: 'juan@email.com', 
+    rol: 'socio', 
+    passwordCambiada: false,
+    tipoSocio: 'Activo',
+    estado: 'Activo',
+    mesesEnDeuda: 0,
+    avisosPorDeuda: 0,
+    causalSeleccionada: 'Sin causal',
+    historialBaja: []
+  },
+  'mgonzalez': { 
+    password: '1234', 
+    nombre: 'María González', 
+    email: 'maria@email.com', 
+    rol: 'socio', 
+    passwordCambiada: false,
+    tipoSocio: 'Activo',
+    estado: 'Activo',
+    mesesEnDeuda: 0,
+    avisosPorDeuda: 0,
+    causalSeleccionada: 'Sin causal',
+    historialBaja: []
+  },
+  'aramirez': { 
+    password: '1234', 
+    nombre: 'Angel Antonio Ramirez Rey', 
+    email: 'aramirezcr81@gmail.com', 
+    rol: 'socio', 
+    passwordCambiada: false,
+    tipoSocio: 'Fundador',
+    estado: 'Activo',
+    mesesEnDeuda: 0,
+    avisosPorDeuda: 0,
+    causalSeleccionada: 'Sin causal',
+    historialBaja: []
+  },
+  'admin': { 
+    password: 'admin', 
+    nombre: 'Administrador', 
+    email: 'admin@playahermosa.com', 
+    rol: 'admin', 
+    passwordCambiada: true,
+    estado: 'Activo'
+  }
 };
 
 let eventosDB = JSON.parse(localStorage.getItem('eventosDB')) || [
@@ -781,7 +825,12 @@ function guardarNuevoSocio() {
     tipoSocio,
     password: '1234',
     rol: 'socio',
-    passwordCambiada: false
+    passwordCambiada: false,
+    estado: 'Activo',
+    mesesEnDeuda: 0,
+    avisosPorDeuda: 0,
+    causalSeleccionada: 'Sin causal',
+    historialBaja: []
   };
   
   localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
@@ -792,22 +841,215 @@ function guardarNuevoSocio() {
   alert(`✅ Socio agregado\n\nNombre: ${nombreCompleto}\nUsuario: ${usuario}\nContraseña: 1234\n\nDeberá cambiarla al ingresar`);
 }
 
+// Detectar si hay causal de baja
+function tieneCausalBaja(usuario) {
+  const u = usuariosDB[usuario];
+  if (!u) return false;
+  
+  // Si ya está dado de baja
+  if (u.estado === 'Dado de baja') {
+    return false;
+  }
+  
+  // Causal por deuda: > 3 meses Y 3 avisos
+  const avisosPorDeuda = u.avisosPorDeuda || 0;
+  const mesesEnDeuda = u.mesesEnDeuda || 0;
+  
+  if (mesesEnDeuda >= 3 && avisosPorDeuda >= 3) {
+    return true;
+  }
+  
+  // Causal seleccionada (Asamblea, Error, Otros)
+  const causalSeleccionada = u.causalSeleccionada || 'Sin causal';
+  if (causalSeleccionada !== 'Sin causal') {
+    return true;
+  }
+  
+  return false;
+}
+
+// Obtener motivo de causal
+function obtenerMotivoCausal(usuario) {
+  const u = usuariosDB[usuario];
+  
+  const avisosPorDeuda = u.avisosPorDeuda || 0;
+  const mesesEnDeuda = u.mesesEnDeuda || 0;
+  
+  if (mesesEnDeuda >= 3 && avisosPorDeuda >= 3) {
+    return `Deuda de ${mesesEnDeuda} meses + ${avisosPorDeuda} avisos`;
+  }
+  
+  const causalSeleccionada = u.causalSeleccionada || 'Sin causal';
+  if (causalSeleccionada !== 'Sin causal') {
+    return causalSeleccionada;
+  }
+  
+  return 'Sin causal';
+}
+
+// Cambiar causal de baja
+function cambiarCausal(usuario, event) {
+  const causal = event.target.value;
+  usuariosDB[usuario].causalSeleccionada = causal;
+  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+  listarSocios();
+}
+
 function listarSocios() {
   let html = '';
   for (let user in usuariosDB) {
     if (usuariosDB[user].rol !== 'admin') {
       const u = usuariosDB[user];
+      const tieneCausal = tieneCausalBaja(user);
+      const estado = u.estado || 'Activo';
+      const causalActual = u.causalSeleccionada || 'Sin causal';
+      
+      let botonBaja = '';
+      if (estado === 'Dado de baja') {
+        botonBaja = `<button class="btn btn-small" onclick="abrirModalReactivarSocio('${user}')" style="background: #28a745;">Reactivar</button>`;
+      } else {
+        const colorBoton = tieneCausal ? '#dc3545' : '#6c757d';
+        botonBaja = `<button class="btn btn-small" onclick="abrirModalDarDeBaja('${user}')" style="background: ${colorBoton};">Dar de baja</button>`;
+      }
+      
+      const selectorCausal = estado === 'Dado de baja' ? 
+        `<span style="color: #999;">Dado de baja</span>` :
+        `<select onchange="cambiarCausal('${user}', event)" style="padding: 5px; border: 2px solid ${tieneCausal ? '#dc3545' : '#ddd'}; border-radius: 4px; font-size: 12px; cursor: pointer;">
+          <option value="Sin causal" ${causalActual === 'Sin causal' ? 'selected' : ''}>Sin causal</option>
+          <option value="Por Asamblea" ${causalActual === 'Por Asamblea' ? 'selected' : ''}>🏛️ Por Asamblea</option>
+          <option value="Por Error" ${causalActual === 'Por Error' ? 'selected' : ''}>❌ Por Error</option>
+          <option value="Por Otros" ${causalActual === 'Por Otros' ? 'selected' : ''}>📋 Por Otros</option>
+        </select>`;
+      
       html += `<tr>
         <td>${u.nombre}</td>
         <td>${u.email}</td>
         <td><strong>${user}</strong></td>
         <td>${u.tipoSocio || 'Activo'}</td>
         <td>${u.telefono || '-'}</td>
-        <td><button class="btn btn-small" onclick="alert('Editar: ${user}')">Editar</button></td>
+        <td>${selectorCausal}</td>
+        <td style="display: flex; gap: 5px;">
+          <button class="btn btn-small" onclick="alert('Editar: ${user}')">Editar</button>
+          ${botonBaja}
+        </td>
       </tr>`;
     }
   }
   document.getElementById('tbody-socios').innerHTML = html;
+}
+
+// Modal para dar de baja
+function abrirModalDarDeBaja(usuario) {
+  const u = usuariosDB[usuario];
+  const tieneCausal = tieneCausalBaja(usuario);
+  const motivoCausal = obtenerMotivoCausal(usuario);
+  
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width: 500px;">
+      <h2>⚠️ Dar de baja a socio</h2>
+      <p style="margin-bottom: 15px;"><strong>Socio:</strong> ${u.nombre}</p>
+      
+      ${tieneCausal ? `<div class="warning-box" style="background: #f8d7da; color: #721c24; margin-bottom: 20px;">⚠️ CAUSAL DETECTADA:<br>${motivoCausal}</div>` : ''}
+      
+      <p style="margin-bottom: 15px;"><strong>Motivo de baja:</strong></p>
+      <select id="modalMotivoBaja" style="margin-bottom: 15px;">
+        <option value="">-- Selecciona motivo --</option>
+        <option value="Deuda">💳 Deuda > 3 meses (3 avisos)</option>
+        <option value="Asamblea">🏛️ Decisión de Asamblea</option>
+        <option value="Otro">📋 Otro motivo</option>
+      </select>
+      
+      <textarea id="modalDetallesBaja" placeholder="Detalles adicionales (opcional)" style="min-height: 80px;"></textarea>
+      
+      <div style="display: flex; gap: 10px;">
+        <button class="btn" onclick="guardarDarDeBaja('${usuario}')" style="flex: 1; background: #dc3545;">Dar de baja</button>
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="flex: 1; background: #6c757d;">Cancelar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarDarDeBaja(usuario) {
+  const motivo = document.getElementById('modalMotivoBaja').value;
+  const detalles = document.getElementById('modalDetallesBaja').value;
+  const usuarioAdmin = localStorage.getItem('currentUser');
+  
+  if (!motivo) {
+    alert('Selecciona un motivo de baja');
+    return;
+  }
+  
+  // Inicializar historial si no existe
+  if (!usuariosDB[usuario].historialBaja) {
+    usuariosDB[usuario].historialBaja = [];
+  }
+  
+  // Registrar la baja
+  usuariosDB[usuario].historialBaja.push({
+    fecha: new Date().toISOString(),
+    motivo: motivo,
+    detalles: detalles,
+    dadoDeBajaPor: usuarioAdmin
+  });
+  
+  // Cambiar estado
+  usuariosDB[usuario].estado = 'Dado de baja';
+  
+  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+  document.querySelector('.modal-overlay').remove();
+  listarSocios();
+  alert(`✅ ${usuariosDB[usuario].nombre} ha sido dado de baja`);
+}
+
+// Modal para reactivar
+function abrirModalReactivarSocio(usuario) {
+  const u = usuariosDB[usuario];
+  const historial = u.historialBaja || [];
+  
+  let historialHTML = '';
+  if (historial.length > 0) {
+    const ultimaBaja = historial[historial.length - 1];
+    const fecha = new Date(ultimaBaja.fecha).toLocaleDateString('es-ES');
+    historialHTML = `
+      <div class="warning-box" style="background: #e2e3e5; color: #383d41; margin-bottom: 20px;">
+        <strong>Última baja:</strong><br>
+        Fecha: ${fecha}<br>
+        Motivo: ${ultimaBaja.motivo}<br>
+        Dado de baja por: ${ultimaBaja.dadoDeBajaPor}
+        ${ultimaBaja.detalles ? `<br>Detalles: ${ultimaBaja.detalles}` : ''}
+      </div>
+    `;
+  }
+  
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content" style="max-width: 500px;">
+      <h2>♻️ Reactivar socio</h2>
+      <p style="margin-bottom: 15px;"><strong>Socio:</strong> ${u.nombre}</p>
+      
+      ${historialHTML}
+      
+      <p style="margin-bottom: 15px;">¿Deseas reactivar a este socio?</p>
+      
+      <div style="display: flex; gap: 10px;">
+        <button class="btn" onclick="guardarReactivarSocio('${usuario}')" style="flex: 1; background: #28a745;">Sí, reactivar</button>
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="flex: 1; background: #6c757d;">Cancelar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarReactivarSocio(usuario) {
+  usuariosDB[usuario].estado = 'Activo';
+  localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
+  document.querySelector('.modal-overlay').remove();
+  listarSocios();
+  alert(`✅ ${usuariosDB[usuario].nombre} ha sido reactivado`);
 }
 
 // ===== EVENTOS =====

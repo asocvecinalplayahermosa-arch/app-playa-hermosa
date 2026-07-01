@@ -197,11 +197,11 @@
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="form-group">
         <label>Usuario</label>
-        <input type="text" id="username" placeholder="admin, tesorero, jgarcia..." required>
+        <input type="text" id="username" placeholder="Tu usuario" required>
       </div>
       <div class="form-group">
         <label>Contraseña</label>
-        <input type="password" id="password" placeholder="1234" required>
+        <input type="password" id="password" placeholder="Tu contraseña" required>
       </div>
       <button type="submit" class="btn">Ingresar</button>
     </form>
@@ -253,6 +253,13 @@ let usuariosDB = JSON.parse(localStorage.getItem('usuariosDB')) || {
     rol: 'tesorero', 
     passwordCambiada: false
   },
+  'profesor': { 
+    password: '1234', 
+    nombre: 'Profesor Sistema', 
+    email: 'profesor@playahermosa.com', 
+    rol: 'profesor', 
+    passwordCambiada: false
+  },
   'jgarcia': { 
     password: '1234', 
     nombre: 'Juan García', 
@@ -294,8 +301,18 @@ let usuariosDB = JSON.parse(localStorage.getItem('usuariosDB')) || {
   }
 };
 
-let eventosDB = JSON.parse(localStorage.getItem('eventosDB')) || [];
-let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [];
+let actividadesDB = JSON.parse(localStorage.getItem('actividadesDB')) || [
+  { id: 1, titulo: 'Clase de Yoga', profesor: 'profesor', descripcion: 'Clases para todos los niveles', dia: 'Martes y Jueves', hora: '18:00', inscriptos: ['jgarcia', 'aramirez'] },
+  { id: 2, titulo: 'Taller de Cocina', profesor: 'profesor', descripcion: 'Aprende recetas tradicionales', dia: 'Viernes', hora: '19:00', inscriptos: ['mgonzalez'] }
+];
+
+let eventosDB = JSON.parse(localStorage.getItem('eventosDB')) || [
+  { id: 1, titulo: 'Día del Abuelo', fecha: '2026-06-28', hora: '16:00', descripcion: 'Chocolatada, torta frita y show en vivo', tipo: 'evento' }
+];
+
+let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [
+  { id: 1, titulo: 'Comunicado importante', descripcion: 'Se realizarán trabajos de mantenimiento en la zona', tipo: 'noticia' }
+];
 
 // ===== LOGIN =====
 function handleLogin(event) {
@@ -345,6 +362,11 @@ function renderMenu(usuario) {
     opciones = [
       { id: 'tesorero', label: '💰 Panel Tesorero' },
       { id: 'socios', label: '👥 Ver Socios' }
+    ];
+  } else if (rol === 'profesor') {
+    opciones = [
+      { id: 'misactividades', label: '🎯 Mis Actividades' },
+      { id: 'novedades', label: '📢 Novedades' }
     ];
   } else if (rol === 'socio') {
     opciones = [
@@ -406,6 +428,23 @@ function renderSecciones(rol) {
         <div id="tablaSOCIOS"></div>
       </div>
     `;
+  } else if (rol === 'profesor') {
+    html = `
+      <div id="misactividades" class="section active">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">🎯 Mis Actividades</h2>
+        <div id="panelProfesor"></div>
+      </div>
+      <div id="novedades" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📢 Novedades</h2>
+        <div id="carouselProfesor" style="background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%); border-radius: 15px; padding: 30px; color: white; margin-bottom: 30px; min-height: 300px;">
+          <div id="carouselContent">
+            <h2 id="carouselTitle">Cargando...</h2>
+            <p id="carouselDescription">Por favor espera...</p>
+          </div>
+          <div id="carouselIndicators" style="display: flex; gap: 10px; margin-top: 20px; justify-content: center;"></div>
+        </div>
+      </div>
+    `;
   } else if (rol === 'socio') {
     html = `
       <div id="inicio" class="section active">
@@ -425,6 +464,9 @@ function renderSecciones(rol) {
   if (rol === 'admin' || rol === 'tesorero') {
     cargarTablaSocios();
     cargarPanelTesorero();
+  } else if (rol === 'profesor') {
+    cargarPanelProfesor();
+    cargarCarouselProfesor();
   }
 }
 
@@ -579,6 +621,51 @@ function guardarDeudasTesorero() {
   cargarTablaSocios();
   cargarTablaDeudasTesorero();
   alert('✅ Deuda actualizada');
+}
+
+// ===== PANEL PROFESOR =====
+function cargarPanelProfesor() {
+  const usuarioActual = localStorage.getItem('currentUser');
+  let html = '<table><thead><tr><th>Actividad</th><th>Día</th><th>Hora</th><th>Alumnos inscritos</th></tr></thead><tbody>';
+  
+  actividadesDB.forEach(act => {
+    if (act.profesor === usuarioActual) {
+      const alumnos = act.inscriptos.map(user => usuariosDB[user]?.nombre || user).join(', ');
+      html += `<tr>
+        <td><strong>${act.titulo}</strong></td>
+        <td>${act.dia}</td>
+        <td>${act.hora}</td>
+        <td>${alumnos || 'Sin inscritos'}</td>
+      </tr>`;
+    }
+  });
+  
+  html += '</tbody></table>';
+  document.getElementById('panelProfesor').innerHTML = html;
+}
+
+function cargarCarouselProfesor() {
+  const allItems = [...eventosDB, ...noticiasDB];
+  if (allItems.length === 0) return;
+  
+  let currentIndex = 0;
+  function actualizarCarousel() {
+    const item = allItems[currentIndex];
+    document.getElementById('carouselTitle').textContent = item.titulo;
+    document.getElementById('carouselDescription').textContent = item.descripcion;
+    
+    let indicators = '';
+    for (let i = 0; i < allItems.length; i++) {
+      indicators += `<div style="width: 12px; height: 12px; border-radius: 50%; background: ${i === currentIndex ? '#E8B020' : 'rgba(255,255,255,0.5)'}; cursor: pointer;" onclick="currentIndex=${i}; actualizarCarousel()"></div>`;
+    }
+    document.getElementById('carouselIndicators').innerHTML = indicators;
+  }
+  
+  actualizarCarousel();
+  setInterval(() => {
+    currentIndex = (currentIndex + 1) % allItems.length;
+    actualizarCarousel();
+  }, 5000);
 }
 
 // ===== FUNCIONES AUXILIARES =====

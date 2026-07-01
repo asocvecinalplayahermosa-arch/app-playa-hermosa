@@ -333,6 +333,7 @@ function migrarDatosSocios() {
       if (!Array.isArray(u.historialPagos)) { u.historialPagos = []; huboCambios = true; }
       if (!Array.isArray(u.historialAvisos)) { u.historialAvisos = []; huboCambios = true; }
       if (typeof u.avisosPorDeuda !== 'number') { u.avisosPorDeuda = u.historialAvisos.length; huboCambios = true; }
+      if (typeof u.fechaNacimiento === 'undefined') { u.fechaNacimiento = ''; huboCambios = true; }
     }
   }
   if (huboCambios) guardarTodo();
@@ -523,6 +524,7 @@ function renderSecciones(rol) {
           <button class="btn btn-small" onclick="abrirModalSocio()" style="width: auto; padding: 10px 16px; background: var(--gold2); font-weight:bold;">➕ Agregar nuevo socio</button>
         </div>
         <button class="btn btn-small" onclick="mostrarHistorialBajas()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: #6c757d;">📋 Historial de bajas</button>
+        <button class="btn btn-small" onclick="mostrarCumpleanosDelMes()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: #C8960A;">🎂 Cumpleaños del mes</button>
         <button class="btn btn-small" onclick="cargarTablaSocios()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: var(--navy2);">👥 Ver socios activos</button>
         <div id="tablaSocios"></div>
       </div>
@@ -645,11 +647,21 @@ function descripcionCausal(u) {
   return motivos.length ? motivos.join(' + ') : 'Sin causal';
 }
 
+function calcularEdad(fechaNacimiento) {
+  if (!fechaNacimiento) return null;
+  const hoy = new Date();
+  const nac = new Date(fechaNacimiento + 'T00:00:00');
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad;
+}
+
 // ===== SOCIOS: tabla =====
 function cargarTablaSocios() {
   let html = `<table><thead><tr>
     <th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Tipo de socio</th><th>Teléfono</th>
-    <th>Estado</th><th>Causal de baja</th><th>Acciones</th>
+    <th>Edad</th><th>Estado</th><th>Acciones</th>
   </tr></thead><tbody>`;
 
   let hayActivos = false;
@@ -662,25 +674,20 @@ function cargarTablaSocios() {
 
     const nombreCompleto = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
 
-    const colorClase = tieneCausal(u) ? 'btn-baja-rojo' : 'btn-baja-gris';
+    const colorClase = tieneCausalPorDeuda(u) ? 'btn-baja-rojo' : 'btn-baja-gris';
     const botonBaja = `<button class="${colorClase}" onclick="abrirModalBaja('${user}')">Dar de baja</button>`;
 
-    const selectorCausal = `
-      <select class="causal-select" onchange="cambiarCausal('${user}', this.value)">
-        <option value="Sin causal" ${u.causalSeleccionada === 'Sin causal' ? 'selected' : ''}>Sin causal</option>
-        <option value="Por Asamblea" ${u.causalSeleccionada === 'Por Asamblea' ? 'selected' : ''}>🏛️ Por Asamblea</option>
-        <option value="Por Error" ${u.causalSeleccionada === 'Por Error' ? 'selected' : ''}>❌ Por Error</option>
-        <option value="Por Otros" ${u.causalSeleccionada === 'Por Otros' ? 'selected' : ''}>📋 Por Otros</option>
-      </select>`;
+    const edad = calcularEdad(u.fechaNacimiento);
+    const edadTexto = edad === null ? '-' : `${edad} años${edad < 18 ? ' 🧒 <span style="color:#dc3545; font-size:11px; font-weight:bold;">Menor</span>' : ''}`;
 
     html += `<tr>
       <td>${nombreCompleto}</td>
       <td>${u.email}</td>
       <td><strong>${user}</strong></td>
       <td>${u.tipoSocio || '-'}</td>
-      <td>${u.telefono || '-'}</td>
+      <td style="white-space:nowrap;">${u.telefono || '-'}</td>
+      <td>${edadTexto}</td>
       <td>✅ Activo</td>
-      <td>${selectorCausal}</td>
       <td>
         <button class="btn-editar" onclick="abrirModalSocio('${user}')">Editar</button>
         ${botonBaja}
@@ -694,12 +701,6 @@ function cargarTablaSocios() {
 
   html += `</tbody></table>`;
   document.getElementById('tablaSocios').innerHTML = html;
-}
-
-function cambiarCausal(usuario, valor) {
-  usuariosDB[usuario].causalSeleccionada = valor;
-  guardarTodo();
-  cargarTablaSocios();
 }
 
 // ===== SOCIOS: modal agregar / editar =====
@@ -720,6 +721,8 @@ function abrirModalSocio(usuarioExistente) {
       <input type="text" id="socioApellido2" placeholder="Segundo apellido (opcional)" value="${editando ? (u.apellido2 || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Teléfono</label>
       <input type="text" id="socioTelefono" placeholder="Teléfono" value="${editando ? (u.telefono || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Fecha de nacimiento</label>
+      <input type="date" id="socioFechaNacimiento" value="${editando ? (u.fechaNacimiento || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Dirección</label>
       <input type="text" id="socioDireccion" placeholder="Dirección" value="${editando ? (u.direccion || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Correo electrónico</label>
@@ -743,6 +746,7 @@ function guardarSocio(usuarioExistente) {
   const apellido1 = document.getElementById('socioApellido1').value.trim();
   const apellido2 = document.getElementById('socioApellido2').value.trim();
   const telefono = document.getElementById('socioTelefono').value.trim();
+  const fechaNacimiento = document.getElementById('socioFechaNacimiento').value;
   const direccion = document.getElementById('socioDireccion').value.trim();
   const email = document.getElementById('socioEmail').value.trim();
   const tipoSocio = document.getElementById('socioTipo').value;
@@ -759,6 +763,7 @@ function guardarSocio(usuarioExistente) {
     u.apellido1 = apellido1;
     u.apellido2 = apellido2;
     u.telefono = telefono;
+    u.fechaNacimiento = fechaNacimiento;
     u.direccion = direccion;
     u.email = email;
     u.tipoSocio = tipoSocio;
@@ -772,7 +777,7 @@ function guardarSocio(usuarioExistente) {
     const usuario = generarUsuario(nombre, apellido1, apellido2);
     usuariosDB[usuario] = {
       password: '1234',
-      nombre, apellido1, apellido2, telefono, direccion, email,
+      nombre, apellido1, apellido2, telefono, fechaNacimiento, direccion, email,
       rol: 'socio',
       passwordCambiada: false,
       tipoSocio,
@@ -795,17 +800,19 @@ function guardarSocio(usuarioExistente) {
 // ===== SOCIOS: dar de baja =====
 function abrirModalBaja(usuario) {
   const u = usuariosDB[usuario];
+  const causalAutomatica = tieneCausalPorDeuda(u);
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal-content">
       <h2>🚫 Dar de baja a ${u.nombre}</h2>
-      <div class="warning-box">CAUSAL DETECTADA: ${descripcionCausal(u)}</div>
+      <div class="warning-box">${causalAutomatica ? 'CAUSAL DETECTADA AUTOMÁTICAMENTE: ' + descripcionCausal(u) : 'Elegí el motivo de la baja a continuación.'}</div>
       <label style="font-size:12px; font-weight:600;">Motivo de la baja</label>
       <select id="bajaMotivo">
-        <option value="Deuda">Deuda (más de 3 meses + 3 avisos)</option>
-        <option value="Asamblea">Decisión de Asamblea</option>
-        <option value="Otro">Otro motivo</option>
+        <option value="Deuda" ${causalAutomatica ? 'selected' : ''}>Deuda (más de 3 meses + 3 avisos)</option>
+        <option value="Asamblea">🏛️ Decisión de Asamblea</option>
+        <option value="Error">❌ Por Error</option>
+        <option value="Otro">📋 Otro motivo</option>
       </select>
       <label style="font-size:12px; font-weight:600;">Detalles</label>
       <textarea id="bajaDetalles" placeholder="Detalles adicionales sobre la baja..."></textarea>
@@ -823,6 +830,7 @@ function confirmarBaja(usuario) {
 
   const u = usuariosDB[usuario];
   u.estado = 'Dado de baja';
+  u.causalSeleccionada = motivo === 'Deuda' ? 'Sin causal' : (motivo === 'Asamblea' ? 'Por Asamblea' : (motivo === 'Error' ? 'Por Error' : 'Por Otros'));
   u.historialBaja.push({
     fecha: new Date().toISOString(),
     motivo,
@@ -893,6 +901,38 @@ function mostrarHistorialBajas() {
 
   html += `</tbody></table>`;
   if (!hayBajas) html = '<p style="color: var(--gray);">No hay socios con historial de baja</p>';
+
+  document.getElementById('tablaSocios').innerHTML = html;
+}
+
+// ===== SOCIOS: cumpleaños del mes =====
+function mostrarCumpleanosDelMes() {
+  const hoy = new Date();
+  const mesActual = hoy.getMonth();
+  const nombresMes = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+  let cumples = [];
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.rol === 'socio' && u.estado === 'Activo' && u.fechaNacimiento) {
+      const nac = new Date(u.fechaNacimiento + 'T00:00:00');
+      if (nac.getMonth() === mesActual) {
+        cumples.push({ nombre: `${u.nombre} ${u.apellido1 || ''}`.trim(), dia: nac.getDate(), edadCumple: calcularEdad(u.fechaNacimiento) });
+      }
+    }
+  }
+  cumples.sort((a, b) => a.dia - b.dia);
+
+  let html = `<h3 style="color: var(--navy); margin: 20px 0;">🎂 Cumpleaños de ${nombresMes[mesActual]}</h3>`;
+  if (cumples.length === 0) {
+    html += '<p style="color: var(--gray);">No hay cumpleaños de socios este mes (o falta cargar la fecha de nacimiento)</p>';
+  } else {
+    html += `<table><thead><tr><th>Día</th><th>Nombre</th></tr></thead><tbody>`;
+    cumples.forEach(c => {
+      html += `<tr><td><strong>${c.dia}</strong></td><td>${c.nombre}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+  }
 
   document.getElementById('tablaSocios').innerHTML = html;
 }

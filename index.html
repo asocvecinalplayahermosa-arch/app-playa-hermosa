@@ -272,7 +272,11 @@
     <div class="logo">🌅</div>
     <h1>Playa Hermosa</h1>
     <p>PORTAL DEL SOCIO</p>
-    
+
+    <button id="btnInstalarApp" onclick="instalarApp()" style="display:none; width:100%; margin: 15px 0; padding:14px; background: var(--navy2); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:14px;">📲 Instalar app en este celular</button>
+    <p id="estadoConexion" style="margin-bottom:15px; font-size:11px; color: var(--gold);">⏳ Conectando con la base de datos...</p>
+    <hr style="border: none; border-top: 1px solid #eee; margin: 10px 0 20px 0;">
+
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="form-group">
         <label>Usuario</label>
@@ -284,8 +288,6 @@
       </div>
       <button type="submit" class="btn">Ingresar</button>
     </form>
-    <p id="estadoConexion" style="margin-top:15px; font-size:11px; color: var(--gold);">⏳ Conectando con la base de datos...</p>
-    <button id="btnInstalarApp" onclick="instalarApp()" style="display:none; width:100%; margin-top:15px; padding:12px; background: var(--navy2); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:14px;">📲 Instalar app en este celular</button>
   </div>
 </div>
 
@@ -2216,6 +2218,10 @@ function actualizarDashboard() {
 
 // ===== INIT: se ejecuta cuando llegan los primeros datos desde Firebase =====
 // ===== INSTALAR APP: botón propio que dispara el cartel nativo de instalación =====
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(err => console.error('Error registrando service worker:', err));
+}
+
 let deferredInstallPrompt = null;
 
 window.addEventListener('beforeinstallprompt', (e) => {

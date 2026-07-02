@@ -1,16 +1,1 @@
-{
-  "name": "app-playa-hermosa",
-  "version": "1.0.0",
-  "description": "App Portal del Socio - Asociación Vecinal Playa Hermosa",
-  "main": "index.html",
-  "scripts": {
-    "start": "python3 -m http.server 3000"
-  },
-  "keywords": [
-    "playa-hermosa",
-    "asociacion-vecinal",
-    "app"
-  ],
-  "author": "Playa Hermosa",
-  "license": "MIT"
-}
+

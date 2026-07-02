@@ -117,6 +117,18 @@
   }
   .card h3 { color: var(--navy); margin-bottom: 10px; }
   .card p { color: var(--text); font-size: 14px; line-height: 1.6; }
+  .card-compact {
+    background: var(--cream);
+    padding: 12px 14px;
+    border-radius: 8px;
+    border-left: 3px solid var(--gold);
+    flex: 1 1 200px;
+    min-width: 190px;
+    margin-bottom: 0;
+  }
+  .card-compact h3 { color: var(--navy); font-size: 14px; margin-bottom: 6px; }
+  .card-compact p { color: var(--text); font-size: 11.5px; line-height: 1.4; margin-bottom: 3px; }
+  .card-compact .btn-small { padding: 5px 10px; font-size: 11px; margin: 6px 0 0 0; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -338,19 +350,11 @@ let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [
   { id: 1, titulo: 'Comunicado importante', descripcion: 'Se realizarán trabajos de mantenimiento en la zona', tipo: 'noticia' }
 ];
 
-// Disponibilidad de horarios del espacio (el octógono), cargada por el admin
-let horariosDB = JSON.parse(localStorage.getItem('horariosDB')) || [
-  { id: 1, dia: 'Martes', horaInicio: '18:00', horaFin: '19:00', estado: 'Ocupado', actividad: 'Clase de Yoga' },
-  { id: 2, dia: 'Jueves', horaInicio: '18:00', horaFin: '19:00', estado: 'Ocupado', actividad: 'Clase de Yoga' },
-  { id: 3, dia: 'Viernes', horaInicio: '19:00', horaFin: '20:00', estado: 'Ocupado', actividad: 'Taller de Cocina' }
-];
-
 function guardarTodo() {
   localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
   localStorage.setItem('actividadesDB', JSON.stringify(actividadesDB));
   localStorage.setItem('eventosDB', JSON.stringify(eventosDB));
   localStorage.setItem('noticiasDB', JSON.stringify(noticiasDB));
-  localStorage.setItem('horariosDB', JSON.stringify(horariosDB));
 }
 
 // ===== MIGRACIÓN: asegura que los socios ya guardados tengan los campos nuevos =====
@@ -499,7 +503,6 @@ function renderMenu(usuario) {
       { id: 'socios', label: '👥 Socios' },
       { id: 'tesorero', label: '💰 Tesorero' },
       { id: 'profesores', label: '👨‍🏫 Profesores' },
-      { id: 'horarios', label: '🗓️ Horarios' },
       { id: 'eventos', label: '📅 Eventos' },
       { id: 'noticias', label: '📢 Noticias' }
     ];
@@ -511,7 +514,6 @@ function renderMenu(usuario) {
   } else if (rol === 'profesor') {
     opciones = [
       { id: 'misactividades', label: '🎯 Mis Actividades' },
-      { id: 'disponibilidad', label: '📅 Disponibilidad' },
       { id: 'novedades', label: '📢 Novedades' }
     ];
   } else if (rol === 'socio') {
@@ -583,17 +585,6 @@ function renderSecciones(rol) {
         </div>
         <div id="tablaActividades"></div>
       </div>
-      <div id="horarios" class="section">
-        <div class="socios-toolbar">
-          <h2 style="color: var(--navy);">🗓️ Horarios del Octógono</h2>
-          <div style="display:flex; gap:8px;">
-            <button class="btn btn-small" onclick="cargarPlanillaBaseHorarios()" style="width:auto; padding: 10px 14px; background:#6c757d;">📥 Cargar planilla base</button>
-            <button class="btn-add-circle" onclick="abrirModalHorario()" title="Agregar franja horaria">+</button>
-          </div>
-        </div>
-        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Disponibilidad semanal del espacio para el mes en curso. Tocá una celda vacía para agregar una franja, o "✏️" para editar una existente.</p>
-        <div id="tablaHorarios"></div>
-      </div>
       <div id="eventos" class="section">
         <div class="socios-toolbar">
           <h2 style="color: var(--navy);">📅 Eventos</h2>
@@ -627,11 +618,6 @@ function renderSecciones(rol) {
       <div id="misactividades" class="section active">
         <h2 style="color: var(--navy); margin-bottom: 20px;">🎯 Mis Actividades</h2>
         <div id="panelProfesor"></div>
-      </div>
-      <div id="disponibilidad" class="section">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">📅 Disponibilidad de horarios - Mes en curso</h2>
-        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Franjas libres y ocupadas del espacio (el octógono) esta semana/mes. Si ves un horario libre que te interesa para sumar otra clase, contactá al administrador.</p>
-        <div id="tablaDisponibilidadProfesor"></div>
       </div>
       <div id="novedades" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">📢 Novedades</h2>
@@ -677,11 +663,9 @@ function renderSecciones(rol) {
     if (rol === 'admin') cargarTablaEventos();
     if (rol === 'admin') cargarTablaNoticias();
     if (rol === 'admin') { cargarTablaProfesores(); cargarTablaActividades(); }
-    if (rol === 'admin') cargarTablaHorarios();
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();
-    cargarDisponibilidadProfesor();
   } else if (rol === 'socio') {
     cargarPerfilSocio();
     cargarCarouselSocio();
@@ -995,148 +979,12 @@ function mostrarCumpleanosDelMes() {
   document.getElementById('tablaSocios').innerHTML = html;
 }
 
-// ===== HORARIOS DEL OCTÓGONO (admin + vista profesor) =====
+// ===== Utilidades compartidas de días/horas (usadas por Actividades) =====
 const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 const HORA_INICIO_GRILLA = 7;
 const HORA_FIN_GRILLA = 22;
 
-function construirMatrizHorarios() {
-  const totalFilas = HORA_FIN_GRILLA - HORA_INICIO_GRILLA + 1;
-  const matriz = {};
-  DIAS_SEMANA.forEach(d => { matriz[d] = new Array(totalFilas).fill(null); });
-
-  horariosDB.forEach(h => {
-    if (!DIAS_SEMANA.includes(h.dia) || !h.horaInicio || !h.horaFin) return;
-    const [hIniH, hIniM] = h.horaInicio.split(':').map(Number);
-    const [hFinH, hFinM] = h.horaFin.split(':').map(Number);
-    const filaInicio = hIniH - HORA_INICIO_GRILLA;
-    if (filaInicio < 0 || filaInicio >= totalFilas) return;
-    const minutosTotal = (hFinH * 60 + hFinM) - (hIniH * 60 + hIniM);
-    const rowspan = Math.max(1, Math.ceil(minutosTotal / 60));
-    matriz[h.dia][filaInicio] = { horario: h, rowspan };
-    for (let i = 1; i < rowspan && (filaInicio + i) < totalFilas; i++) {
-      matriz[h.dia][filaInicio + i] = 'ocupada_por_rowspan';
-    }
-  });
-
-  return matriz;
-}
-
-function generarGrillaHorariosHTML(soloLectura) {
-  const totalFilas = HORA_FIN_GRILLA - HORA_INICIO_GRILLA + 1;
-  const matriz = construirMatrizHorarios();
-
-  let html = '<div class="grilla-wrap" style="overflow-x:auto;"><table class="grilla-horarios"><thead><tr><th>Hora</th>';
-  DIAS_SEMANA.forEach(d => { html += `<th>${d}</th>`; });
-  html += '</tr></thead><tbody>';
-
-  for (let fila = 0; fila < totalFilas; fila++) {
-    const hora = HORA_INICIO_GRILLA + fila;
-    html += `<tr><td class="hora-label">${hora}:00</td>`;
-    DIAS_SEMANA.forEach(d => {
-      const celda = matriz[d][fila];
-      if (celda === 'ocupada_por_rowspan') return;
-      if (celda && celda.horario) {
-        const h = celda.horario;
-        const colorClase = h.estado === 'Ocupado' ? 'celda-ocupada' : 'celda-libre';
-        const etiqueta = h.actividad || (h.estado === 'Libre' ? 'Libre' : '');
-        const acciones = (!soloLectura)
-          ? `<div class="celda-acciones"><button onclick="abrirModalHorario(${h.id})" title="Editar">✏️</button><button onclick="eliminarHorario(${h.id})" title="Eliminar">🗑️</button></div>`
-          : '';
-        html += `<td rowspan="${celda.rowspan}" class="${colorClase}"><strong>${etiqueta}</strong><span class="celda-horas">${h.horaInicio} a ${h.horaFin}</span>${acciones}</td>`;
-      } else {
-        const clickHandler = (!soloLectura) ? ` clickeable" onclick="abrirModalHorario(undefined, '${d}', '${String(hora).padStart(2,'0')}:00')` : '"';
-        html += `<td class="celda-vacia${clickHandler}></td>`;
-      }
-    });
-    html += '</tr>';
-  }
-  html += '</tbody></table></div>';
-  return html;
-}
-
-function cargarTablaHorarios() {
-  document.getElementById('tablaHorarios').innerHTML = generarGrillaHorariosHTML(false);
-}
-
-function cargarDisponibilidadProfesor() {
-  document.getElementById('tablaDisponibilidadProfesor').innerHTML = generarGrillaHorariosHTML(true);
-}
-
-function abrirModalHorario(idExistente, diaPrefill, horaPrefill) {
-  const editando = idExistente !== undefined;
-  const h = editando ? horariosDB.find(x => x.id === idExistente) : null;
-
-  let opcionesDias = DIAS_SEMANA.map(d => {
-    const seleccionado = editando ? (h.dia === d) : (diaPrefill === d);
-    return `<option value="${d}" ${seleccionado ? 'selected' : ''}>${d}</option>`;
-  }).join('');
-
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal-content">
-      <h2>${editando ? '✏️ Editar franja horaria' : '➕ Agregar franja horaria'}</h2>
-      <label style="font-size:12px; font-weight:600;">Día</label>
-      <select id="horDia">${opcionesDias}</select>
-      <label style="font-size:12px; font-weight:600;">Hora desde</label>
-      <input type="time" id="horDesde" value="${editando ? h.horaInicio : (horaPrefill || '')}">
-      <label style="font-size:12px; font-weight:600;">Hora hasta</label>
-      <input type="time" id="horHasta" value="${editando ? h.horaFin : ''}">
-      <label style="font-size:12px; font-weight:600;">Estado</label>
-      <select id="horEstado">
-        <option value="Libre" ${editando && h.estado === 'Libre' ? 'selected' : ''}>🟢 Libre</option>
-        <option value="Ocupado" ${(editando && h.estado === 'Ocupado') || !editando ? 'selected' : ''}>🔴 Ocupado</option>
-      </select>
-      <label style="font-size:12px; font-weight:600;">Actividad (si está ocupado)</label>
-      <input type="text" id="horActividad" placeholder="Ej: Clase de Yoga" value="${editando ? (h.actividad || '') : ''}">
-      <button class="btn" onclick="guardarHorario(${editando ? idExistente : 'null'})">Guardar franja</button>
-      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-}
-
-function guardarHorario(idExistente) {
-  const dia = document.getElementById('horDia').value;
-  const horaInicio = document.getElementById('horDesde').value;
-  const horaFin = document.getElementById('horHasta').value;
-  const estado = document.getElementById('horEstado').value;
-  const actividad = document.getElementById('horActividad').value.trim();
-
-  if (!dia || !horaInicio || !horaFin) {
-    alert('Completá día, hora desde y hora hasta');
-    return;
-  }
-
-  if (horaFin <= horaInicio) {
-    alert('La hora hasta debe ser posterior a la hora desde');
-    return;
-  }
-
-  if (idExistente !== null && idExistente !== undefined) {
-    const h = horariosDB.find(x => x.id === idExistente);
-    h.dia = dia; h.horaInicio = horaInicio; h.horaFin = horaFin; h.estado = estado; h.actividad = actividad;
-    alert('✅ Franja horaria actualizada');
-  } else {
-    const nuevoId = horariosDB.length ? Math.max(...horariosDB.map(x => x.id)) + 1 : 1;
-    horariosDB.push({ id: nuevoId, dia, horaInicio, horaFin, estado, actividad });
-    alert('✅ Franja horaria creada');
-  }
-
-  guardarTodo();
-  document.querySelector('.modal-overlay').remove();
-  cargarTablaHorarios();
-}
-
-function eliminarHorario(id) {
-  if (!confirm('¿Seguro que querés eliminar esta franja horaria?')) return;
-  horariosDB = horariosDB.filter(h => h.id !== id);
-  guardarTodo();
-  cargarTablaHorarios();
-}
-
-// ===== HORARIOS: planilla base histórica (transcripción de la foto) =====
+// ===== PLANILLA BASE: datos históricos usados para crear actividades =====
 const PLANILLA_BASE_HORARIOS = [
   { dia: 'Lunes', horaInicio: '10:15', horaFin: '11:45', actividad: 'Gimnasia' },
   { dia: 'Lunes', horaInicio: '12:00', horaFin: '13:45', actividad: 'Gimnasia Entrenamiento' },
@@ -1167,20 +1015,6 @@ const PLANILLA_BASE_HORARIOS = [
 
   { dia: 'Sábado', horaInicio: '11:00', horaFin: '12:30', actividad: 'Psicoterapia' }
 ];
-
-function cargarPlanillaBaseHorarios() {
-  const confirmado = confirm('Esto va a agregar el horario histórico (transcripto de tu planilla en papel) al calendario actual.\n\nOJO: los horarios son una transcripción aproximada de una foto — revisalos y corregí lo que haga falta con el botón ✏️ de cada celda.\n\n¿Continuar?');
-  if (!confirmado) return;
-
-  PLANILLA_BASE_HORARIOS.forEach(item => {
-    const nuevoId = horariosDB.length ? Math.max(...horariosDB.map(x => x.id)) + 1 : 1;
-    horariosDB.push({ id: nuevoId, dia: item.dia, horaInicio: item.horaInicio, horaFin: item.horaFin, estado: 'Ocupado', actividad: item.actividad });
-  });
-
-  guardarTodo();
-  cargarTablaHorarios();
-  alert('✅ Planilla base cargada. Revisá los horarios y corregí lo que haga falta con "✏️" en cada celda.');
-}
 
 // ===== ACTIVIDADES: crear actividades inscribibles a partir de la planilla base =====
 function cargarActividadesBaseDesdePlanilla() {
@@ -2074,14 +1908,14 @@ function cargarEventosSocio() {
       const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : act.profesor;
       const rangoHorario = act.horaFin ? `${act.hora} a ${act.horaFin}` : act.hora;
 
-      html += `<div class="card" style="flex: 1 1 250px; min-width: 230px; margin-bottom:0;">
+      html += `<div class="card-compact">
         <h3>${act.titulo}</h3>
         <p>🕐 <strong>${rangoHorario} hs</strong></p>
-        <p style="font-size:13px; color: var(--gray);">👨‍🏫 Profe: ${nombreProf}</p>
-        <p style="font-size:12px; color: var(--gray);">👥 ${cantidad} ${cantidad === 1 ? 'inscripto' : 'inscriptos'}</p>
+        <p>👨‍🏫 ${nombreProf}</p>
+        <p>👥 ${cantidad} ${cantidad === 1 ? 'inscripto' : 'inscriptos'}</p>
         ${inscripto
-          ? `<button class="btn btn-small" style="background:#dc3545;" onclick="cancelarInscripcion(${act.id})">Cancelar inscripción</button>`
-          : `<button class="btn btn-small" onclick="anotarseActividad(${act.id})">Anotarme</button>`
+          ? `<button class="btn btn-small" style="background:#dc3545; width:auto;" onclick="cancelarInscripcion(${act.id})">Cancelar</button>`
+          : `<button class="btn btn-small" style="width:auto;" onclick="anotarseActividad(${act.id})">Anotarme</button>`
         }
       </div>`;
     });

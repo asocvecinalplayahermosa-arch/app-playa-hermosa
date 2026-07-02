@@ -350,11 +350,15 @@ let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [
   { id: 1, titulo: 'Comunicado importante', descripcion: 'Se realizarán trabajos de mantenimiento en la zona', tipo: 'noticia' }
 ];
 
+// Reservas de alquiler del Octógono + Parrillero (modalidad única actual)
+let alquileresDB = JSON.parse(localStorage.getItem('alquileresDB')) || [];
+
 function guardarTodo() {
   localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
   localStorage.setItem('actividadesDB', JSON.stringify(actividadesDB));
   localStorage.setItem('eventosDB', JSON.stringify(eventosDB));
   localStorage.setItem('noticiasDB', JSON.stringify(noticiasDB));
+  localStorage.setItem('alquileresDB', JSON.stringify(alquileresDB));
 }
 
 // ===== MIGRACIÓN: asegura que los socios ya guardados tengan los campos nuevos =====
@@ -578,7 +582,6 @@ function renderSecciones(rol) {
         <div class="socios-toolbar" style="margin-top: 35px;">
           <h2 style="color: var(--navy);">🎯 Actividades / Clases</h2>
           <div style="display:flex; gap:8px;">
-            <button class="btn btn-small" onclick="cargarActividadesBaseDesdePlanilla()" style="width:auto; padding: 10px 14px; background:#6c757d;">📥 Cargar actividades de la planilla base</button>
             <button class="btn btn-small" onclick="combinarActividadesRepetidas()" style="width:auto; padding: 10px 14px; background: var(--gold2);">🔗 Combinar repetidas</button>
             <button class="btn-add-circle" onclick="abrirModalActividad()" title="Agregar nueva actividad">+</button>
           </div>
@@ -1015,30 +1018,6 @@ const PLANILLA_BASE_HORARIOS = [
 
   { dia: 'Sábado', horaInicio: '11:00', horaFin: '12:30', actividad: 'Psicoterapia' }
 ];
-
-// ===== ACTIVIDADES: crear actividades inscribibles a partir de la planilla base =====
-function cargarActividadesBaseDesdePlanilla() {
-  const confirmado = confirm('Esto va a crear una actividad inscribible por cada clase de la planilla base, para que los socios puedan anotarse.\n\nOJO: todas quedan asignadas provisoriamente al profesor genérico "profesor" — vas a tener que reasignar cada una al profesor real desde Admin → Profesores → Actividades → Editar.\n\n¿Continuar?');
-  if (!confirmado) return;
-
-  PLANILLA_BASE_HORARIOS.forEach(item => {
-    const nuevoId = actividadesDB.length ? Math.max(...actividadesDB.map(a => a.id)) + 1 : 1;
-    actividadesDB.push({
-      id: nuevoId,
-      titulo: item.actividad,
-      profesor: 'profesor',
-      descripcion: 'Cargado desde la planilla base. Asigná el profesor correcto editando esta actividad.',
-      dia: item.dia,
-      hora: item.horaInicio,
-      horaFin: item.horaFin,
-      inscriptos: []
-    });
-  });
-
-  guardarTodo();
-  cargarTablaActividades();
-  alert('✅ Actividades creadas. Ya podés reasignarlas al profesor correcto desde "🎯 Actividades / Clases" → Editar.');
-}
 
 // ===== EVENTOS =====
 function cargarTablaEventos() {
@@ -1577,10 +1556,19 @@ function cargarPanelTesorero() {
     </div>
     <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Estado de deudas y acciones</h3>
     <table id="tablaDeudasTesorero"></table>
+
+    <div class="socios-toolbar" style="margin-top: 35px;">
+      <h3 style="color: var(--navy);">🏡 Alquiler Octógono + Parrillero</h3>
+      <button class="btn-add-circle" onclick="abrirModalAlquiler()" title="Nueva reserva">+</button>
+    </div>
+    <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Modalidad única actual: $5000 total (incluye $700 de limpieza).</p>
+    <div id="resumenAlquileres"></div>
+    <div id="tablaAlquileres"></div>
   `;
   
   document.getElementById('panelTesorero').innerHTML = html;
   cargarTablaDeudasTesorero();
+  cargarTablaAlquileres();
 }
 
 function cargarTablaDeudasTesorero() {
@@ -1623,6 +1611,121 @@ function guardarDeudasTesorero() {
   cargarTablaSocios();
   cargarTablaDeudasTesorero();
   alert('✅ Deuda actualizada');
+}
+
+// ===== TESORERO: alquiler Octógono + Parrillero =====
+function cargarTablaAlquileres() {
+  const hoyStr = new Date().toISOString().split('T')[0];
+  const listaOrdenada = alquileresDB.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  const totalRecaudado = alquileresDB.filter(r => r.estadoPago === 'Pagado').reduce((sum, r) => sum + (r.montoTotal || 0), 0);
+  const pendientes = alquileresDB.filter(r => r.estadoPago !== 'Pagado').length;
+
+  let resumenHtml = `<div style="display:flex; gap:15px; margin-bottom:15px; flex-wrap:wrap;">
+    <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${totalRecaudado.toFixed(0)}</h3><p style="font-size:12px;">Recaudado (pagados)</p></div>
+    <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">${alquileresDB.length}</h3><p style="font-size:12px;">Reservas totales</p></div>
+    <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">${pendientes}</h3><p style="font-size:12px;">Pagos pendientes</p></div>
+  </div>`;
+  document.getElementById('resumenAlquileres').innerHTML = resumenHtml;
+
+  let html = `<table><thead><tr><th>Fecha</th><th>Solicitante</th><th>Teléfono</th><th>Monto</th><th>Estado de pago</th><th>Acciones</th></tr></thead><tbody>`;
+
+  if (listaOrdenada.length === 0) {
+    html += `<tr><td colspan="6" style="color: var(--gray); text-align:center;">No hay reservas cargadas todavía</td></tr>`;
+  }
+
+  listaOrdenada.forEach(r => {
+    const fechaFormateada = new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+    const esPasada = r.fecha < hoyStr;
+    const estadoBadge = r.estadoPago === 'Pagado' ? '✅ Pagado' : (r.estadoPago === 'Seña' ? '🟡 Seña' : '🔴 Pendiente');
+    html += `<tr style="${esPasada ? 'opacity:0.6;' : ''}">
+      <td><strong>${fechaFormateada}</strong>${esPasada ? ' <span style="font-size:10px; color: var(--gray);">(pasada)</span>' : ''}</td>
+      <td>${r.solicitante}</td>
+      <td style="white-space:nowrap;">${r.telefono || '-'}</td>
+      <td>$${(r.montoTotal || 0).toFixed(0)} <span style="font-size:10px; color: var(--gray);">(incl. $${(r.montoLimpieza || 0).toFixed(0)} limpieza)</span></td>
+      <td>${estadoBadge}</td>
+      <td>
+        <button class="btn-editar" onclick="abrirModalAlquiler(${r.id})">Editar</button>
+        <button class="btn-baja-rojo" onclick="eliminarAlquiler(${r.id})">Eliminar</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('tablaAlquileres').innerHTML = html;
+}
+
+function abrirModalAlquiler(idExistente) {
+  const editando = idExistente !== undefined;
+  const r = editando ? alquileresDB.find(x => x.id === idExistente) : null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar reserva' : '➕ Nueva reserva - Octógono + Parrillero'}</h2>
+      <label style="font-size:12px; font-weight:600;">Fecha</label>
+      <input type="date" id="alqFecha" value="${editando ? r.fecha : ''}">
+      <label style="font-size:12px; font-weight:600;">Solicitante</label>
+      <input type="text" id="alqSolicitante" placeholder="Nombre de quien alquila" value="${editando ? r.solicitante : ''}">
+      <label style="font-size:12px; font-weight:600;">Teléfono de contacto</label>
+      <input type="text" id="alqTelefono" placeholder="Teléfono" value="${editando ? (r.telefono || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Monto total</label>
+      <input type="number" id="alqMontoTotal" value="${editando ? r.montoTotal : 5000}" min="0">
+      <label style="font-size:12px; font-weight:600;">Incluye limpieza por</label>
+      <input type="number" id="alqMontoLimpieza" value="${editando ? r.montoLimpieza : 700}" min="0">
+      <label style="font-size:12px; font-weight:600;">Estado de pago</label>
+      <select id="alqEstadoPago">
+        <option value="Pendiente" ${editando && r.estadoPago === 'Pendiente' ? 'selected' : ''}>🔴 Pendiente</option>
+        <option value="Seña" ${editando && r.estadoPago === 'Seña' ? 'selected' : ''}>🟡 Seña entregada</option>
+        <option value="Pagado" ${editando && r.estadoPago === 'Pagado' ? 'selected' : ''}>✅ Pagado</option>
+      </select>
+      <label style="font-size:12px; font-weight:600;">Observaciones</label>
+      <textarea id="alqObservaciones" placeholder="Cualquier detalle adicional">${editando ? (r.observaciones || '') : ''}</textarea>
+      <button class="btn" onclick="guardarAlquiler(${editando ? idExistente : 'null'})">Guardar reserva</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarAlquiler(idExistente) {
+  const fecha = document.getElementById('alqFecha').value;
+  const solicitante = document.getElementById('alqSolicitante').value.trim();
+  const telefono = document.getElementById('alqTelefono').value.trim();
+  const montoTotal = parseFloat(document.getElementById('alqMontoTotal').value) || 0;
+  const montoLimpieza = parseFloat(document.getElementById('alqMontoLimpieza').value) || 0;
+  const estadoPago = document.getElementById('alqEstadoPago').value;
+  const observaciones = document.getElementById('alqObservaciones').value.trim();
+  const tesorero = localStorage.getItem('currentUser');
+
+  if (!fecha || !solicitante) {
+    alert('Fecha y solicitante son obligatorios');
+    return;
+  }
+
+  if (idExistente !== null && idExistente !== undefined) {
+    const r = alquileresDB.find(x => x.id === idExistente);
+    r.fecha = fecha; r.solicitante = solicitante; r.telefono = telefono;
+    r.montoTotal = montoTotal; r.montoLimpieza = montoLimpieza; r.estadoPago = estadoPago;
+    r.observaciones = observaciones;
+    alert('✅ Reserva actualizada');
+  } else {
+    const nuevoId = alquileresDB.length ? Math.max(...alquileresDB.map(x => x.id)) + 1 : 1;
+    alquileresDB.push({ id: nuevoId, fecha, solicitante, telefono, montoTotal, montoLimpieza, estadoPago, observaciones, registradoPor: tesorero });
+    alert('✅ Reserva creada');
+  }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaAlquileres();
+}
+
+function eliminarAlquiler(id) {
+  if (!confirm('¿Seguro que querés eliminar esta reserva?')) return;
+  alquileresDB = alquileresDB.filter(r => r.id !== id);
+  guardarTodo();
+  cargarTablaAlquileres();
 }
 
 // ===== TESORERO: registrar pago + recibo =====

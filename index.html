@@ -1122,7 +1122,7 @@ function cargarTablaProfesores() {
       <td>${nombreCompleto}</td>
       <td>${u.email}</td>
       <td><strong>${user}</strong></td>
-      <td>${u.telefono || '-'}</td>
+      <td style="white-space:nowrap;">${u.telefono || '-'}</td>
       <td><button class="btn-editar" onclick="abrirModalProfesor('${user}')">Editar</button></td>
     </tr>`;
   }

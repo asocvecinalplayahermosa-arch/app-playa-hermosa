@@ -577,6 +577,7 @@ function renderSecciones(rol) {
           <h2 style="color: var(--navy);">🎯 Actividades / Clases</h2>
           <div style="display:flex; gap:8px;">
             <button class="btn btn-small" onclick="cargarActividadesBaseDesdePlanilla()" style="width:auto; padding: 10px 14px; background:#6c757d;">📥 Cargar actividades de la planilla base</button>
+            <button class="btn btn-small" onclick="combinarActividadesRepetidas()" style="width:auto; padding: 10px 14px; background: var(--gold2);">🔗 Combinar repetidas</button>
             <button class="btn-add-circle" onclick="abrirModalActividad()" title="Agregar nueva actividad">+</button>
           </div>
         </div>
@@ -1549,29 +1550,50 @@ function abrirWhatsappProfesor(usuario) {
 
 // ===== ACTIVIDADES / CLASES (admin) =====
 function cargarTablaActividades() {
-  let html = `<table><thead><tr><th>Actividad</th><th>Profesor</th><th>Día</th><th>Hora</th><th>Inscriptos</th><th>Acciones</th></tr></thead><tbody>`;
-
-  if (actividadesDB.length === 0) {
-    html += `<tr><td colspan="6" style="color: var(--gray); text-align:center;">No hay actividades cargadas</td></tr>`;
-  }
+  const porDia = {};
+  DIAS_SEMANA.forEach(d => { porDia[d] = []; });
 
   actividadesDB.forEach(act => {
-    const prof = usuariosDB[act.profesor];
-    const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : act.profesor;
-    html += `<tr>
-      <td><strong>${act.titulo}</strong></td>
-      <td>${nombreProf}</td>
-      <td>${act.dia}</td>
-      <td>${act.hora}</td>
-      <td>${act.inscriptos.length}</td>
-      <td>
-        <button class="btn-editar" onclick="abrirModalActividad(${act.id})">Editar</button>
-        <button class="btn-baja-rojo" onclick="eliminarActividad(${act.id})">Eliminar</button>
-      </td>
-    </tr>`;
+    parsearDiasActividad(act.dia).forEach(d => {
+      if (porDia[d]) porDia[d].push(act);
+    });
   });
 
-  html += `</tbody></table>`;
+  DIAS_SEMANA.forEach(d => {
+    porDia[d].sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
+  });
+
+  let html = '';
+  let hayAlguna = false;
+
+  DIAS_SEMANA.forEach(d => {
+    if (porDia[d].length === 0) return;
+    hayAlguna = true;
+    html += `<h4 style="color: var(--navy); margin: 20px 0 10px 0; padding-bottom: 6px; border-bottom: 2px solid var(--gold);">${d}</h4>`;
+    html += `<table><thead><tr><th>Actividad</th><th>Profesor</th><th>Horario</th><th>Días en que se dicta</th><th>Inscriptos</th><th>Acciones</th></tr></thead><tbody>`;
+
+    porDia[d].forEach(act => {
+      const prof = usuariosDB[act.profesor];
+      const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : act.profesor;
+      const rangoHorario = act.horaFin ? `${act.hora} a ${act.horaFin}` : act.hora;
+      html += `<tr>
+        <td><strong>${act.titulo}</strong></td>
+        <td>${nombreProf}</td>
+        <td style="white-space:nowrap;">${rangoHorario}</td>
+        <td>${act.dia}</td>
+        <td>${act.inscriptos.length}</td>
+        <td>
+          <button class="btn-editar" onclick="abrirModalActividad(${act.id})">Editar</button>
+          <button class="btn-baja-rojo" onclick="eliminarActividad(${act.id})">Eliminar</button>
+        </td>
+      </tr>`;
+    });
+
+    html += `</tbody></table>`;
+  });
+
+  if (!hayAlguna) html = '<p style="color: var(--gray); text-align:center;">No hay actividades cargadas</p>';
+
   document.getElementById('tablaActividades').innerHTML = html;
 }
 
@@ -1652,6 +1674,53 @@ function eliminarActividad(id) {
   actividadesDB = actividadesDB.filter(a => a.id !== id);
   guardarTodo();
   cargarTablaActividades();
+}
+
+function combinarActividadesRepetidas() {
+  const confirmado = confirm('Esto va a combinar en una sola fila las actividades con el mismo título, profesor y horario que se repiten en distintos días (ej: "Gimnasia" en Lunes y en Jueves pasa a ser una sola fila "Lunes y Jueves").\n\n¿Continuar?');
+  if (!confirmado) return;
+
+  const grupos = {};
+  actividadesDB.forEach(act => {
+    const clave = `${act.titulo}|${act.hora}|${act.horaFin || ''}|${act.profesor}`;
+    if (!grupos[clave]) grupos[clave] = [];
+    grupos[clave].push(act);
+  });
+
+  const nuevaLista = [];
+  let siguienteId = 1;
+  let combinadas = 0;
+
+  Object.values(grupos).forEach(grupo => {
+    if (grupo.length === 1) {
+      nuevaLista.push({ ...grupo[0], id: siguienteId++ });
+    } else {
+      combinadas++;
+      const diasUnicos = [];
+      grupo.forEach(act => {
+        parsearDiasActividad(act.dia).forEach(d => { if (!diasUnicos.includes(d)) diasUnicos.push(d); });
+      });
+      diasUnicos.sort((a, b) => DIAS_SEMANA.indexOf(a) - DIAS_SEMANA.indexOf(b));
+      const diaCombinado = diasUnicos.join(' y ');
+      const inscriptosUnicos = [...new Set(grupo.flatMap(a => a.inscriptos))];
+
+      nuevaLista.push({
+        id: siguienteId++,
+        titulo: grupo[0].titulo,
+        profesor: grupo[0].profesor,
+        descripcion: grupo[0].descripcion,
+        dia: diaCombinado,
+        hora: grupo[0].hora,
+        horaFin: grupo[0].horaFin,
+        inscriptos: inscriptosUnicos
+      });
+    }
+  });
+
+  actividadesDB = nuevaLista;
+  guardarTodo();
+  cargarTablaActividades();
+  alert(`✅ Listo. Se combinaron ${combinadas} grupo(s) de actividades repetidas.`);
 }
 
 // ===== TESORERO =====

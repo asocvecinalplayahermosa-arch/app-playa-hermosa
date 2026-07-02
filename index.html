@@ -562,7 +562,10 @@ function renderSecciones(rol) {
 
         <div class="socios-toolbar" style="margin-top: 35px;">
           <h2 style="color: var(--navy);">🎯 Actividades / Clases</h2>
-          <button class="btn-add-circle" onclick="abrirModalActividad()" title="Agregar nueva actividad">+</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-small" onclick="cargarActividadesBaseDesdePlanilla()" style="width:auto; padding: 10px 14px; background:#6c757d;">📥 Cargar actividades de la planilla base</button>
+            <button class="btn-add-circle" onclick="abrirModalActividad()" title="Agregar nueva actividad">+</button>
+          </div>
         </div>
         <div id="tablaActividades"></div>
       </div>
@@ -633,6 +636,8 @@ function renderSecciones(rol) {
           <div><h2 id="carouselTitleS">Cargando...</h2><p id="carouselDescS">Por favor espera...</p></div>
           <div id="carouselIndS" class="carousel-indicators"></div>
         </div>
+        <button class="btn btn-small" onclick="toggleCalendarioSocio()" style="width:auto; padding: 12px 20px; margin: 20px 0; background: var(--navy2); font-weight:bold;">📅 Clases y Actividades</button>
+        <div id="calendarioSocioContainer" style="display:none; margin-bottom: 25px;"></div>
         <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Próximas actividades</h3>
         <div id="eventosLista"></div>
       </div>
@@ -1117,50 +1122,73 @@ function eliminarHorario(id) {
   cargarTablaHorarios();
 }
 
-// ===== HORARIOS: cargar planilla base histórica (transcripción de la foto) =====
+// ===== HORARIOS: planilla base histórica (transcripción de la foto) =====
+const PLANILLA_BASE_HORARIOS = [
+  { dia: 'Lunes', horaInicio: '10:15', horaFin: '11:45', actividad: 'Gimnasia' },
+  { dia: 'Lunes', horaInicio: '12:00', horaFin: '13:45', actividad: 'Gimnasia Entrenamiento' },
+  { dia: 'Lunes', horaInicio: '15:00', horaFin: '16:00', actividad: 'Yoga Terapéutico' },
+  { dia: 'Lunes', horaInicio: '18:00', horaFin: '19:00', actividad: 'Yoga' },
+
+  { dia: 'Martes', horaInicio: '09:00', horaFin: '12:00', actividad: 'Desarrollo social' },
+  { dia: 'Martes', horaInicio: '12:00', horaFin: '16:00', actividad: 'Psicólogo Municipal' },
+  { dia: 'Martes', horaInicio: '16:00', horaFin: '17:00', actividad: 'Yoga Terapéutico' },
+  { dia: 'Martes', horaInicio: '18:30', horaFin: '20:00', actividad: 'Danza Contemporánea' },
+  { dia: 'Martes', horaInicio: '20:00', horaFin: '21:00', actividad: 'Tango' },
+
+  { dia: 'Miércoles', horaInicio: '10:30', horaFin: '12:00', actividad: 'Psicoterapia' },
+  { dia: 'Miércoles', horaInicio: '13:00', horaFin: '14:30', actividad: 'UN3 - Plantas Medicinales' },
+  { dia: 'Miércoles', horaInicio: '15:00', horaFin: '16:00', actividad: 'Taichi' },
+  { dia: 'Miércoles', horaInicio: '17:00', horaFin: '18:30', actividad: 'Psicoterapia' },
+
+  { dia: 'Jueves', horaInicio: '09:00', horaFin: '10:00', actividad: 'Danza y estiramiento' },
+  { dia: 'Jueves', horaInicio: '10:15', horaFin: '11:45', actividad: 'Gimnasia' },
+  { dia: 'Jueves', horaInicio: '12:00', horaFin: '13:45', actividad: 'Gimnasia Entrenamiento' },
+  { dia: 'Jueves', horaInicio: '15:15', horaFin: '16:15', actividad: 'Taichi' },
+  { dia: 'Jueves', horaInicio: '16:30', horaFin: '17:30', actividad: 'Yoga' },
+
+  { dia: 'Viernes', horaInicio: '08:30', horaFin: '09:30', actividad: 'Chi Kung' },
+  { dia: 'Viernes', horaInicio: '10:30', horaFin: '12:00', actividad: 'Macramé' },
+  { dia: 'Viernes', horaInicio: '16:15', horaFin: '18:15', actividad: 'Yoga Terapia' },
+  { dia: 'Viernes', horaInicio: '18:15', horaFin: '20:15', actividad: 'Filosofía Contemporánea (cada 15 días, desde 06/03)' },
+
+  { dia: 'Sábado', horaInicio: '11:00', horaFin: '12:30', actividad: 'Psicoterapia' }
+];
+
 function cargarPlanillaBaseHorarios() {
   const confirmado = confirm('Esto va a agregar el horario histórico (transcripto de tu planilla en papel) al calendario actual.\n\nOJO: los horarios son una transcripción aproximada de una foto — revisalos y corregí lo que haga falta con el botón ✏️ de cada celda.\n\n¿Continuar?');
   if (!confirmado) return;
 
-  const base = [
-    { dia: 'Lunes', horaInicio: '10:15', horaFin: '11:45', estado: 'Ocupado', actividad: 'Gimnasia' },
-    { dia: 'Lunes', horaInicio: '12:00', horaFin: '13:45', estado: 'Ocupado', actividad: 'Gimnasia Entrenamiento' },
-    { dia: 'Lunes', horaInicio: '15:00', horaFin: '16:00', estado: 'Ocupado', actividad: 'Yoga Terapéutico' },
-    { dia: 'Lunes', horaInicio: '18:00', horaFin: '19:00', estado: 'Ocupado', actividad: 'Yoga' },
-
-    { dia: 'Martes', horaInicio: '09:00', horaFin: '12:00', estado: 'Ocupado', actividad: 'Desarrollo social' },
-    { dia: 'Martes', horaInicio: '12:00', horaFin: '16:00', estado: 'Ocupado', actividad: 'Psicólogo Municipal' },
-    { dia: 'Martes', horaInicio: '16:00', horaFin: '17:00', estado: 'Ocupado', actividad: 'Yoga Terapéutico' },
-    { dia: 'Martes', horaInicio: '18:30', horaFin: '20:00', estado: 'Ocupado', actividad: 'Danza Contemporánea' },
-    { dia: 'Martes', horaInicio: '20:00', horaFin: '21:00', estado: 'Ocupado', actividad: 'Tango' },
-
-    { dia: 'Miércoles', horaInicio: '10:30', horaFin: '12:00', estado: 'Ocupado', actividad: 'Psicoterapia' },
-    { dia: 'Miércoles', horaInicio: '13:00', horaFin: '14:30', estado: 'Ocupado', actividad: 'UN3 - Plantas Medicinales' },
-    { dia: 'Miércoles', horaInicio: '15:00', horaFin: '16:00', estado: 'Ocupado', actividad: 'Taichi' },
-    { dia: 'Miércoles', horaInicio: '17:00', horaFin: '18:30', estado: 'Ocupado', actividad: 'Psicoterapia' },
-
-    { dia: 'Jueves', horaInicio: '09:00', horaFin: '10:00', estado: 'Ocupado', actividad: 'Danza y estiramiento' },
-    { dia: 'Jueves', horaInicio: '10:15', horaFin: '11:45', estado: 'Ocupado', actividad: 'Gimnasia' },
-    { dia: 'Jueves', horaInicio: '12:00', horaFin: '13:45', estado: 'Ocupado', actividad: 'Gimnasia Entrenamiento' },
-    { dia: 'Jueves', horaInicio: '15:15', horaFin: '16:15', estado: 'Ocupado', actividad: 'Taichi' },
-    { dia: 'Jueves', horaInicio: '16:30', horaFin: '17:30', estado: 'Ocupado', actividad: 'Yoga' },
-
-    { dia: 'Viernes', horaInicio: '08:30', horaFin: '09:30', estado: 'Ocupado', actividad: 'Chi Kung' },
-    { dia: 'Viernes', horaInicio: '10:30', horaFin: '12:00', estado: 'Ocupado', actividad: 'Macramé' },
-    { dia: 'Viernes', horaInicio: '16:15', horaFin: '18:15', estado: 'Ocupado', actividad: 'Yoga Terapia' },
-    { dia: 'Viernes', horaInicio: '18:15', horaFin: '20:15', estado: 'Ocupado', actividad: 'Filosofía Contemporánea (cada 15 días, desde 06/03)' },
-
-    { dia: 'Sábado', horaInicio: '11:00', horaFin: '12:30', estado: 'Ocupado', actividad: 'Psicoterapia' }
-  ];
-
-  base.forEach(item => {
+  PLANILLA_BASE_HORARIOS.forEach(item => {
     const nuevoId = horariosDB.length ? Math.max(...horariosDB.map(x => x.id)) + 1 : 1;
-    horariosDB.push({ id: nuevoId, ...item });
+    horariosDB.push({ id: nuevoId, dia: item.dia, horaInicio: item.horaInicio, horaFin: item.horaFin, estado: 'Ocupado', actividad: item.actividad });
   });
 
   guardarTodo();
   cargarTablaHorarios();
   alert('✅ Planilla base cargada. Revisá los horarios y corregí lo que haga falta con "✏️" en cada celda.');
+}
+
+// ===== ACTIVIDADES: crear actividades inscribibles a partir de la planilla base =====
+function cargarActividadesBaseDesdePlanilla() {
+  const confirmado = confirm('Esto va a crear una actividad inscribible por cada clase de la planilla base, para que los socios puedan anotarse.\n\nOJO: todas quedan asignadas provisoriamente al profesor genérico "profesor" — vas a tener que reasignar cada una al profesor real desde Admin → Profesores → Actividades → Editar.\n\n¿Continuar?');
+  if (!confirmado) return;
+
+  PLANILLA_BASE_HORARIOS.forEach(item => {
+    const nuevoId = actividadesDB.length ? Math.max(...actividadesDB.map(a => a.id)) + 1 : 1;
+    actividadesDB.push({
+      id: nuevoId,
+      titulo: item.actividad,
+      profesor: 'profesor',
+      descripcion: 'Cargado desde la planilla base. Asigná el profesor correcto editando esta actividad.',
+      dia: item.dia,
+      hora: item.horaInicio,
+      inscriptos: []
+    });
+  });
+
+  guardarTodo();
+  cargarTablaActividades();
+  alert('✅ Actividades creadas. Ya podés reasignarlas al profesor correcto desde "🎯 Actividades / Clases" → Editar.');
 }
 
 // ===== EVENTOS =====
@@ -1954,6 +1982,7 @@ function anotarseActividad(id) {
     guardarTodo();
   }
   cargarEventosSocio();
+  if (document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
   alert('✅ ¡Te anotaste en ' + act.titulo + '!');
 }
 
@@ -1963,6 +1992,76 @@ function cancelarInscripcion(id) {
   act.inscriptos = act.inscriptos.filter(u => u !== usuarioActual);
   guardarTodo();
   cargarEventosSocio();
+  if (document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
+}
+
+// ===== SOCIO: calendario semanal de clases (para anotarse) =====
+function toggleCalendarioSocio() {
+  const cont = document.getElementById('calendarioSocioContainer');
+  if (cont.style.display === 'none') {
+    cont.style.display = 'block';
+    cargarCalendarioSocio();
+  } else {
+    cont.style.display = 'none';
+  }
+}
+
+function parsearDiasActividad(diaTexto) {
+  const texto = (diaTexto || '').toLowerCase();
+  return DIAS_SEMANA.filter(d => texto.includes(d.toLowerCase()));
+}
+
+function cargarCalendarioSocio() {
+  const usuarioActual = localStorage.getItem('currentUser');
+  const totalFilas = HORA_FIN_GRILLA - HORA_INICIO_GRILLA + 1;
+  const matriz = {};
+  DIAS_SEMANA.forEach(d => { matriz[d] = new Array(totalFilas).fill(null); });
+
+  actividadesDB.forEach(act => {
+    if (!act.hora) return;
+    const dias = parsearDiasActividad(act.dia);
+    const [h] = act.hora.split(':').map(Number);
+    const fila = h - HORA_INICIO_GRILLA;
+    if (fila < 0 || fila >= totalFilas) return;
+    dias.forEach(d => {
+      if (!matriz[d][fila]) matriz[d][fila] = [];
+      matriz[d][fila].push(act);
+    });
+  });
+
+  let html = '<p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Calendario semanal de clases. Tocá "Anotarme" en la que te guste.</p>';
+  html += '<div style="overflow-x:auto;"><table class="grilla-horarios"><thead><tr><th>Hora</th>';
+  DIAS_SEMANA.forEach(d => { html += `<th>${d}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  for (let fila = 0; fila < totalFilas; fila++) {
+    const hora = HORA_INICIO_GRILLA + fila;
+    html += `<tr><td class="hora-label">${hora}:00</td>`;
+    DIAS_SEMANA.forEach(d => {
+      const actividades = matriz[d][fila];
+      if (!actividades || actividades.length === 0) {
+        html += `<td class="celda-vacia"></td>`;
+      } else {
+        html += `<td class="celda-ocupada">`;
+        actividades.forEach(act => {
+          const inscripto = act.inscriptos.includes(usuarioActual);
+          html += `<div style="margin-bottom:8px;">
+            <strong>${act.titulo}</strong>
+            <span class="celda-horas">${act.hora} · ${act.inscriptos.length} inscriptos</span>
+            ${inscripto
+              ? `<button class="btn-baja-rojo" style="margin-top:4px; font-size:10px; padding:4px 6px;" onclick="cancelarInscripcion(${act.id})">Cancelar</button>`
+              : `<button class="btn-baja-verde" style="margin-top:4px; font-size:10px; padding:4px 6px;" onclick="anotarseActividad(${act.id})">Anotarme</button>`
+            }
+          </div>`;
+        });
+        html += `</td>`;
+      }
+    });
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+
+  document.getElementById('calendarioSocioContainer').innerHTML = html;
 }
 
 // ===== DASHBOARD =====

@@ -221,6 +221,17 @@
   .btn-add-circle:hover { background: var(--gold); }
   .socios-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
   select.causal-select { margin-bottom: 0; padding: 6px; font-size: 12px; }
+  .grilla-horarios { border-collapse: collapse; width: 100%; min-width: 700px; table-layout: fixed; }
+  .grilla-horarios th { background: var(--navy); color: white; padding: 8px 4px; font-size: 12px; text-align: center; }
+  .grilla-horarios td.hora-label { background: var(--cream); font-weight: bold; font-size: 12px; text-align: center; width: 60px; padding: 6px; border: 1px solid #eee; }
+  .grilla-horarios td.celda-vacia { border: 1px dashed #ddd; height: 40px; cursor: default; }
+  .grilla-horarios td.celda-vacia.clickeable { cursor: pointer; }
+  .grilla-horarios td.celda-vacia.clickeable:hover { background: var(--cream); }
+  .grilla-horarios td.celda-ocupada { background: #f8d7da; border: 1px solid #f1aeb5; font-size: 11px; padding: 6px 4px; vertical-align: top; }
+  .grilla-horarios td.celda-libre { background: #d4edda; border: 1px solid #a3d9b1; font-size: 11px; padding: 6px 4px; vertical-align: top; }
+  .grilla-horarios .celda-horas { color: #555; font-size: 10px; display:block; margin-top:2px; }
+  .grilla-horarios .celda-acciones { margin-top: 6px; display:flex; gap:4px; }
+  .grilla-horarios .celda-acciones button { border:none; background: rgba(255,255,255,0.7); border-radius:4px; cursor:pointer; font-size:11px; padding:2px 4px; }
 </style>
 </head>
 <body>
@@ -317,11 +328,19 @@ let noticiasDB = JSON.parse(localStorage.getItem('noticiasDB')) || [
   { id: 1, titulo: 'Comunicado importante', descripcion: 'Se realizarán trabajos de mantenimiento en la zona', tipo: 'noticia' }
 ];
 
+// Disponibilidad de horarios del espacio (el octógono), cargada por el admin
+let horariosDB = JSON.parse(localStorage.getItem('horariosDB')) || [
+  { id: 1, dia: 'Martes', horaInicio: '18:00', horaFin: '19:00', estado: 'Ocupado', actividad: 'Clase de Yoga' },
+  { id: 2, dia: 'Jueves', horaInicio: '18:00', horaFin: '19:00', estado: 'Ocupado', actividad: 'Clase de Yoga' },
+  { id: 3, dia: 'Viernes', horaInicio: '19:00', horaFin: '20:00', estado: 'Ocupado', actividad: 'Taller de Cocina' }
+];
+
 function guardarTodo() {
   localStorage.setItem('usuariosDB', JSON.stringify(usuariosDB));
   localStorage.setItem('actividadesDB', JSON.stringify(actividadesDB));
   localStorage.setItem('eventosDB', JSON.stringify(eventosDB));
   localStorage.setItem('noticiasDB', JSON.stringify(noticiasDB));
+  localStorage.setItem('horariosDB', JSON.stringify(horariosDB));
 }
 
 // ===== MIGRACIÓN: asegura que los socios ya guardados tengan los campos nuevos =====
@@ -467,6 +486,7 @@ function renderMenu(usuario) {
       { id: 'socios', label: '👥 Socios' },
       { id: 'tesorero', label: '💰 Tesorero' },
       { id: 'profesores', label: '👨‍🏫 Profesores' },
+      { id: 'horarios', label: '🗓️ Horarios' },
       { id: 'eventos', label: '📅 Eventos' },
       { id: 'noticias', label: '📢 Noticias' }
     ];
@@ -478,6 +498,7 @@ function renderMenu(usuario) {
   } else if (rol === 'profesor') {
     opciones = [
       { id: 'misactividades', label: '🎯 Mis Actividades' },
+      { id: 'disponibilidad', label: '📅 Disponibilidad' },
       { id: 'novedades', label: '📢 Novedades' }
     ];
   } else if (rol === 'socio') {
@@ -545,6 +566,17 @@ function renderSecciones(rol) {
         </div>
         <div id="tablaActividades"></div>
       </div>
+      <div id="horarios" class="section">
+        <div class="socios-toolbar">
+          <h2 style="color: var(--navy);">🗓️ Horarios del Octógono</h2>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-small" onclick="cargarPlanillaBaseHorarios()" style="width:auto; padding: 10px 14px; background:#6c757d;">📥 Cargar planilla base</button>
+            <button class="btn-add-circle" onclick="abrirModalHorario()" title="Agregar franja horaria">+</button>
+          </div>
+        </div>
+        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Disponibilidad semanal del espacio para el mes en curso. Tocá una celda vacía para agregar una franja, o "✏️" para editar una existente.</p>
+        <div id="tablaHorarios"></div>
+      </div>
       <div id="eventos" class="section">
         <div class="socios-toolbar">
           <h2 style="color: var(--navy);">📅 Eventos</h2>
@@ -578,6 +610,11 @@ function renderSecciones(rol) {
       <div id="misactividades" class="section active">
         <h2 style="color: var(--navy); margin-bottom: 20px;">🎯 Mis Actividades</h2>
         <div id="panelProfesor"></div>
+      </div>
+      <div id="disponibilidad" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📅 Disponibilidad de horarios - Mes en curso</h2>
+        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Franjas libres y ocupadas del espacio (el octógono) esta semana/mes. Si ves un horario libre que te interesa para sumar otra clase, contactá al administrador.</p>
+        <div id="tablaDisponibilidadProfesor"></div>
       </div>
       <div id="novedades" class="section">
         <h2 style="color: var(--navy); margin-bottom: 20px;">📢 Novedades</h2>
@@ -621,9 +658,11 @@ function renderSecciones(rol) {
     if (rol === 'admin') cargarTablaEventos();
     if (rol === 'admin') cargarTablaNoticias();
     if (rol === 'admin') { cargarTablaProfesores(); cargarTablaActividades(); }
+    if (rol === 'admin') cargarTablaHorarios();
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();
+    cargarDisponibilidadProfesor();
   } else if (rol === 'socio') {
     cargarPerfilSocio();
     cargarCarouselSocio();
@@ -937,6 +976,193 @@ function mostrarCumpleanosDelMes() {
   document.getElementById('tablaSocios').innerHTML = html;
 }
 
+// ===== HORARIOS DEL OCTÓGONO (admin + vista profesor) =====
+const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+const HORA_INICIO_GRILLA = 7;
+const HORA_FIN_GRILLA = 22;
+
+function construirMatrizHorarios() {
+  const totalFilas = HORA_FIN_GRILLA - HORA_INICIO_GRILLA + 1;
+  const matriz = {};
+  DIAS_SEMANA.forEach(d => { matriz[d] = new Array(totalFilas).fill(null); });
+
+  horariosDB.forEach(h => {
+    if (!DIAS_SEMANA.includes(h.dia) || !h.horaInicio || !h.horaFin) return;
+    const [hIniH, hIniM] = h.horaInicio.split(':').map(Number);
+    const [hFinH, hFinM] = h.horaFin.split(':').map(Number);
+    const filaInicio = hIniH - HORA_INICIO_GRILLA;
+    if (filaInicio < 0 || filaInicio >= totalFilas) return;
+    const minutosTotal = (hFinH * 60 + hFinM) - (hIniH * 60 + hIniM);
+    const rowspan = Math.max(1, Math.ceil(minutosTotal / 60));
+    matriz[h.dia][filaInicio] = { horario: h, rowspan };
+    for (let i = 1; i < rowspan && (filaInicio + i) < totalFilas; i++) {
+      matriz[h.dia][filaInicio + i] = 'ocupada_por_rowspan';
+    }
+  });
+
+  return matriz;
+}
+
+function generarGrillaHorariosHTML(soloLectura) {
+  const totalFilas = HORA_FIN_GRILLA - HORA_INICIO_GRILLA + 1;
+  const matriz = construirMatrizHorarios();
+
+  let html = '<div style="overflow-x:auto;"><table class="grilla-horarios"><thead><tr><th>Hora</th>';
+  DIAS_SEMANA.forEach(d => { html += `<th>${d}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  for (let fila = 0; fila < totalFilas; fila++) {
+    const hora = HORA_INICIO_GRILLA + fila;
+    html += `<tr><td class="hora-label">${hora}:00</td>`;
+    DIAS_SEMANA.forEach(d => {
+      const celda = matriz[d][fila];
+      if (celda === 'ocupada_por_rowspan') return;
+      if (celda && celda.horario) {
+        const h = celda.horario;
+        const colorClase = h.estado === 'Ocupado' ? 'celda-ocupada' : 'celda-libre';
+        const etiqueta = h.actividad || (h.estado === 'Libre' ? 'Libre' : '');
+        const acciones = (!soloLectura)
+          ? `<div class="celda-acciones"><button onclick="abrirModalHorario(${h.id})" title="Editar">✏️</button><button onclick="eliminarHorario(${h.id})" title="Eliminar">🗑️</button></div>`
+          : '';
+        html += `<td rowspan="${celda.rowspan}" class="${colorClase}"><strong>${etiqueta}</strong><span class="celda-horas">${h.horaInicio} a ${h.horaFin}</span>${acciones}</td>`;
+      } else {
+        const clickHandler = (!soloLectura) ? ` clickeable" onclick="abrirModalHorario(undefined, '${d}', '${String(hora).padStart(2,'0')}:00')` : '"';
+        html += `<td class="celda-vacia${clickHandler}></td>`;
+      }
+    });
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function cargarTablaHorarios() {
+  document.getElementById('tablaHorarios').innerHTML = generarGrillaHorariosHTML(false);
+}
+
+function cargarDisponibilidadProfesor() {
+  document.getElementById('tablaDisponibilidadProfesor').innerHTML = generarGrillaHorariosHTML(true);
+}
+
+function abrirModalHorario(idExistente, diaPrefill, horaPrefill) {
+  const editando = idExistente !== undefined;
+  const h = editando ? horariosDB.find(x => x.id === idExistente) : null;
+
+  let opcionesDias = DIAS_SEMANA.map(d => {
+    const seleccionado = editando ? (h.dia === d) : (diaPrefill === d);
+    return `<option value="${d}" ${seleccionado ? 'selected' : ''}>${d}</option>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar franja horaria' : '➕ Agregar franja horaria'}</h2>
+      <label style="font-size:12px; font-weight:600;">Día</label>
+      <select id="horDia">${opcionesDias}</select>
+      <label style="font-size:12px; font-weight:600;">Hora desde</label>
+      <input type="time" id="horDesde" value="${editando ? h.horaInicio : (horaPrefill || '')}">
+      <label style="font-size:12px; font-weight:600;">Hora hasta</label>
+      <input type="time" id="horHasta" value="${editando ? h.horaFin : ''}">
+      <label style="font-size:12px; font-weight:600;">Estado</label>
+      <select id="horEstado">
+        <option value="Libre" ${editando && h.estado === 'Libre' ? 'selected' : ''}>🟢 Libre</option>
+        <option value="Ocupado" ${(editando && h.estado === 'Ocupado') || !editando ? 'selected' : ''}>🔴 Ocupado</option>
+      </select>
+      <label style="font-size:12px; font-weight:600;">Actividad (si está ocupado)</label>
+      <input type="text" id="horActividad" placeholder="Ej: Clase de Yoga" value="${editando ? (h.actividad || '') : ''}">
+      <button class="btn" onclick="guardarHorario(${editando ? idExistente : 'null'})">Guardar franja</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarHorario(idExistente) {
+  const dia = document.getElementById('horDia').value;
+  const horaInicio = document.getElementById('horDesde').value;
+  const horaFin = document.getElementById('horHasta').value;
+  const estado = document.getElementById('horEstado').value;
+  const actividad = document.getElementById('horActividad').value.trim();
+
+  if (!dia || !horaInicio || !horaFin) {
+    alert('Completá día, hora desde y hora hasta');
+    return;
+  }
+
+  if (horaFin <= horaInicio) {
+    alert('La hora hasta debe ser posterior a la hora desde');
+    return;
+  }
+
+  if (idExistente !== null && idExistente !== undefined) {
+    const h = horariosDB.find(x => x.id === idExistente);
+    h.dia = dia; h.horaInicio = horaInicio; h.horaFin = horaFin; h.estado = estado; h.actividad = actividad;
+    alert('✅ Franja horaria actualizada');
+  } else {
+    const nuevoId = horariosDB.length ? Math.max(...horariosDB.map(x => x.id)) + 1 : 1;
+    horariosDB.push({ id: nuevoId, dia, horaInicio, horaFin, estado, actividad });
+    alert('✅ Franja horaria creada');
+  }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaHorarios();
+}
+
+function eliminarHorario(id) {
+  if (!confirm('¿Seguro que querés eliminar esta franja horaria?')) return;
+  horariosDB = horariosDB.filter(h => h.id !== id);
+  guardarTodo();
+  cargarTablaHorarios();
+}
+
+// ===== HORARIOS: cargar planilla base histórica (transcripción de la foto) =====
+function cargarPlanillaBaseHorarios() {
+  const confirmado = confirm('Esto va a agregar el horario histórico (transcripto de tu planilla en papel) al calendario actual.\n\nOJO: los horarios son una transcripción aproximada de una foto — revisalos y corregí lo que haga falta con el botón ✏️ de cada celda.\n\n¿Continuar?');
+  if (!confirmado) return;
+
+  const base = [
+    { dia: 'Lunes', horaInicio: '10:15', horaFin: '11:45', estado: 'Ocupado', actividad: 'Gimnasia' },
+    { dia: 'Lunes', horaInicio: '12:00', horaFin: '13:45', estado: 'Ocupado', actividad: 'Gimnasia Entrenamiento' },
+    { dia: 'Lunes', horaInicio: '15:00', horaFin: '16:00', estado: 'Ocupado', actividad: 'Yoga Terapéutico' },
+    { dia: 'Lunes', horaInicio: '18:00', horaFin: '19:00', estado: 'Ocupado', actividad: 'Yoga' },
+
+    { dia: 'Martes', horaInicio: '09:00', horaFin: '12:00', estado: 'Ocupado', actividad: 'Desarrollo social' },
+    { dia: 'Martes', horaInicio: '12:00', horaFin: '16:00', estado: 'Ocupado', actividad: 'Psicólogo Municipal' },
+    { dia: 'Martes', horaInicio: '16:00', horaFin: '17:00', estado: 'Ocupado', actividad: 'Yoga Terapéutico' },
+    { dia: 'Martes', horaInicio: '18:30', horaFin: '20:00', estado: 'Ocupado', actividad: 'Danza Contemporánea' },
+    { dia: 'Martes', horaInicio: '20:00', horaFin: '21:00', estado: 'Ocupado', actividad: 'Tango' },
+
+    { dia: 'Miércoles', horaInicio: '10:30', horaFin: '12:00', estado: 'Ocupado', actividad: 'Psicoterapia' },
+    { dia: 'Miércoles', horaInicio: '13:00', horaFin: '14:30', estado: 'Ocupado', actividad: 'UN3 - Plantas Medicinales' },
+    { dia: 'Miércoles', horaInicio: '15:00', horaFin: '16:00', estado: 'Ocupado', actividad: 'Taichi' },
+    { dia: 'Miércoles', horaInicio: '17:00', horaFin: '18:30', estado: 'Ocupado', actividad: 'Psicoterapia' },
+
+    { dia: 'Jueves', horaInicio: '09:00', horaFin: '10:00', estado: 'Ocupado', actividad: 'Danza y estiramiento' },
+    { dia: 'Jueves', horaInicio: '10:15', horaFin: '11:45', estado: 'Ocupado', actividad: 'Gimnasia' },
+    { dia: 'Jueves', horaInicio: '12:00', horaFin: '13:45', estado: 'Ocupado', actividad: 'Gimnasia Entrenamiento' },
+    { dia: 'Jueves', horaInicio: '15:15', horaFin: '16:15', estado: 'Ocupado', actividad: 'Taichi' },
+    { dia: 'Jueves', horaInicio: '16:30', horaFin: '17:30', estado: 'Ocupado', actividad: 'Yoga' },
+
+    { dia: 'Viernes', horaInicio: '08:30', horaFin: '09:30', estado: 'Ocupado', actividad: 'Chi Kung' },
+    { dia: 'Viernes', horaInicio: '10:30', horaFin: '12:00', estado: 'Ocupado', actividad: 'Macramé' },
+    { dia: 'Viernes', horaInicio: '16:15', horaFin: '18:15', estado: 'Ocupado', actividad: 'Yoga Terapia' },
+    { dia: 'Viernes', horaInicio: '18:15', horaFin: '20:15', estado: 'Ocupado', actividad: 'Filosofía Contemporánea (cada 15 días, desde 06/03)' },
+
+    { dia: 'Sábado', horaInicio: '11:00', horaFin: '12:30', estado: 'Ocupado', actividad: 'Psicoterapia' }
+  ];
+
+  base.forEach(item => {
+    const nuevoId = horariosDB.length ? Math.max(...horariosDB.map(x => x.id)) + 1 : 1;
+    horariosDB.push({ id: nuevoId, ...item });
+  });
+
+  guardarTodo();
+  cargarTablaHorarios();
+  alert('✅ Planilla base cargada. Revisá los horarios y corregí lo que haga falta con "✏️" en cada celda.');
+}
+
 // ===== EVENTOS =====
 function cargarTablaEventos() {
   let html = `<table><thead><tr><th>Título</th><th>Fecha</th><th>Hora</th><th>Descripción</th><th>Acciones</th></tr></thead><tbody>`;
@@ -1110,7 +1336,7 @@ function eliminarNoticia(id) {
 
 // ===== PROFESORES (admin) =====
 function cargarTablaProfesores() {
-  let html = `<table><thead><tr><th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Teléfono</th><th>Acciones</th></tr></thead><tbody>`;
+  let html = `<table><thead><tr><th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Teléfono</th><th>Acredita conocimiento en</th><th>Acciones</th></tr></thead><tbody>`;
   let hayProfesores = false;
 
   for (let user in usuariosDB) {
@@ -1123,11 +1349,12 @@ function cargarTablaProfesores() {
       <td>${u.email}</td>
       <td><strong>${user}</strong></td>
       <td style="white-space:nowrap;">${u.telefono || '-'}</td>
+      <td>${u.acreditacion || '-'}</td>
       <td><button class="btn-editar" onclick="abrirModalProfesor('${user}')">Editar</button></td>
     </tr>`;
   }
 
-  if (!hayProfesores) html += `<tr><td colspan="5" style="color: var(--gray); text-align:center;">No hay profesores registrados</td></tr>`;
+  if (!hayProfesores) html += `<tr><td colspan="6" style="color: var(--gray); text-align:center;">No hay profesores registrados</td></tr>`;
 
   html += `</tbody></table>`;
   document.getElementById('tablaProfesores').innerHTML = html;
@@ -1142,16 +1369,29 @@ function abrirModalProfesor(usuarioExistente) {
   overlay.innerHTML = `
     <div class="modal-content">
       <h2>${editando ? '✏️ Editar profesor' : '➕ Agregar nuevo profesor'}</h2>
-      <label style="font-size:12px; font-weight:600;">Nombre</label>
-      <input type="text" id="profNombre" placeholder="Nombre" value="${editando ? u.nombre : ''}">
+
+      <h3 style="color: var(--navy); font-size:14px; margin-bottom:10px;">📋 Información básica</h3>
+      <label style="font-size:12px; font-weight:600;">Nombres</label>
+      <input type="text" id="profNombre" placeholder="Nombres" value="${editando ? u.nombre : ''}">
       <label style="font-size:12px; font-weight:600;">Primer Apellido</label>
       <input type="text" id="profApellido1" placeholder="Primer apellido" value="${editando ? (u.apellido1 || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Segundo Apellido</label>
-      <input type="text" id="profApellido2" placeholder="Segundo apellido (opcional)" value="${editando ? (u.apellido2 || '') : ''}">
-      <label style="font-size:12px; font-weight:600;">Teléfono</label>
-      <input type="text" id="profTelefono" placeholder="Teléfono" value="${editando ? (u.telefono || '') : ''}">
+      <input type="text" id="profApellido2" placeholder="Segundo apellido" value="${editando ? (u.apellido2 || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Teléfono celular</label>
+      <input type="text" id="profTelefono" placeholder="Teléfono celular" value="${editando ? (u.telefono || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Correo electrónico</label>
       <input type="email" id="profEmail" placeholder="Correo electrónico" value="${editando ? u.email : ''}">
+      <label style="font-size:12px; font-weight:600;">Acreditación de conocimiento sobre la clase que dicta</label>
+      <textarea id="profAcreditacion" placeholder="Ej: Profesor de Yoga certificado, 5 años de experiencia">${editando ? (u.acreditacion || '') : ''}</textarea>
+
+      <h3 style="color: var(--navy); font-size:14px; margin: 20px 0 10px 0;">🗂️ Información adicional (opcional)</h3>
+      <label style="font-size:12px; font-weight:600;">Fecha de nacimiento</label>
+      <input type="date" id="profFechaNacimiento" value="${editando ? (u.fechaNacimiento || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Dirección</label>
+      <input type="text" id="profDireccion" placeholder="Dirección" value="${editando ? (u.direccion || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Otros datos</label>
+      <textarea id="profOtros" placeholder="Cualquier otro dato relevante">${editando ? (u.otros || '') : ''}</textarea>
+
       <button class="btn" onclick="guardarProfesor(${editando ? `'${usuarioExistente}'` : 'null'})">Guardar Profesor</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
@@ -1165,9 +1405,13 @@ function guardarProfesor(usuarioExistente) {
   const apellido2 = document.getElementById('profApellido2').value.trim();
   const telefono = document.getElementById('profTelefono').value.trim();
   const email = document.getElementById('profEmail').value.trim();
+  const acreditacion = document.getElementById('profAcreditacion').value.trim();
+  const fechaNacimiento = document.getElementById('profFechaNacimiento').value;
+  const direccion = document.getElementById('profDireccion').value.trim();
+  const otros = document.getElementById('profOtros').value.trim();
 
-  if (!nombre || !apellido1 || !email) {
-    alert('Nombre, primer apellido y email son obligatorios');
+  if (!nombre || !apellido1 || !telefono || !email || !acreditacion) {
+    alert('Nombres, primer apellido, teléfono, email y acreditación son obligatorios');
     return;
   }
 
@@ -1178,6 +1422,10 @@ function guardarProfesor(usuarioExistente) {
     u.apellido2 = apellido2;
     u.telefono = telefono;
     u.email = email;
+    u.acreditacion = acreditacion;
+    u.fechaNacimiento = fechaNacimiento;
+    u.direccion = direccion;
+    u.otros = otros;
     guardarTodo();
     document.querySelector('.modal-overlay').remove();
     cargarTablaProfesores();
@@ -1187,15 +1435,74 @@ function guardarProfesor(usuarioExistente) {
     const usuario = generarUsuario(nombre, apellido1, apellido2);
     usuariosDB[usuario] = {
       password: '1234',
-      nombre, apellido1, apellido2, telefono, email,
+      nombre, apellido1, apellido2, telefono, email, acreditacion, fechaNacimiento, direccion, otros,
       rol: 'profesor',
       passwordCambiada: false
     };
     guardarTodo();
     document.querySelector('.modal-overlay').remove();
     cargarTablaProfesores();
-    alert(`✅ Profesor creado con usuario: ${usuario}\nContraseña inicial: 1234`);
+    mostrarMensajeWhatsappProfesor(usuario);
   }
+}
+
+// ===== PROFESORES: mensaje de invitación por WhatsApp =====
+function generarMensajeProfesor(usuario) {
+  const u = usuariosDB[usuario];
+  const appUrl = localStorage.getItem('appUrl') || '[PEGÁ ACÁ EL LINK DE LA APP]';
+  return `¡Hola ${u.nombre}! 🌅 Ya podés acceder al portal de la Asociación Vecinal Playa Hermosa.\n\nLink: ${appUrl}\n\nUsuario: ${usuario}\nContraseña inicial: 1234\n\nLa primera vez que ingreses te va a pedir cambiar la contraseña por una más segura (mínimo 8 caracteres, con 1 mayúscula, 1 número y 1 símbolo).\n\n¡Cualquier duda me avisás!`;
+}
+
+function mostrarMensajeWhatsappProfesor(usuario) {
+  const u = usuariosDB[usuario];
+  const appUrlGuardada = localStorage.getItem('appUrl') || '';
+  const mensaje = generarMensajeProfesor(usuario);
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>✅ Profesor creado</h2>
+      <div class="card" style="border-left-color: var(--navy2);">
+        <p><strong>Nombre:</strong> ${u.nombre} ${u.apellido1 || ''}</p>
+        <p><strong>Usuario:</strong> ${usuario}</p>
+        <p><strong>Contraseña inicial:</strong> 1234</p>
+      </div>
+      <label style="font-size:12px; font-weight:600;">Link de la app (se guarda para la próxima vez)</label>
+      <input type="text" id="wappLink" placeholder="https://tuapp.vercel.app" value="${appUrlGuardada}">
+      <button class="btn btn-small" style="width:auto; background: var(--navy2);" onclick="actualizarMensajeWhatsapp('${usuario}')">🔄 Actualizar mensaje con el link</button>
+      <label style="font-size:12px; font-weight:600; margin-top:15px; display:block;">Mensaje listo para enviar</label>
+      <textarea id="wappMensaje" style="min-height:160px;">${mensaje}</textarea>
+      <button class="btn" style="background:#25D366;" onclick="abrirWhatsappProfesor('${usuario}')">💬 Abrir WhatsApp con este mensaje</button>
+      <button class="btn" style="background: var(--gold2); margin-top:10px;" onclick="copiarMensajeWhatsapp()">📋 Copiar mensaje</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function actualizarMensajeWhatsapp(usuario) {
+  const link = document.getElementById('wappLink').value.trim();
+  localStorage.setItem('appUrl', link);
+  document.getElementById('wappMensaje').value = generarMensajeProfesor(usuario);
+}
+
+function copiarMensajeWhatsapp() {
+  const texto = document.getElementById('wappMensaje').value;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(() => alert('✅ Mensaje copiado')).catch(() => alert('No se pudo copiar automáticamente. Seleccioná el texto y copiálo manualmente.'));
+  } else {
+    alert('No se pudo copiar automáticamente. Seleccioná el texto y copiálo manualmente.');
+  }
+}
+
+function abrirWhatsappProfesor(usuario) {
+  const u = usuariosDB[usuario];
+  const mensaje = document.getElementById('wappMensaje').value;
+  let numero = (u.telefono || '').replace(/\D/g, '');
+  if (numero && !numero.startsWith('598')) numero = '598' + numero.replace(/^0+/, '');
+  const url = numero ? `https://wa.me/${numero}?text=${encodeURIComponent(mensaje)}` : `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
+  window.open(url, '_blank');
 }
 
 // ===== ACTIVIDADES / CLASES (admin) =====

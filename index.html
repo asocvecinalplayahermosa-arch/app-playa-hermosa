@@ -273,21 +273,30 @@
     <h1>Playa Hermosa</h1>
     <p>PORTAL DEL SOCIO</p>
 
-    <button id="btnInstalarApp" onclick="instalarApp()" style="display:none; width:100%; margin: 15px 0; padding:14px; background: var(--navy2); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:14px;">📲 Instalar app en este celular</button>
-    <p id="estadoConexion" style="margin-bottom:15px; font-size:11px; color: var(--gold);">⏳ Conectando con la base de datos...</p>
-    <hr style="border: none; border-top: 1px solid #eee; margin: 10px 0 20px 0;">
+    <div id="pantallaInstalar">
+      <p style="font-size:13px; color: var(--text); margin: 15px 0;">Para una mejor experiencia, instalá la app en tu celular antes de ingresar.</p>
+      <button id="btnInstalarApp" onclick="instalarApp()" style="display:none; width:100%; margin-bottom:12px; padding:14px; background: var(--navy2); color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; font-size:14px;">📲 Instalar app en este celular</button>
+      <p id="estadoConexion" style="margin-bottom:15px; font-size:11px; color: var(--gold);">⏳ Conectando con la base de datos...</p>
+      <button onclick="mostrarLoginSinInstalar()" style="background:none; border:none; color: var(--navy2); font-size:12px; text-decoration:underline; cursor:pointer;">Ingresar sin instalar →</button>
+    </div>
 
-    <form id="loginForm" onsubmit="handleLogin(event)">
-      <div class="form-group">
-        <label>Usuario</label>
-        <input type="text" id="username" placeholder="Tu usuario" required>
-      </div>
-      <div class="form-group">
-        <label>Contraseña</label>
-        <input type="password" id="password" placeholder="Tu contraseña" required>
-      </div>
-      <button type="submit" class="btn">Ingresar</button>
-    </form>
+    <div id="formularioLoginWrapper" style="display:none;">
+      <hr style="border: none; border-top: 1px solid #eee; margin: 10px 0 20px 0;">
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Usuario</label>
+          <input type="text" id="username" placeholder="Tu usuario" required>
+        </div>
+        <div class="form-group">
+          <label>Contraseña</label>
+          <input type="password" id="password" placeholder="Tu contraseña" required>
+        </div>
+        <button type="submit" class="btn">Ingresar</button>
+      </form>
+      <p style="text-align:center; margin-top:12px;">
+        <button onclick="abrirModalRecuperarPassword()" style="background:none; border:none; color: var(--navy2); font-size:12px; text-decoration:underline; cursor:pointer;">¿Olvidaste tu contraseña?</button>
+      </p>
+    </div>
   </div>
 </div>
 
@@ -319,6 +328,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
 // ===== FIREBASE: conexión a la base de datos compartida en la nube =====
 const firebaseConfig = {
@@ -528,6 +538,13 @@ function handleLogout() {
   document.getElementById('loginPage').style.display = 'flex';
   document.getElementById('appPage').classList.remove('active');
   document.getElementById('loginForm').reset();
+
+  if (esStandalone()) {
+    mostrarLoginSinInstalar();
+  } else {
+    document.getElementById('pantallaInstalar').style.display = 'block';
+    document.getElementById('formularioLoginWrapper').style.display = 'none';
+  }
 }
 
 function pedirCambioPassword(usuario) {
@@ -2250,9 +2267,113 @@ window.addEventListener('appinstalled', () => {
   deferredInstallPrompt = null;
 });
 
+function esStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+// ===== RECUPERAR CONTRASEÑA (EmailJS) =====
+const EMAILJS_SERVICE_ID = 'service_plridiv';
+const EMAILJS_TEMPLATE_ID = 'f63lcmj';
+const EMAILJS_PUBLIC_KEY = '7CodbSG3llSJMEbD0';
+
+if (typeof emailjs !== 'undefined') {
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+}
+
+function generarPasswordTemporal() {
+  const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz';
+  const numeros = '23456789';
+  const simbolos = '!@#$%';
+  let pass = '';
+  pass += letras.charAt(Math.floor(Math.random() * letras.length)).toUpperCase();
+  pass += letras.charAt(Math.floor(Math.random() * letras.length)).toLowerCase();
+  pass += numeros.charAt(Math.floor(Math.random() * numeros.length));
+  pass += numeros.charAt(Math.floor(Math.random() * numeros.length));
+  pass += simbolos.charAt(Math.floor(Math.random() * simbolos.length));
+  for (let i = 0; i < 3; i++) pass += letras.charAt(Math.floor(Math.random() * letras.length));
+  return pass;
+}
+
+function abrirModalRecuperarPassword() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>🔑 Recuperar contraseña</h2>
+      <p style="font-size:13px; color:#666; margin-bottom:15px;">Ingresá tu usuario o tu correo electrónico registrado. Te vamos a enviar una contraseña temporal por email.</p>
+      <input type="text" id="recuperarInput" placeholder="Usuario o correo electrónico">
+      <button class="btn" id="btnEnviarRecuperacion" onclick="procesarRecuperarPassword()">Enviar contraseña temporal</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function procesarRecuperarPassword() {
+  const input = document.getElementById('recuperarInput').value.trim().toLowerCase();
+  if (!input) {
+    alert('Ingresá tu usuario o correo electrónico');
+    return;
+  }
+
+  let usuarioEncontrado = null;
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (user.toLowerCase() === input || (u.email && u.email.toLowerCase() === input)) {
+      usuarioEncontrado = user;
+      break;
+    }
+  }
+
+  if (!usuarioEncontrado) {
+    alert('No encontramos ninguna cuenta con ese usuario o correo. Verificá los datos o contactá al administrador.');
+    return;
+  }
+
+  const u = usuariosDB[usuarioEncontrado];
+  if (!u.email) {
+    alert('Esta cuenta no tiene un correo electrónico registrado. Pedile al administrador que te lo cargue o que te restablezca la contraseña manualmente.');
+    return;
+  }
+
+  const btn = document.getElementById('btnEnviarRecuperacion');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const nuevaPassword = generarPasswordTemporal();
+
+  emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+    to_name: u.nombre,
+    to_email: u.email,
+    to_username: usuarioEncontrado,
+    temp_password: nuevaPassword
+  }).then(() => {
+    u.password = nuevaPassword;
+    u.passwordCambiada = false;
+    guardarTodo();
+    document.querySelector('.modal-overlay').remove();
+    alert('✅ Te enviamos un correo a ' + u.email + ' con tu contraseña temporal. Revisá también la carpeta de spam.');
+  }).catch((err) => {
+    console.error('Error enviando email de recuperación:', err);
+    btn.disabled = false;
+    btn.textContent = 'Enviar contraseña temporal';
+    alert('❌ No se pudo enviar el correo. Intentá de nuevo en unos minutos, o contactá al administrador.');
+  });
+}
+
+function mostrarLoginSinInstalar() {
+  document.getElementById('pantallaInstalar').style.display = 'none';
+  document.getElementById('formularioLoginWrapper').style.display = 'block';
+}
+
 function onDatosListos() {
   const indicador = document.getElementById('estadoConexion');
   if (indicador) indicador.textContent = '✅ Conectado';
+
+  // Si la app ya está instalada (se abrió desde el ícono), saltamos directo al login
+  if (esStandalone()) {
+    mostrarLoginSinInstalar();
+  }
 
   const currentUser = localStorage.getItem('currentUser');
   if (currentUser && usuariosDB[currentUser]) {

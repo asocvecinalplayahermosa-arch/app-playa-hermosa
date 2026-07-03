@@ -262,6 +262,51 @@
   .grilla-horarios td.celda-clase .pill-btn { border:none; border-radius: 20px; font-size: 9.5px; font-weight: 700; padding: 3px 9px; margin-top: 4px; cursor: pointer; letter-spacing:0.2px; }
   .grilla-horarios td.celda-clase .pill-anotar { background: var(--navy2); color: white; }
   .grilla-horarios td.celda-clase .pill-cancelar { background: transparent; color: #A33; border: 1px solid #D99; }
+ @media (max-width: 600px) {
+  table:not(.grilla-horarios) thead { display: none; }
+  table:not(.grilla-horarios) tbody tr {
+    display: block;
+    background: white;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    box-shadow: 0 1px 4px rgba(7,41,74,0.08);
+  }
+  table:not(.grilla-horarios) tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f2f2f2;
+    text-align: right;
+    white-space: normal;
+  }
+  table:not(.grilla-horarios) tbody td:last-child { border-bottom: none; }
+  table:not(.grilla-horarios) tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--navy2);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    text-align: left;
+    margin-right: 10px;
+  }
+  table:not(.grilla-horarios) tbody td[data-label="Acciones"] {
+    display: block;
+    text-align: left;
+  }
+  table:not(.grilla-horarios) tbody td[data-label="Acciones"]::before {
+    display: block;
+    margin-bottom: 6px;
+  }
+  table:not(.grilla-horarios) tbody td[data-label="Acciones"] button {
+    display: inline-block;
+    margin: 3px 4px 3px 0;
+  }
+}
 </style>
 </head>
 <body>
@@ -1295,12 +1340,12 @@ function cargarTablaProfesores() {
     hayProfesores = true;
     const nombreCompleto = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
     html += `<tr>
-      <td>${nombreCompleto}</td>
-      <td>${u.email}</td>
-      <td><strong>${user}</strong></td>
-      <td style="white-space:nowrap;">${u.telefono || '-'}</td>
-      <td>${u.acreditacion || '-'}</td>
-      <td><button class="btn-editar" onclick="abrirModalProfesor('${user}')">Editar</button></td>
+      <td data-label="Nombre completo">${nombreCompleto}</td>
+      <td data-label="Email">${u.email}</td>
+      <td data-label="Usuario"><strong>${user}</strong></td>
+      <td data-label="Teléfono" style="white-space:nowrap;">${u.telefono || '-'}</td>
+      <td data-label="Acredita conocimiento en">${u.acreditacion || '-'}</td>
+      <td data-label="Acciones"><button class="btn-editar" onclick="abrirModalProfesor('${user}')">Editar</button></td>
     </tr>`;
   }
 
@@ -1673,11 +1718,11 @@ function cargarTablaDeudasTesorero() {
     if (u.rol === 'socio' && u.estado === 'Activo') {
       const estado = tieneCausalPorDeuda(u) ? '🔴 Causal por deuda' : (u.mesesEnDeuda >= 1 ? '⚠️ En deuda' : '✅ Al día');
       html += `<tr>
-        <td>${u.nombre} ${u.apellido1 || ''}</td>
-        <td>${u.mesesEnDeuda}</td>
-        <td>${(u.historialAvisos || []).length}</td>
-        <td>${estado}</td>
-        <td>
+        <td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td>
+        <td data-label="Meses en deuda">${u.mesesEnDeuda}</td>
+        <td data-label="Avisos enviados">${(u.historialAvisos || []).length}</td>
+        <td data-label="Estado">${estado}</td>
+        <td data-label="Acciones">
           <button class="btn-editar" onclick="abrirModalPago('${user}')">💰 Registrar pago</button>
           <button class="btn-baja-gris" onclick="abrirModalAviso('${user}')">📨 Enviar aviso</button>
           <button class="btn-baja-verde" onclick="abrirModalHistorialSocio('${user}')">📋 Historial</button>
@@ -1689,7 +1734,6 @@ function cargarTablaDeudasTesorero() {
   html += `</tbody>`;
   document.getElementById('tablaDeudasTesorero').innerHTML = html;
 }
-
 function guardarDeudasTesorero() {
   const usuario = document.getElementById('tesoreroSocio').value;
   const meses = parseInt(document.getElementById('tesoreroMeses').value) || 0;

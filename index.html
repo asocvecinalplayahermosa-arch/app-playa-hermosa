@@ -1529,12 +1529,12 @@ function cargarTablaActividades() {
       const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : act.profesor;
       const rangoHorario = act.horaFin ? `${act.hora} a ${act.horaFin}` : act.hora;
       html += `<tr>
-        <td><strong>${act.titulo}</strong></td>
-        <td>${nombreProf}</td>
-        <td style="white-space:nowrap;">${rangoHorario}</td>
-        <td>${act.dia}</td>
-        <td>${act.inscriptos.length}</td>
-        <td>
+        <td data-label="Actividad"><strong>${act.titulo}</strong></td>
+        <td data-label="Profesor">${nombreProf}</td>
+        <td data-label="Horario" style="white-space:nowrap;">${rangoHorario}</td>
+        <td data-label="Días en que se dicta">${act.dia}</td>
+        <td data-label="Inscriptos">${act.inscriptos.length}</td>
+        <td data-label="Acciones">
           <button class="btn-editar" onclick="abrirModalActividad(${act.id})">Editar</button>
           <button class="btn-baja-rojo" onclick="eliminarActividad(${act.id})">Eliminar</button>
         </td>

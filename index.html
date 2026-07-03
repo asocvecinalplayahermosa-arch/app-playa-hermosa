@@ -2265,6 +2265,7 @@ window.addEventListener('appinstalled', () => {
   const btn = document.getElementById('btnInstalarApp');
   if (btn) btn.style.display = 'none';
   deferredInstallPrompt = null;
+  mostrarLoginSinInstalar();
 });
 
 function esStandalone() {

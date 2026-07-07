@@ -817,7 +817,8 @@ function renderMenu(usuario) {
   } else if (rol === 'profesor') {
     opciones = [
       { id: 'misactividades', label: '🎯 Mis Actividades' },
-      { id: 'novedades', label: '📢 Novedades' }
+      { id: 'novedades', label: '📢 Novedades' },
+      { id: 'perfilProfesor', label: '👤 Mi Perfil' }
     ];
   }
 
@@ -959,6 +960,10 @@ function renderSecciones(rol) {
           <div id="carouselIndP" class="carousel-indicators"></div>
         </div>
       </div>
+      <div id="perfilProfesor" class="section">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">👤 Mi Perfil</h2>
+        <div id="datosPerfilProfesor"></div>
+      </div>
     `;
   } else if (rol === 'socio') {
     const usuario = localStorage.getItem('currentUser');
@@ -1088,6 +1093,7 @@ function renderSecciones(rol) {
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();
+    cargarPerfilProfesor();
   } else if (rol === 'socio') {
     cargarPerfilSocio();
     cargarCarouselSocio();
@@ -1707,8 +1713,9 @@ function guardarProfesor(usuarioExistente) {
     u.otros = otros;
     guardarTodo();
     document.querySelector('.modal-overlay').remove();
-    cargarTablaProfesores();
-    cargarTablaActividades();
+    if (document.getElementById('tablaProfesores')) cargarTablaProfesores();
+    if (document.getElementById('tablaActividades')) cargarTablaActividades();
+    if (document.getElementById('datosPerfilProfesor')) cargarPerfilProfesor();
     alert('✅ Profesor actualizado');
   } else {
     const usuario = generarUsuario(nombre, apellido1, apellido2);
@@ -2432,6 +2439,27 @@ function cargarCarouselProfesor() {
     currentIndex = (currentIndex + 1) % allItems.length;
     actualizar();
   }, 5000);
+}
+
+// ===== PROFESOR: ver y editar su propio perfil =====
+function cargarPerfilProfesor() {
+  const cont = document.getElementById('datosPerfilProfesor');
+  if (!cont) return;
+
+  const usuario = localStorage.getItem('currentUser');
+  const u = usuariosDB[usuario];
+
+  cont.innerHTML = `
+    <div class="card">
+      <p><strong>Nombre completo:</strong> ${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}</p>
+      <p><strong>Usuario:</strong> ${usuario}</p>
+      <p><strong>Correo electrónico:</strong> ${u.email}</p>
+      <p><strong>Teléfono celular:</strong> ${u.telefono || '-'}</p>
+      <p><strong>Acreditación:</strong> ${u.acreditacion || '-'}</p>
+      <p><strong>Dirección:</strong> ${u.direccion || '-'}</p>
+    </div>
+    <button class="btn" style="width:auto; padding:10px 20px;" onclick="abrirModalProfesor('${usuario}')">✏️ Editar mi perfil</button>
+  `;
 }
 
 // ===== SOCIO =====

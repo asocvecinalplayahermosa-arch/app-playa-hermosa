@@ -378,6 +378,58 @@ body {
   .re-icon-rosa { background: #FBE4E6; }
   .re-icon-azul { background: #E3F0FB; }
   .re-icon-violeta { background: #EDE7F9; }
+
+  /* ===== OCTÓGONO: reservas ===== */
+  .oct-back-link { color: rgba(255,255,255,0.85); font-size: 12px; text-decoration:none; cursor:pointer; display:inline-block; margin-bottom: 10px; }
+  .oct-header-card {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+    border-radius: 16px; padding: 20px; color: white; margin-bottom: 20px;
+  }
+  .oct-header-card h2 { font-size: 22px; margin-bottom: 4px; }
+  .oct-header-card p { font-size: 12px; opacity: 0.85; }
+  .oct-status-card {
+    display:flex; align-items:center; gap:10px; border-radius:12px; padding:12px 14px; margin-bottom:20px; font-size:13px;
+  }
+  .oct-status-ok { background:#E8F6EC; color:#1F6F3B; }
+  .oct-status-warn { background:#FDEDEC; color:#A33; }
+  .oct-status-icon { font-size:18px; }
+  .oct-tipo-card {
+    display:flex; align-items:center; gap:12px; border:2px solid #eee; border-radius:14px; padding:14px; margin-bottom:10px; cursor:pointer;
+  }
+  .oct-tipo-card.selected { border-color: var(--gold2); background:#FFF8E8; }
+  .oct-tipo-icon { width:42px; height:42px; border-radius:10px; background:var(--cream); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+  .oct-tipo-card .oct-tipo-nombre { font-weight:700; color:var(--navy); font-size:14px; }
+  .oct-tipo-card .oct-tipo-desc { font-size:11.5px; color:var(--gray); }
+  .oct-tipo-check { margin-left:auto; width:20px; height:20px; border-radius:50%; border:2px solid #ccc; }
+  .oct-tipo-card.selected .oct-tipo-check { border-color: var(--gold2); background: var(--gold2); }
+
+  .oct-calendar { background:white; border-radius:14px; padding:14px; box-shadow:0 1px 4px rgba(7,41,74,0.08); margin-bottom:20px; }
+  .oct-cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .oct-cal-header button { background:none; border:none; font-size:16px; cursor:pointer; color: var(--navy2); padding:4px 10px; }
+  .oct-cal-header span { font-weight:700; color: var(--navy); font-size:14px; text-transform:capitalize; }
+  .oct-cal-grid { display:grid; grid-template-columns: repeat(7, 1fr); gap:4px; text-align:center; }
+  .oct-cal-dow { font-size:10px; color: var(--gray); font-weight:700; padding-bottom:4px; }
+  .oct-cal-day { font-size:12px; padding:8px 0; border-radius:8px; color:#ccc; }
+  .oct-cal-day.habilitado { color: var(--navy); background:#F6F3EC; cursor:pointer; font-weight:600; }
+  .oct-cal-day.habilitado:hover { background: var(--gold2); color:white; }
+  .oct-cal-day.seleccionado { background: var(--gold2); color:white; }
+  .oct-cal-day.vacio { visibility:hidden; }
+
+  .oct-turno-card {
+    display:flex; align-items:center; gap:12px; border:2px solid #eee; border-radius:14px; padding:14px; margin-bottom:10px;
+  }
+  .oct-turno-card.disponible { cursor:pointer; }
+  .oct-turno-card.seleccionado { border-color: var(--gold2); background:#FFF8E8; }
+  .oct-turno-card.ocupado { opacity:0.55; }
+  .oct-turno-badge { margin-left:auto; font-size:10px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap; }
+  .oct-turno-badge.disp { background:var(--gold2); color:white; }
+  .oct-turno-badge.ocup { background:#e0e0e0; color:#888; }
+
+  .oct-resumen { background: var(--cream); border-radius:14px; padding:16px; margin-bottom:16px; }
+  .oct-resumen-row { display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px; }
+  .oct-resumen-row.total { font-weight:700; color:var(--navy); font-size:15px; border-top:1px solid #e5ddc8; padding-top:8px; margin-top:4px; }
+  .oct-warning { background:#fff3cd; color:#856404; font-size:11.5px; padding:12px; border-radius:10px; margin-bottom:16px; line-height:1.4; }
+
 </style>
 </head>
 <body>
@@ -577,6 +629,7 @@ function refrescarVistaActual() {
   if (document.getElementById('recientesListaSocio')) cargarRecientesSocio();
   if (document.getElementById('documentosListaSocio')) cargarDocumentosSocio();
   if (document.getElementById('historialAvisosSocio')) cargarHistorialAvisosSocio();
+  if (document.getElementById('octCalendario') && octEstado.fecha) dibujarTurnosOctogono();
   if (document.getElementById('totalSocios')) actualizarDashboard();
 }
 
@@ -767,6 +820,7 @@ function renderBottomNavSocio() {
   nav.innerHTML = `
     <button data-tab="inicio" onclick="mostrarSeccionSocio('inicio')"><span class="bn-icon">🏠</span>Inicio</button>
     <button data-tab="documentos" onclick="mostrarSeccionSocio('documentos')"><span class="bn-icon">📄</span>Documentos</button>
+    <button data-tab="octogono" onclick="mostrarSeccionSocio('octogono')"><span class="bn-icon">🏡</span>Octógono</button>
     <button data-tab="avisos" onclick="mostrarSeccionSocio('avisos')"><span class="bn-icon">🔔</span>Avisos</button>
     <button data-tab="perfil" onclick="mostrarSeccionSocio('perfil')"><span class="bn-icon">👤</span>Mi perfil</button>
   `;
@@ -901,7 +955,7 @@ function renderSecciones(rol) {
           <button class="quick-action-tile" onclick="mostrarSeccionSocio('documentos')">
             <span class="qa-icon">📄</span><span class="qa-label">Documentos</span>
           </button>
-          <button class="quick-action-tile" onclick="mostrarInfoOctogono()">
+          <button class="quick-action-tile" onclick="mostrarSeccionSocio('octogono')">
             <span class="qa-icon">🏡</span><span class="qa-label">Octógono</span>
           </button>
           <button class="quick-action-tile" onclick="toggleCalendarioSocio()">
@@ -928,6 +982,21 @@ function renderSecciones(rol) {
         <div id="documentosListaSocio"></div>
       </div>
 
+      <div id="octogono" class="section app-shell-socio">
+        <a class="oct-back-link" onclick="mostrarSeccionSocio('inicio')" style="color: var(--navy2);">← Inicio</a>
+        <div class="oct-header-card">
+          <h2>Octógono</h2>
+          <p>Reservá el espacio</p>
+        </div>
+        <div id="octEstadoSocio"></div>
+        <h3 style="color: var(--navy); margin-bottom: 12px; font-size:15px;">¿Qué querés reservar?</h3>
+        <div id="octTipoReserva"></div>
+        <h3 style="color: var(--navy); margin: 20px 0 12px 0; font-size:15px;">Seleccioná una fecha</h3>
+        <div class="oct-calendar" id="octCalendario"></div>
+        <div id="octTurnosContainer"></div>
+        <div id="octResumenContainer"></div>
+      </div>
+
       <div id="avisos" class="section app-shell-socio">
         <h2 style="color: var(--navy); margin-bottom: 20px;">🔔 Avisos</h2>
         <div id="avisoDeudaSocio"></div>
@@ -936,6 +1005,7 @@ function renderSecciones(rol) {
 
       <div id="perfil" class="section app-shell-socio">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👤 Mi Perfil</h2>
+
         <div style="text-align:center; margin-bottom:20px;">
           <div class="avatar-circle" style="width:90px;height:90px;font-size:32px;margin:0 auto;" onclick="document.getElementById('inputFotoPerfil').click()">
             ${u.fotoPerfil ? `<img src="${u.fotoPerfil}">` : inicial}
@@ -971,6 +1041,7 @@ function renderSecciones(rol) {
     cargarRecientesSocio();
     cargarDocumentosSocio();
     cargarHistorialAvisosSocio();
+    renderOctogonoSocio();
   }
 }
 
@@ -1859,7 +1930,7 @@ function cargarPanelTesorero() {
       <h3 style="color: var(--navy);">🏡 Alquiler Octógono + Parrillero</h3>
       <button class="btn-add-circle" onclick="abrirModalAlquiler()" title="Nueva reserva">+</button>
     </div>
-    <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Modalidad única actual: $5000 total (incluye $700 de limpieza).</p>
+    <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Tarifas: Socios $4.500 · No socios $6.000 (incluye $700 de limpieza). Seña 30% al reservar, saldo al retirar la llave.</p>
     <div id="resumenAlquileres"></div>
     <div id="tablaAlquileres"></div>
   `;
@@ -1925,18 +1996,20 @@ function cargarTablaAlquileres() {
   </div>`;
   document.getElementById('resumenAlquileres').innerHTML = resumenHtml;
 
-  let html = `<table><thead><tr><th>Fecha</th><th>Solicitante</th><th>Teléfono</th><th>Monto</th><th>Estado de pago</th><th>Acciones</th></tr></thead><tbody>`;
+  let html = `<table><thead><tr><th>Fecha</th><th>Turno</th><th>Solicitante</th><th>Teléfono</th><th>Monto</th><th>Estado de pago</th><th>Acciones</th></tr></thead><tbody>`;
 
   if (listaOrdenada.length === 0) {
-    html += `<tr><td colspan="6" style="color: var(--gray); text-align:center;">No hay reservas cargadas todavía</td></tr>`;
+    html += `<tr><td colspan="7" style="color: var(--gray); text-align:center;">No hay reservas cargadas todavía</td></tr>`;
   }
 
   listaOrdenada.forEach(r => {
     const fechaFormateada = new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-ES');
     const esPasada = r.fecha < hoyStr;
     const estadoBadge = r.estadoPago === 'Pagado' ? '✅ Pagado' : (r.estadoPago === 'Seña' ? '🟡 Seña' : '🔴 Pendiente');
+    const origenBadge = r.origen === 'socio' ? ' <span style="font-size:9px; background:var(--gold2); color:white; padding:2px 6px; border-radius:8px;">Desde la app</span>' : '';
     html += `<tr style="${esPasada ? 'opacity:0.6;' : ''}">
       <td><strong>${fechaFormateada}</strong>${esPasada ? ' <span style="font-size:10px; color: var(--gray);">(pasada)</span>' : ''}</td>
+      <td data-label="Turno">${r.turnoLabel || '-'}${origenBadge}</td>
       <td>${r.solicitante}</td>
       <td style="white-space:nowrap;">${r.telefono || '-'}</td>
       <td>$${(r.montoTotal || 0).toFixed(0)} <span style="font-size:10px; color: var(--gray);">(incl. $${(r.montoLimpieza || 0).toFixed(0)} limpieza)</span></td>
@@ -2356,9 +2429,276 @@ function cargarHistorialAvisosSocio() {
   cont.innerHTML = html;
 }
 
-// ===== SOCIO: info del Octógono (acceso rápido) =====
-function mostrarInfoOctogono() {
-  alert('🏡 Alquiler Octógono + Parrillero\n\nSocios: $4.500\nNo socios: $6.000\nSocios (día de cumpleaños): $2.000\n\n(Incluye limpieza)\n\nPara reservar, comunicate con la Comisión Directiva.');
+// ===== SOCIO: sistema de reservas del Octógono =====
+const PRECIO_OCTOGONO_SOCIO = 4500;
+const PRECIO_OCTOGONO_CUMPLE = 2000;
+const MONTO_LIMPIEZA_OCTOGONO = 700;
+const SENA_PORCENTAJE_OCTOGONO = 0.30;
+
+const TURNOS_OCTOGONO = [
+  { id: 'manana_tarde', label: 'Turno mañana/tarde', horaInicio: '12:00', horaFin: '18:30' },
+  { id: 'noche', label: 'Turno noche', horaInicio: '19:00', horaFin: '02:00' }
+];
+
+let octEstado = { tipo: 'salon', fecha: null, turno: null, anio: null, mes: null };
+
+function esCumpleaniosHoy(fechaNacimiento) {
+  if (!fechaNacimiento) return false;
+  const hoy = new Date();
+  const nac = new Date(fechaNacimiento + 'T00:00:00');
+  return hoy.getMonth() === nac.getMonth() && hoy.getDate() === nac.getDate();
+}
+
+function calcularPrecioOctogonoSocio(usuario) {
+  const u = usuariosDB[usuario];
+  return esCumpleaniosHoy(u.fechaNacimiento) ? PRECIO_OCTOGONO_CUMPLE : PRECIO_OCTOGONO_SOCIO;
+}
+
+function horaAMinutos(h) {
+  const [hh, mm] = h.split(':').map(Number);
+  return hh * 60 + mm;
+}
+
+function rangosSeSuperponen(inicio1, fin1, inicio2, fin2) {
+  // maneja turnos que cruzan la medianoche (ej: 19:00 a 02:00)
+  const a1 = horaAMinutos(inicio1);
+  let b1 = horaAMinutos(fin1);
+  if (b1 <= a1) b1 += 24 * 60;
+  const a2 = horaAMinutos(inicio2);
+  let b2 = horaAMinutos(fin2);
+  if (b2 <= a2) b2 += 24 * 60;
+  return a1 < b2 && a2 < b1;
+}
+
+function turnoOcupado(fechaISO, turnoId) {
+  const turno = TURNOS_OCTOGONO.find(t => t.id === turnoId);
+
+  // ¿ya hay una reserva de alquiler en ese mismo día y turno?
+  const yaReservado = alquileresDB.some(r => r.fecha === fechaISO && r.turno === turnoId);
+  if (yaReservado) return true;
+
+  // ¿hay una actividad/clase ya asignada que se superponga con el horario del turno?
+  const dow = new Date(fechaISO + 'T00:00:00').getDay(); // 0=domingo...6=sábado
+  const nombresDia = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const diaTexto = nombresDia[dow];
+
+  const hayConflictoActividad = actividadesDB.some(act => {
+    if (!act.hora) return false;
+    const dias = parsearDiasActividad(act.dia);
+    if (!dias.includes(diaTexto)) return false;
+    const finActividad = act.horaFin || act.hora;
+    return rangosSeSuperponen(turno.horaInicio, turno.horaFin, act.hora, finActividad);
+  });
+
+  return hayConflictoActividad;
+}
+
+function renderOctogonoSocio() {
+  const usuario = localStorage.getItem('currentUser');
+  const u = usuariosDB[usuario];
+
+  // Estado de cuota
+  const estadoDiv = document.getElementById('octEstadoSocio');
+  if (estadoDiv) {
+    const alDia = !(u.mesesEnDeuda > 0);
+    estadoDiv.innerHTML = `
+      <div class="oct-status-card ${alDia ? 'oct-status-ok' : 'oct-status-warn'}">
+        <span class="oct-status-icon">${alDia ? '✅' : '⚠️'}</span>
+        <span><strong>${u.nombre}</strong> — ${alDia ? 'Cuota al día' : 'Tenés cuota pendiente'}</span>
+      </div>
+    `;
+  }
+
+  // Tipo de reserva (por ahora solo Salón, incluye Parrillero)
+  const tipoDiv = document.getElementById('octTipoReserva');
+  if (tipoDiv) {
+    tipoDiv.innerHTML = `
+      <div class="oct-tipo-card selected">
+        <div class="oct-tipo-icon">🏛️</div>
+        <div>
+          <div class="oct-tipo-nombre">Salón</div>
+          <div class="oct-tipo-desc">Incluye el uso del parrillero</div>
+        </div>
+        <div class="oct-tipo-check"></div>
+      </div>
+      <div class="oct-tipo-card" style="opacity:0.5; cursor:default;">
+        <div class="oct-tipo-icon">🔥</div>
+        <div>
+          <div class="oct-tipo-nombre">Solo Parrillero</div>
+          <div class="oct-tipo-desc">Próximamente (falta acondicionar el baño)</div>
+        </div>
+      </div>
+    `;
+  }
+
+  const hoy = new Date();
+  octEstado.anio = hoy.getFullYear();
+  octEstado.mes = hoy.getMonth();
+  octEstado.fecha = null;
+  octEstado.turno = null;
+
+  dibujarCalendarioOctogono();
+  document.getElementById('octTurnosContainer').innerHTML = '';
+  document.getElementById('octResumenContainer').innerHTML = '';
+}
+
+function cambiarMesOctogono(delta) {
+  octEstado.mes += delta;
+  if (octEstado.mes < 0) { octEstado.mes = 11; octEstado.anio--; }
+  if (octEstado.mes > 11) { octEstado.mes = 0; octEstado.anio++; }
+  dibujarCalendarioOctogono();
+}
+
+function dibujarCalendarioOctogono() {
+  const cont = document.getElementById('octCalendario');
+  if (!cont) return;
+
+  const nombresMes = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const anio = octEstado.anio;
+  const mes = octEstado.mes;
+
+  const primerDia = new Date(anio, mes, 1);
+  const diasEnMes = new Date(anio, mes + 1, 0).getDate();
+  const offset = primerDia.getDay(); // 0=domingo
+
+  const hoyISO = new Date().toISOString().split('T')[0];
+
+  let html = `
+    <div class="oct-cal-header">
+      <button onclick="cambiarMesOctogono(-1)">‹</button>
+      <span>${nombresMes[mes]} ${anio}</span>
+      <button onclick="cambiarMesOctogono(1)">›</button>
+    </div>
+    <div class="oct-cal-grid">
+      <div class="oct-cal-dow">D</div><div class="oct-cal-dow">L</div><div class="oct-cal-dow">M</div>
+      <div class="oct-cal-dow">M</div><div class="oct-cal-dow">J</div><div class="oct-cal-dow">V</div><div class="oct-cal-dow">S</div>
+  `;
+
+  for (let i = 0; i < offset; i++) html += `<div class="oct-cal-day vacio"></div>`;
+
+  for (let dia = 1; dia <= diasEnMes; dia++) {
+    const fechaObj = new Date(anio, mes, dia);
+    const dow = fechaObj.getDay();
+    const fechaISO = `${anio}-${String(mes+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+    const esFinde = (dow === 5 || dow === 6 || dow === 0); // viernes, sábado, domingo
+    const esPasado = fechaISO < hoyISO;
+    const habilitado = esFinde && !esPasado;
+    const seleccionado = fechaISO === octEstado.fecha;
+
+    let clase = 'oct-cal-day';
+    if (habilitado) clase += ' habilitado';
+    if (seleccionado) clase += ' seleccionado';
+
+    html += `<div class="${clase}" ${habilitado ? `onclick="seleccionarFechaOctogono('${fechaISO}')"` : ''}>${dia}</div>`;
+  }
+
+  html += `</div>`;
+  cont.innerHTML = html;
+}
+
+function seleccionarFechaOctogono(fechaISO) {
+  octEstado.fecha = fechaISO;
+  octEstado.turno = null;
+  dibujarCalendarioOctogono();
+  dibujarTurnosOctogono();
+  document.getElementById('octResumenContainer').innerHTML = '';
+}
+
+function dibujarTurnosOctogono() {
+  const cont = document.getElementById('octTurnosContainer');
+  if (!cont || !octEstado.fecha) return;
+
+  const fechaFormateada = new Date(octEstado.fecha + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  let html = `<h3 style="color: var(--navy); margin: 20px 0 12px 0; font-size:15px; text-transform:capitalize;">Turnos — ${fechaFormateada}</h3>`;
+
+  TURNOS_OCTOGONO.forEach(t => {
+    const ocupado = turnoOcupado(octEstado.fecha, t.id);
+    const seleccionado = octEstado.turno === t.id;
+    let clase = 'oct-turno-card';
+    if (ocupado) clase += ' ocupado'; else clase += ' disponible';
+    if (seleccionado) clase += ' seleccionado';
+
+    html += `
+      <div class="${clase}" ${!ocupado ? `onclick="seleccionarTurnoOctogono('${t.id}')"` : ''}>
+        <div class="oct-tipo-icon">🕐</div>
+        <div>
+          <div class="oct-tipo-nombre">${t.label}</div>
+          <div class="oct-tipo-desc">${t.horaInicio} a ${t.horaFin} hs</div>
+        </div>
+        <span class="oct-turno-badge ${ocupado ? 'ocup' : 'disp'}">${ocupado ? 'OCUPADO' : 'DISPONIBLE'}</span>
+      </div>
+    `;
+  });
+
+  cont.innerHTML = html;
+}
+
+function seleccionarTurnoOctogono(turnoId) {
+  octEstado.turno = turnoId;
+  dibujarTurnosOctogono();
+  dibujarResumenOctogono();
+}
+
+function dibujarResumenOctogono() {
+  const cont = document.getElementById('octResumenContainer');
+  if (!cont) return;
+
+  const usuario = localStorage.getItem('currentUser');
+  const precio = calcularPrecioOctogonoSocio(usuario);
+  const sena = Math.round(precio * SENA_PORCENTAJE_OCTOGONO);
+  const saldo = precio - sena;
+
+  cont.innerHTML = `
+    <h3 style="color: var(--navy); margin: 20px 0 12px 0; font-size:15px;">Resumen</h3>
+    <div class="oct-resumen">
+      <div class="oct-resumen-row"><span>🏛️ Salón + 🔥 Parrillero + limpieza</span><span>$${precio.toLocaleString('es-UY')}</span></div>
+      <div class="oct-resumen-row"><span>Seña (30%, al confirmar la reserva)</span><span style="color:#A33; font-weight:700;">$${sena.toLocaleString('es-UY')}</span></div>
+      <div class="oct-resumen-row total"><span>Saldo restante (al retirar la llave)</span><span>$${saldo.toLocaleString('es-UY')}</span></div>
+    </div>
+    <div class="oct-warning">
+      ⚠️ Al devolver la llave se realizará una inspección del local. Cualquier daño o rotura constatado será facturado al socio responsable de la reserva, con independencia del monto ya abonado.
+    </div>
+    <button class="btn" onclick="confirmarReservaOctogono()">Confirmar reserva</button>
+  `;
+}
+
+function confirmarReservaOctogono() {
+  if (!octEstado.fecha || !octEstado.turno) {
+    alert('Elegí una fecha y un turno antes de confirmar');
+    return;
+  }
+
+  const usuario = localStorage.getItem('currentUser');
+  const u = usuariosDB[usuario];
+  const precio = calcularPrecioOctogonoSocio(usuario);
+  const turnoInfo = TURNOS_OCTOGONO.find(t => t.id === octEstado.turno);
+
+  const nuevoId = alquileresDB.length ? Math.max(...alquileresDB.map(x => x.id)) + 1 : 1;
+  alquileresDB.push({
+    id: nuevoId,
+    fecha: octEstado.fecha,
+    turno: octEstado.turno,
+    turnoLabel: turnoInfo.label,
+    solicitante: `${u.nombre} ${u.apellido1 || ''}`.trim(),
+    telefono: u.telefono || '',
+    montoTotal: precio,
+    montoLimpieza: MONTO_LIMPIEZA_OCTOGONO,
+    estadoPago: 'Pendiente',
+    observaciones: `Reserva realizada por el socio desde la app. Tipo: Salón (incluye parrillero).`,
+    registradoPor: usuario,
+    origen: 'socio'
+  });
+
+  guardarTodo();
+
+  alert(`✅ ¡Reserva solicitada!\n\n${turnoInfo.label} — ${new Date(octEstado.fecha + 'T00:00:00').toLocaleDateString('es-ES')}\n\nRecordá abonar la seña de $${Math.round(precio * SENA_PORCENTAJE_OCTOGONO).toLocaleString('es-UY')} para confirmarla con la Comisión Directiva.`);
+
+  octEstado.fecha = null;
+  octEstado.turno = null;
+  dibujarCalendarioOctogono();
+  document.getElementById('octTurnosContainer').innerHTML = '';
+  document.getElementById('octResumenContainer').innerHTML = '';
 }
 
 // ===== SOCIO: subir y comprimir foto de perfil =====

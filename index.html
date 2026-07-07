@@ -262,110 +262,119 @@
   .grilla-horarios td.celda-clase .pill-btn { border:none; border-radius: 20px; font-size: 9.5px; font-weight: 700; padding: 3px 9px; margin-top: 4px; cursor: pointer; letter-spacing:0.2px; }
   .grilla-horarios td.celda-clase .pill-anotar { background: var(--navy2); color: white; }
   .grilla-horarios td.celda-clase .pill-cancelar { background: transparent; color: #A33; border: 1px solid #D99; }
- @media (max-width: 600px) {
-  table:not(.grilla-horarios) thead { display: none; }
-  table:not(.grilla-horarios) tbody tr {
-    display: block;
-    background: white;
-    border: 1px solid #eee;
-    border-radius: 10px;
-    margin-bottom: 12px;
-    padding: 10px 12px;
-    box-shadow: 0 1px 4px rgba(7,41,74,0.08);
+  @media (max-width: 600px) {
+    table:not(.grilla-horarios) thead { display: none; }
+    table:not(.grilla-horarios) tbody tr {
+      display: block;
+      background: white;
+      border: 1px solid #eee;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      box-shadow: 0 1px 4px rgba(7,41,74,0.08);
+    }
+    table:not(.grilla-horarios) tbody td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid #f2f2f2;
+      text-align: right;
+      white-space: normal;
+    }
+    table:not(.grilla-horarios) tbody td:last-child { border-bottom: none; }
+    table:not(.grilla-horarios) tbody td::before {
+      content: attr(data-label);
+      font-weight: 600;
+      color: var(--navy2);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      text-align: left;
+      margin-right: 10px;
+    }
+    table:not(.grilla-horarios) tbody td[data-label="Acciones"] {
+      display: block;
+      text-align: left;
+    }
+    table:not(.grilla-horarios) tbody td[data-label="Acciones"]::before {
+      display: block;
+      margin-bottom: 6px;
+    }
+    table:not(.grilla-horarios) tbody td[data-label="Acciones"] button {
+      display: inline-block;
+      margin: 3px 4px 3px 0;
+    }
   }
-  table:not(.grilla-horarios) tbody td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 0;
-    border-bottom: 1px solid #f2f2f2;
-    text-align: right;
-    white-space: normal;
+  .app-shell-socio { padding-bottom: 80px; }
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: white; display: flex; justify-content: space-around;
+    padding: 8px 0 6px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 500;
   }
-  table:not(.grilla-horarios) tbody td:last-child { border-bottom: none; }
-  table:not(.grilla-horarios) tbody td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: var(--navy2);
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    text-align: left;
-    margin-right: 10px;
+  .bottom-nav button {
+    background: none; border: none; display: flex; flex-direction: column;
+    align-items: center; gap: 2px; font-size: 10px; color: var(--gray);
+    cursor: pointer; padding: 4px 10px; font-family: inherit;
   }
-  table:not(.grilla-horarios) tbody td[data-label="Acciones"] {
-    display: block;
-    text-align: left;
-  }
-  table:not(.grilla-horarios) tbody td[data-label="Acciones"]::before {
-    display: block;
-    margin-bottom: 6px;
-  }
-  table:not(.grilla-horarios) tbody td[data-label="Acciones"] button {
-    display: inline-block;
-    margin: 3px 4px 3px 0;
-  }
-}
- .app-shell-socio { padding-bottom: 80px; }
-.bottom-nav {
-  position: fixed; bottom: 0; left: 0; right: 0;
-  background: white; display: flex; justify-content: space-around;
-  padding: 8px 0 6px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 500;
-}
-.bottom-nav button {
-  background: none; border: none; display: flex; flex-direction: column;
-  align-items: center; gap: 2px; font-size: 10px; color: var(--gray);
-  cursor: pointer; padding: 4px 10px; font-family: inherit;
-}
-.bottom-nav button.active { color: var(--gold2); font-weight: 700; }
-.bottom-nav .bn-icon { font-size: 20px; }
+  .bottom-nav button.active { color: var(--gold2); font-weight: 700; }
+  .bottom-nav .bn-icon { font-size: 20px; }
 
-.home-header-card {
-  background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
-  border-radius: 16px; padding: 20px; color: white; margin-bottom: 20px;
-  display: flex; align-items: center; gap: 14px; position: relative;
-}
-.avatar-circle {
-  width: 56px; height: 56px; border-radius: 50%; background: var(--gold2);
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 20px; overflow: hidden; flex-shrink: 0;
-  cursor: pointer; border: 2px solid rgba(255,255,255,0.5); color: white;
-}
-.avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
-.bell-btn {
-  position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.18);
-  border: none; border-radius: 50%; width: 38px; height: 38px; display: flex;
-  align-items: center; justify-content: center; cursor: pointer; font-size: 16px; color: white;
-}
-.bell-badge {
-  position: absolute; top: -2px; right: -2px; background: #dc3545; color: white;
-  font-size: 9px; font-weight: 700; border-radius: 10px; padding: 1px 5px; min-width: 15px;
-}
-.quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
-.quick-action-tile {
-  background: white; border-radius: 14px; padding: 14px 8px; text-align: center;
-  box-shadow: 0 1px 4px rgba(7,41,74,0.1); cursor: pointer; border: none; font-family: inherit;
-}
-.quick-action-tile .qa-icon { font-size: 26px; display: block; margin-bottom: 6px; }
-.quick-action-tile .qa-label { font-size: 11px; font-weight: 700; color: var(--navy); }
+  .home-header-card {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+    border-radius: 16px; padding: 20px; color: white; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 14px; position: relative;
+  }
+  .avatar-circle {
+    width: 56px; height: 56px; border-radius: 50%; background: var(--gold2);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 20px; overflow: hidden; flex-shrink: 0;
+    cursor: pointer; border: 2px solid rgba(255,255,255,0.5); color: white;
+  }
+  .avatar-circle img { width: 100%; height: 100%; object-fit: cover; }
+  .bell-btn {
+    position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.18);
+    border: none; border-radius: 50%; width: 38px; height: 38px; display: flex;
+    align-items: center; justify-content: center; cursor: pointer; font-size: 16px; color: white;
+  }
+  .bell-badge {
+    position: absolute; top: -2px; right: -2px; background: #dc3545; color: white;
+    font-size: 9px; font-weight: 700; border-radius: 10px; padding: 1px 5px; min-width: 15px;
+  }
+  .quick-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+  .quick-action-tile {
+    background: white; border-radius: 14px; padding: 14px 8px; text-align: center;
+    box-shadow: 0 1px 4px rgba(7,41,74,0.1); cursor: pointer; border: none; font-family: inherit;
+  }
+  .quick-action-tile .qa-icon { font-size: 26px; display: block; margin-bottom: 6px; }
+  .quick-action-tile .qa-label { font-size: 11px; font-weight: 700; color: var(--navy); }
 
-.evento-card-nueva {
-  border-radius: 16px; overflow: hidden; position: relative; margin-bottom: 20px;
-  background: linear-gradient(135deg, var(--navy2) 0%, var(--navy) 100%); color: white; padding: 18px;
-}
-.evento-badge-fecha {
-  display: inline-block; background: var(--gold2); color: white;
-  font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; margin-bottom: 8px;
-}
-.recientes-item {
-  display: flex; align-items: center; gap: 12px; background: white; border-radius: 12px;
-  padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer;
-}
-.recientes-icon {
-  width: 38px; height: 38px; border-radius: 10px; display: flex;
-  align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
-}
+  .evento-card-nueva {
+    border-radius: 16px; overflow: hidden; position: relative; margin-bottom: 20px;
+    background: linear-gradient(135deg, #6C4AB6 0%, #3F2A6B 100%); color: white; padding: 18px;
+  }
+  .evento-icon-circle {
+    width: 40px; height: 40px; border-radius: 12px; background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+    margin-bottom: 10px;
+  }
+  .evento-badge-fecha {
+    display: inline-block; background: var(--gold2); color: white;
+    font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; margin-bottom: 8px;
+  }
+  .recientes-item {
+    display: flex; align-items: center; gap: 12px; background: white; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: pointer;
+  }
+  .recientes-icon {
+    width: 38px; height: 38px; border-radius: 10px; display: flex;
+    align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .recientes-item .re-chevron { margin-left: auto; color: #ccc; font-size: 18px; }
+  .re-icon-rosa { background: #FBE4E6; }
+  .re-icon-azul { background: #E3F0FB; }
+  .re-icon-violeta { background: #EDE7F9; }
 </style>
 </head>
 <body>
@@ -562,6 +571,9 @@ function refrescarVistaActual() {
   if (document.getElementById('eventosLista')) cargarEventosSocio();
   if (document.getElementById('calendarioSocioContainer') && document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
   if (document.getElementById('profileName')) cargarPerfilSocio();
+  if (document.getElementById('recientesListaSocio')) cargarRecientesSocio();
+  if (document.getElementById('documentosListaSocio')) cargarDocumentosSocio();
+  if (document.getElementById('historialAvisosSocio')) cargarHistorialAvisosSocio();
   if (document.getElementById('totalSocios')) actualizarDashboard();
 }
 
@@ -642,6 +654,9 @@ function handleLogout() {
   document.getElementById('loginPage').style.display = 'flex';
   document.getElementById('appPage').classList.remove('active');
   document.getElementById('loginForm').reset();
+
+  const navSocio = document.getElementById('bottomNavSocio');
+  if (navSocio) navSocio.remove();
 
   if (esStandalone()) {
     mostrarLoginSinInstalar();
@@ -761,16 +776,6 @@ function mostrarSeccionSocio(id) {
     b.classList.toggle('active', b.dataset.tab === id);
   });
 }
-  
-  let html = '';
-  opciones.forEach((opt, idx) => {
-    html += `<button class="menu-btn ${idx === 0 ? 'active' : ''}" onclick="mostrarSeccion('${opt.id}')">${opt.label}</button>`;
-  });
-  document.getElementById('menuButtons').innerHTML = html;
-  
-  renderSecciones(rol);
-  mostrarSeccion(opciones[0].id);
-}
 
 function mostrarSeccion(id) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -866,21 +871,74 @@ function renderSecciones(rol) {
       </div>
     `;
   } else if (rol === 'socio') {
+    const usuario = localStorage.getItem('currentUser');
+    const u = usuariosDB[usuario];
+    const inicial = (u.nombre || '?').charAt(0).toUpperCase();
+    const avisosPendientes = (u.mesesEnDeuda > 0 ? 1 : 0) + (u.historialAvisos || []).length;
+
     html = `
-      <div id="inicio" class="section active">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">🏠 Inicio</h2>
-        <div id="avisoDeudaSocio"></div>
-        <div class="carousel" id="carouselSoc">
-          <div><h2 id="carouselTitleS">Cargando...</h2><p id="carouselDescS">Por favor espera...</p></div>
+      <div id="inicio" class="section active app-shell-socio">
+        <div class="home-header-card">
+          <div class="avatar-circle" onclick="document.getElementById('inputFotoPerfil').click()">
+            ${u.fotoPerfil ? `<img src="${u.fotoPerfil}">` : inicial}
+          </div>
+          <input type="file" id="inputFotoPerfil" accept="image/*" style="display:none;" onchange="subirFotoPerfil(this)">
+          <div>
+            <p style="font-size:12px; opacity:0.85;">Bienvenido,</p>
+            <p style="font-size:18px; font-weight:bold;">${u.nombre}</p>
+          </div>
+          <button class="bell-btn" onclick="mostrarSeccionSocio('avisos')">
+            🔔
+            ${avisosPendientes > 0 ? `<span class="bell-badge">${avisosPendientes}</span>` : ''}
+          </button>
+        </div>
+
+        <h3 style="color: var(--navy); margin: 5px 0 12px 0; font-size:15px;">¿Qué querés hacer?</h3>
+        <div class="quick-actions">
+          <button class="quick-action-tile" onclick="mostrarSeccionSocio('documentos')">
+            <span class="qa-icon">📄</span><span class="qa-label">Documentos</span>
+          </button>
+          <button class="quick-action-tile" onclick="mostrarInfoOctogono()">
+            <span class="qa-icon">🏡</span><span class="qa-label">Octógono</span>
+          </button>
+          <button class="quick-action-tile" onclick="toggleCalendarioSocio()">
+            <span class="qa-icon">📅</span><span class="qa-label">Actividades</span>
+          </button>
+        </div>
+
+        <h3 style="color: var(--navy); margin: 20px 0 12px 0; font-size:15px;">Próximos eventos</h3>
+        <div class="evento-card-nueva" id="carouselSoc">
+          <div class="evento-icon-circle">📄</div>
+          <div><h2 id="carouselTitleS" style="font-size:19px; margin-bottom:6px;">Cargando...</h2><p id="carouselDescS" style="font-size:13px; opacity:0.9;">Por favor espera...</p></div>
           <div id="carouselIndS" class="carousel-indicators"></div>
         </div>
-        <button class="btn btn-small" onclick="toggleCalendarioSocio()" style="width:auto; padding: 12px 20px; margin: 20px 0; background: var(--navy2); font-weight:bold;">📅 Clases y Actividades</button>
+
         <div id="calendarioSocioContainer" style="display:none; margin-bottom: 25px;"></div>
-        <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Próximas actividades</h3>
-        <div id="eventosLista"></div>
+
+        <h3 style="color: var(--navy); margin: 20px 0 12px 0; font-size:15px;">Recientes</h3>
+        <div id="recientesListaSocio"></div>
       </div>
-      <div id="perfil" class="section">
+
+      <div id="documentos" class="section app-shell-socio">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">📄 Documentos</h2>
+        <p style="color: var(--gray); font-size:13px; margin-bottom:15px;">Actas, comunicados y novedades de la Asociación.</p>
+        <div id="documentosListaSocio"></div>
+      </div>
+
+      <div id="avisos" class="section app-shell-socio">
+        <h2 style="color: var(--navy); margin-bottom: 20px;">🔔 Avisos</h2>
+        <div id="avisoDeudaSocio"></div>
+        <div id="historialAvisosSocio"></div>
+      </div>
+
+      <div id="perfil" class="section app-shell-socio">
         <h2 style="color: var(--navy); margin-bottom: 20px;">👤 Mi Perfil</h2>
+        <div style="text-align:center; margin-bottom:20px;">
+          <div class="avatar-circle" style="width:90px;height:90px;font-size:32px;margin:0 auto;" onclick="document.getElementById('inputFotoPerfil').click()">
+            ${u.fotoPerfil ? `<img src="${u.fotoPerfil}">` : inicial}
+          </div>
+          <p style="font-size:11px; color: var(--gray); margin-top:8px;">Tocá para cambiar tu foto</p>
+        </div>
         <div class="card">
           <p><strong>Nombre:</strong> <span id="profileName">-</span></p>
           <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
@@ -907,7 +965,9 @@ function renderSecciones(rol) {
   } else if (rol === 'socio') {
     cargarPerfilSocio();
     cargarCarouselSocio();
-    cargarEventosSocio();
+    cargarRecientesSocio();
+    cargarDocumentosSocio();
+    cargarHistorialAvisosSocio();
   }
 }
 
@@ -2151,11 +2211,11 @@ function cargarPerfilSocio() {
   const u = usuariosDB[usuario];
   const estado = tieneCausal(u) ? '🔴 En suspenso' : '✅ Activo';
   
-  document.getElementById('profileName').textContent = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
-  document.getElementById('profileEmail').textContent = u.email;
-  document.getElementById('profileStatus').textContent = estado;
+  if (document.getElementById('profileName')) document.getElementById('profileName').textContent = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
+  if (document.getElementById('profileEmail')) document.getElementById('profileEmail').textContent = u.email;
+  if (document.getElementById('profileStatus')) document.getElementById('profileStatus').textContent = estado;
 
-  // Aviso de deuda / avisos pendientes (visible en Inicio)
+  // Aviso de deuda / avisos pendientes (visible en Avisos)
   const avisoDiv = document.getElementById('avisoDeudaSocio');
   if (avisoDiv) {
     if (u.mesesEnDeuda > 0 || (u.historialAvisos || []).length > 0) {
@@ -2195,14 +2255,14 @@ function cargarCarouselSocio() {
   let currentIndex = 0;
   function actualizar() {
     const item = allItems[currentIndex];
-    document.getElementById('carouselTitleS').textContent = item.titulo;
-    document.getElementById('carouselDescS').innerHTML = item.descripcion + (item.link ? ` <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="color: var(--gold2); font-weight:bold;">Ver más →</a>` : '');
+    if (document.getElementById('carouselTitleS')) document.getElementById('carouselTitleS').textContent = item.titulo;
+    if (document.getElementById('carouselDescS')) document.getElementById('carouselDescS').innerHTML = item.descripcion + (item.link ? ` <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="color: var(--gold2); font-weight:bold;">Ver más →</a>` : '');
     
     let ind = '';
     for (let i = 0; i < allItems.length; i++) {
       ind += `<div class="carousel-dot ${i === currentIndex ? 'active' : ''}" onclick="currentIndex=${i}; actualizar()"></div>`;
     }
-    document.getElementById('carouselIndS').innerHTML = ind;
+    if (document.getElementById('carouselIndS')) document.getElementById('carouselIndS').innerHTML = ind;
   }
   
   actualizar();
@@ -2212,8 +2272,136 @@ function cargarCarouselSocio() {
   }, 5000);
 }
 
+// ===== SOCIO: Recientes (mezcla eventos + noticias, para el Inicio) =====
+function cargarRecientesSocio() {
+  const cont = document.getElementById('recientesListaSocio');
+  if (!cont) return;
+
+  const items = [
+    ...eventosDB.map(e => ({ ...e, _tipo: 'evento' })),
+    ...noticiasDB.map(n => ({ ...n, _tipo: 'noticia' }))
+  ];
+
+  if (items.length === 0) {
+    cont.innerHTML = '<p style="color: var(--gray); font-size:13px;">No hay novedades por ahora</p>';
+    return;
+  }
+
+  let html = '';
+  items.forEach(it => {
+    const icono = it._tipo === 'evento' ? '📅' : '📢';
+    const claseColor = it._tipo === 'evento' ? 're-icon-violeta' : 're-icon-rosa';
+    html += `<div class="recientes-item" onclick="mostrarSeccionSocio('documentos')">
+      <div class="recientes-icon ${claseColor}">${icono}</div>
+      <div style="flex:1; min-width:0;">
+        <p style="font-weight:700; font-size:13px; color: var(--navy);">${it.titulo}</p>
+        <p style="font-size:11.5px; color: var(--gray);">${it._tipo === 'evento' ? 'Evento' : 'Comunicado'}</p>
+      </div>
+      <span class="re-chevron">›</span>
+    </div>`;
+  });
+  cont.innerHTML = html;
+}
+
+// ===== SOCIO: Documentos (por ahora reutiliza Noticias; Actas se suman en Fase 2) =====
+function cargarDocumentosSocio() {
+  const cont = document.getElementById('documentosListaSocio');
+  if (!cont) return;
+
+  if (noticiasDB.length === 0) {
+    cont.innerHTML = '<p style="color: var(--gray); font-size:13px;">No hay documentos cargados</p>';
+    return;
+  }
+
+  let html = '';
+  noticiasDB.forEach(no => {
+    html += `<div class="recientes-item" ${no.link ? `onclick="window.open('${no.link}','_blank')"` : ''}>
+      <div class="recientes-icon re-icon-azul">📢</div>
+      <div style="flex:1; min-width:0;">
+        <p style="font-weight:700; font-size:13px; color: var(--navy);">${no.titulo}</p>
+        <p style="font-size:12px; color: var(--text);">${no.descripcion}</p>
+      </div>
+      ${no.link ? '<span class="re-chevron">›</span>' : ''}
+    </div>`;
+  });
+  cont.innerHTML = html;
+}
+
+// ===== SOCIO: historial de avisos (pestaña Avisos) =====
+function cargarHistorialAvisosSocio() {
+  const cont = document.getElementById('historialAvisosSocio');
+  if (!cont) return;
+
+  const usuario = localStorage.getItem('currentUser');
+  const u = usuariosDB[usuario];
+  if (!u || !(u.historialAvisos || []).length) {
+    cont.innerHTML = '<p style="color: var(--gray); font-size:13px;">No tenés avisos registrados</p>';
+    return;
+  }
+
+  let html = '';
+  u.historialAvisos.slice().reverse().forEach(a => {
+    const f = new Date(a.fecha).toLocaleDateString('es-ES');
+    html += `<div class="recientes-item">
+      <div class="recientes-icon" style="background:#FBEEEF;">📨</div>
+      <div style="flex:1; min-width:0;">
+        <p style="font-weight:700; font-size:13px; color: var(--navy);">${f}</p>
+        <p style="font-size:12px; color: var(--text);">${a.mensaje}</p>
+      </div>
+    </div>`;
+  });
+  cont.innerHTML = html;
+}
+
+// ===== SOCIO: info del Octógono (acceso rápido) =====
+function mostrarInfoOctogono() {
+  alert('🏡 Alquiler Octógono + Parrillero\n\nSocios: $4.500\nNo socios: $6.000\nSocios (día de cumpleaños): $2.000\n\n(Incluye limpieza)\n\nPara reservar, comunicate con la Comisión Directiva.');
+}
+
+// ===== SOCIO: subir y comprimir foto de perfil =====
+function subirFotoPerfil(input) {
+  const usuario = localStorage.getItem('currentUser');
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const size = 200;
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      const minSide = Math.min(img.width, img.height);
+      const sx = (img.width - minSide) / 2;
+      const sy = (img.height - minSide) / 2;
+      ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      usuariosDB[usuario].fotoPerfil = dataUrl;
+      guardarTodo();
+      actualizarAvataresSocio();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function actualizarAvataresSocio() {
+  const usuario = localStorage.getItem('currentUser');
+  const u = usuariosDB[usuario];
+  if (!u) return;
+  const inicial = (u.nombre || '?').charAt(0).toUpperCase();
+  const contenido = u.fotoPerfil ? `<img src="${u.fotoPerfil}">` : inicial;
+  document.querySelectorAll('.avatar-circle').forEach(el => { el.innerHTML = contenido; });
+}
+
 function cargarEventosSocio() {
   const usuarioActual = localStorage.getItem('currentUser');
+  const cont = document.getElementById('eventosLista');
+  if (!cont) return;
 
   const porDia = {};
   DIAS_SEMANA.forEach(d => { porDia[d] = []; });
@@ -2262,7 +2450,7 @@ function cargarEventosSocio() {
 
   if (!hayAlguna) html = '<p style="color: var(--gray);">Todavía no hay actividades cargadas</p>';
 
-  document.getElementById('eventosLista').innerHTML = html;
+  cont.innerHTML = html;
 }
 
 function anotarseActividad(id) {
@@ -2272,8 +2460,8 @@ function anotarseActividad(id) {
     act.inscriptos.push(usuarioActual);
     guardarTodo();
   }
-  cargarEventosSocio();
-  if (document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
+  if (document.getElementById('eventosLista')) cargarEventosSocio();
+  if (document.getElementById('calendarioSocioContainer') && document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
   alert('✅ ¡Te anotaste en ' + act.titulo + '!');
 }
 
@@ -2282,13 +2470,14 @@ function cancelarInscripcion(id) {
   const act = actividadesDB.find(a => a.id === id);
   act.inscriptos = act.inscriptos.filter(u => u !== usuarioActual);
   guardarTodo();
-  cargarEventosSocio();
-  if (document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
+  if (document.getElementById('eventosLista')) cargarEventosSocio();
+  if (document.getElementById('calendarioSocioContainer') && document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
 }
 
 // ===== SOCIO: calendario semanal de clases (para anotarse) =====
 function toggleCalendarioSocio() {
   const cont = document.getElementById('calendarioSocioContainer');
+  if (!cont) return;
   if (cont.style.display === 'none') {
     cont.style.display = 'block';
     cargarCalendarioSocio();

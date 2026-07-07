@@ -458,6 +458,15 @@ body {
   /* ===== PROFESOR: panel de sus actividades ===== */
   .prof-act-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; }
 
+  /* ===== REGISTRO DE CLASE (asistencia/cobro) ===== */
+  .reg-alumno-item { display:flex; align-items:center; justify-content:space-between; background:var(--cream); border-radius:8px; padding:8px 12px; margin-bottom:6px; font-size:13px; }
+  .reg-alumno-item button { background:none; border:none; color:#A33; cursor:pointer; font-size:14px; }
+  .reg-alumno-tipo { font-size:10px; color: var(--gray); }
+  .reg-add-row { display:flex; gap:6px; margin-bottom:12px; }
+  .reg-add-row select, .reg-add-row input { margin-bottom:0; }
+  .reg-resumen-box { background: var(--cream); border-radius:10px; padding:14px; margin: 15px 0; font-size:13px; }
+  .reg-resumen-box .reg-total { font-weight:700; color: var(--navy); font-size:15px; margin-top:6px; }
+
 
 </style>
 </head>
@@ -588,10 +597,13 @@ let noticiasDB = [
 // Reservas de alquiler del Octógono + Parrillero (modalidad única actual)
 let alquileresDB = [];
 
+// Registros de asistencia/cobro por clase, cargados por cada profesor
+let registrosClaseDB = [];
+
 // Guarda todo en Firebase; todos los dispositivos conectados reciben el cambio al instante
 function guardarTodo() {
   docRefDatos.set({
-    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB
+    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB
   }).catch(err => {
     console.error('Error guardando en Firebase:', err);
     alert('⚠️ No se pudo guardar en la nube. Revisá tu conexión a internet e intentá de nuevo.');
@@ -625,6 +637,7 @@ docRefDatos.onSnapshot((snap) => {
     eventosDB = data.eventosDB || eventosDB;
     noticiasDB = data.noticiasDB || noticiasDB;
     alquileresDB = data.alquileresDB || alquileresDB;
+    registrosClaseDB = data.registrosClaseDB || registrosClaseDB;
     if (migrarDatosSocios()) guardarTodo();
   } else {
     // Primera vez: no existe el documento todavía, subimos los datos iniciales
@@ -652,6 +665,7 @@ function refrescarVistaActual() {
   if (document.getElementById('tablaProfesores')) cargarTablaProfesores();
   if (document.getElementById('tablaActividades')) cargarTablaActividades();
   if (document.getElementById('panelProfesor')) cargarPanelProfesor();
+  if (document.getElementById('tablaRegistrosClaseTesorero')) cargarTablaRegistrosClaseTesorero();
   if (document.getElementById('eventosLista')) cargarEventosSocio();
   if (document.getElementById('calendarioSocioContainer') && document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
   if (document.getElementById('profileName')) cargarPerfilSocio();
@@ -1870,6 +1884,8 @@ function abrirModalActividad(idExistente) {
       <input type="time" id="actHora" value="${editando ? act.hora : ''}">
       <label style="font-size:12px; font-weight:600;">Hora hasta</label>
       <input type="time" id="actHoraFin" value="${editando ? (act.horaFin || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Precio por alumno (para el registro de clases)</label>
+      <input type="number" id="actPrecioAlumno" value="${editando ? (act.precioPorAlumno ?? 250) : 250}" min="0">
       <label style="font-size:12px; font-weight:600;">Descripción</label>
       <textarea id="actDescripcion" placeholder="Descripción de la actividad">${editando ? act.descripcion : ''}</textarea>
       <button class="btn" onclick="guardarActividad(${editando ? idExistente : 'null'})">Guardar Actividad</button>
@@ -1885,6 +1901,7 @@ function guardarActividad(idExistente) {
   const dia = document.getElementById('actDia').value.trim();
   const hora = document.getElementById('actHora').value;
   const horaFin = document.getElementById('actHoraFin').value;
+  const precioPorAlumno = parseFloat(document.getElementById('actPrecioAlumno').value) || 0;
   const descripcion = document.getElementById('actDescripcion').value.trim();
 
   if (!titulo || !profesor || !dia) {
@@ -1907,10 +1924,11 @@ function guardarActividad(idExistente) {
     act.hora = hora;
     act.horaFin = horaFin;
     act.descripcion = descripcion;
+    act.precioPorAlumno = precioPorAlumno;
     alert('✅ Actividad actualizada');
   } else {
     const nuevoId = actividadesDB.length ? Math.max(...actividadesDB.map(a => a.id)) + 1 : 1;
-    actividadesDB.push({ id: nuevoId, titulo, profesor, descripcion, dia, hora, horaFin, inscriptos: [] });
+    actividadesDB.push({ id: nuevoId, titulo, profesor, descripcion, dia, hora, horaFin, precioPorAlumno, inscriptos: [] });
     alert('✅ Actividad creada');
   }
 
@@ -2001,11 +2019,64 @@ function cargarPanelTesorero() {
     <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Tarifas: Socios $4.500 · No socios $6.000 (incluye $700 de limpieza). Seña 30% al reservar, saldo al retirar la llave.</p>
     <div id="resumenAlquileres"></div>
     <div id="tablaAlquileres"></div>
+
+    <h3 style="color: var(--navy); margin: 35px 0 15px 0;">🎯 Registros de clase (comisión de profesores)</h3>
+    <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Cada profesor registra sus clases con los alumnos que asistieron (socios y no socios). Acá se ve el total cobrado y la comisión del 10% que corresponde a la Asociación.</p>
+    <div id="resumenRegistrosClase"></div>
+    <div id="tablaRegistrosClaseTesorero"></div>
   `;
   
   document.getElementById('panelTesorero').innerHTML = html;
   cargarTablaDeudasTesorero();
   cargarTablaAlquileres();
+  cargarTablaRegistrosClaseTesorero();
+}
+
+// ===== TESORERO: registros de clase (comisión de profesores) =====
+function cargarTablaRegistrosClaseTesorero() {
+  const cont = document.getElementById('tablaRegistrosClaseTesorero');
+  const resumenCont = document.getElementById('resumenRegistrosClase');
+  if (!cont) return;
+
+  const lista = registrosClaseDB.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  const totalComisiones = registrosClaseDB.reduce((sum, r) => sum + (r.comision || 0), 0);
+  const totalCobrado = registrosClaseDB.reduce((sum, r) => sum + (r.totalCobrado || 0), 0);
+
+  if (resumenCont) {
+    resumenCont.innerHTML = `
+      <div style="display:flex; gap:15px; margin-bottom:15px; flex-wrap:wrap;">
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${totalCobrado.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Total cobrado por profesores</p></div>
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${totalComisiones.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Comisión (10%) a favor de la Asociación</p></div>
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">${registrosClaseDB.length}</h3><p style="font-size:12px;">Clases registradas</p></div>
+      </div>
+    `;
+  }
+
+  let html = `<table><thead><tr><th>Fecha</th><th>Profesor</th><th>Actividad</th><th>Alumnos</th><th>Total cobrado</th><th>Comisión (10%)</th></tr></thead><tbody>`;
+
+  if (lista.length === 0) {
+    html += `<tr><td colspan="6" style="color: var(--gray); text-align:center;">Todavía no hay registros de clase cargados</td></tr>`;
+  }
+
+  lista.forEach(r => {
+    const prof = usuariosDB[r.profesor];
+    const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : r.profesor;
+    const fechaFormateada = new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+    const detalleAlumnos = r.alumnos.map(a => `${a.nombre}${a.esSocio ? '' : ' (no socio)'}`).join(', ');
+
+    html += `<tr>
+      <td data-label="Fecha"><strong>${fechaFormateada}</strong></td>
+      <td data-label="Profesor">${nombreProf}</td>
+      <td data-label="Actividad">${r.actividadTitulo}</td>
+      <td data-label="Alumnos" title="${detalleAlumnos}">${r.alumnos.length}</td>
+      <td data-label="Total cobrado">$${r.totalCobrado.toLocaleString('es-UY')}</td>
+      <td data-label="Comisión (10%)"><strong>$${r.comision.toLocaleString('es-UY')}</strong></td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  cont.innerHTML = html;
 }
 
 function cargarTablaDeudasTesorero() {
@@ -2329,6 +2400,7 @@ function cargarPanelProfesor() {
         <td data-label="Acciones">
           <button class="btn-editar" onclick="abrirModalActividadProfesor(${act.id})">Editar</button>
           <button class="btn-baja-rojo" onclick="eliminarActividad(${act.id}); cargarPanelProfesor();">Eliminar</button>
+          <button class="btn-baja-verde" onclick="abrirModalRegistroClase(${act.id})">📋 Registrar clase</button>
         </td>
       </tr>`;
     }
@@ -2339,6 +2411,30 @@ function cargarPanelProfesor() {
   }
 
   html += `</tbody></table>`;
+
+  html += `<h3 style="color: var(--navy); margin: 30px 0 15px 0;">📋 Mis registros de clase</h3>`;
+  const misRegistros = registrosClaseDB
+    .filter(r => r.profesor === usuarioActual)
+    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  if (misRegistros.length === 0) {
+    html += `<p style="color: var(--gray); font-size:13px;">Todavía no registraste ninguna clase</p>`;
+  } else {
+    html += `<table><thead><tr><th>Fecha</th><th>Actividad</th><th>Alumnos</th><th>Total cobrado</th><th>Comisión (10%)</th><th>Acciones</th></tr></thead><tbody>`;
+    misRegistros.forEach(r => {
+      const fechaFormateada = new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+      html += `<tr>
+        <td data-label="Fecha">${fechaFormateada}</td>
+        <td data-label="Actividad">${r.actividadTitulo}</td>
+        <td data-label="Alumnos">${r.alumnos.length}</td>
+        <td data-label="Total cobrado">$${r.totalCobrado.toLocaleString('es-UY')}</td>
+        <td data-label="Comisión (10%)"><strong>$${r.comision.toLocaleString('es-UY')}</strong></td>
+        <td data-label="Acciones"><button class="btn-baja-rojo" onclick="eliminarRegistroClase(${r.id})">Eliminar</button></td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
+
   document.getElementById('panelProfesor').innerHTML = html;
 }
 
@@ -2365,6 +2461,8 @@ function abrirModalActividadProfesor(idExistente) {
       <input type="time" id="actProfHora" value="${editando ? act.hora : ''}">
       <label style="font-size:12px; font-weight:600;">Hora hasta</label>
       <input type="time" id="actProfHoraFin" value="${editando ? (act.horaFin || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Precio por alumno (para el registro de clases)</label>
+      <input type="number" id="actProfPrecioAlumno" value="${editando ? (act.precioPorAlumno ?? 250) : 250}" min="0">
       <label style="font-size:12px; font-weight:600;">Descripción</label>
       <textarea id="actProfDescripcion" placeholder="Descripción de la actividad">${editando ? act.descripcion : ''}</textarea>
       <button class="btn" onclick="guardarActividadProfesor(${editando ? idExistente : 'null'})">Guardar Actividad</button>
@@ -2380,6 +2478,7 @@ function guardarActividadProfesor(idExistente) {
   const dia = document.getElementById('actProfDia').value.trim();
   const hora = document.getElementById('actProfHora').value;
   const horaFin = document.getElementById('actProfHoraFin').value;
+  const precioPorAlumno = parseFloat(document.getElementById('actProfPrecioAlumno').value) || 0;
   const descripcion = document.getElementById('actProfDescripcion').value.trim();
 
   if (!titulo || !dia) {
@@ -2405,16 +2504,160 @@ function guardarActividadProfesor(idExistente) {
     act.hora = hora;
     act.horaFin = horaFin;
     act.descripcion = descripcion;
+    act.precioPorAlumno = precioPorAlumno;
     alert('✅ Actividad actualizada');
   } else {
     const nuevoId = actividadesDB.length ? Math.max(...actividadesDB.map(a => a.id)) + 1 : 1;
-    actividadesDB.push({ id: nuevoId, titulo, profesor: usuarioActual, descripcion, dia, hora, horaFin, inscriptos: [] });
+    actividadesDB.push({ id: nuevoId, titulo, profesor: usuarioActual, descripcion, dia, hora, horaFin, precioPorAlumno, inscriptos: [] });
     alert('✅ Actividad creada');
   }
 
   guardarTodo();
   document.querySelector('.modal-overlay').remove();
   cargarPanelProfesor();
+}
+
+// ===== PROFESOR: registro de asistencia/cobro por clase =====
+let tempAlumnosRegistro = [];
+let actividadRegistroActual = null;
+
+function abrirModalRegistroClase(actividadId) {
+  const act = actividadesDB.find(a => a.id === actividadId);
+  if (!act) return;
+  actividadRegistroActual = actividadId;
+  tempAlumnosRegistro = [];
+
+  const hoy = new Date().toISOString().split('T')[0];
+
+  let opcionesSocios = '<option value="">-- Elegir socio inscripto --</option>';
+  act.inscriptos.forEach(user => {
+    const u = usuariosDB[user];
+    if (u) opcionesSocios += `<option value="${user}">${u.nombre} ${u.apellido1 || ''}</option>`;
+  });
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>📋 Registrar clase — ${act.titulo}</h2>
+      <label style="font-size:12px; font-weight:600;">Fecha de la clase</label>
+      <input type="date" id="regFecha" value="${hoy}">
+
+      <label style="font-size:12px; font-weight:600;">Agregar socio inscripto</label>
+      <div class="reg-add-row">
+        <select id="regSocioSelect">${opcionesSocios}</select>
+        <button class="btn-small" style="background:var(--navy2); color:white; border:none; border-radius:5px; cursor:pointer;" onclick="agregarAlumnoRegistro('socio')">Agregar</button>
+      </div>
+
+      <label style="font-size:12px; font-weight:600;">Agregar alumno no socio</label>
+      <div class="reg-add-row">
+        <input type="text" id="regNoSocioNombre" placeholder="Nombre del alumno">
+        <button class="btn-small" style="background:var(--gold2); color:white; border:none; border-radius:5px; cursor:pointer;" onclick="agregarAlumnoRegistro('nosocio')">Agregar</button>
+      </div>
+
+      <div id="regListaAlumnos"></div>
+
+      <div class="reg-resumen-box" id="regResumen"></div>
+
+      <button class="btn" onclick="guardarRegistroClase()">Guardar registro</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  dibujarListaAlumnosRegistro();
+}
+
+function agregarAlumnoRegistro(tipo) {
+  if (tipo === 'socio') {
+    const select = document.getElementById('regSocioSelect');
+    const usuario = select.value;
+    if (!usuario) { alert('Elegí un socio de la lista'); return; }
+    const u = usuariosDB[usuario];
+    tempAlumnosRegistro.push({ nombre: `${u.nombre} ${u.apellido1 || ''}`.trim(), esSocio: true, usuario });
+    select.value = '';
+  } else {
+    const input = document.getElementById('regNoSocioNombre');
+    const nombre = input.value.trim();
+    if (!nombre) { alert('Escribí el nombre del alumno'); return; }
+    tempAlumnosRegistro.push({ nombre, esSocio: false, usuario: null });
+    input.value = '';
+  }
+  dibujarListaAlumnosRegistro();
+}
+
+function quitarAlumnoRegistro(idx) {
+  tempAlumnosRegistro.splice(idx, 1);
+  dibujarListaAlumnosRegistro();
+}
+
+function dibujarListaAlumnosRegistro() {
+  const cont = document.getElementById('regListaAlumnos');
+  const resumen = document.getElementById('regResumen');
+  if (!cont || !resumen) return;
+
+  const act = actividadesDB.find(a => a.id === actividadRegistroActual);
+  const precio = act.precioPorAlumno ?? 250;
+
+  if (tempAlumnosRegistro.length === 0) {
+    cont.innerHTML = `<p style="color: var(--gray); font-size:12.5px; margin-bottom:10px;">Todavía no agregaste ningún alumno</p>`;
+  } else {
+    let html = '';
+    tempAlumnosRegistro.forEach((al, idx) => {
+      html += `<div class="reg-alumno-item">
+        <span>${al.nombre} <span class="reg-alumno-tipo">${al.esSocio ? '(socio)' : '(no socio)'}</span></span>
+        <button onclick="quitarAlumnoRegistro(${idx})">✕</button>
+      </div>`;
+    });
+    cont.innerHTML = html;
+  }
+
+  const total = tempAlumnosRegistro.length * precio;
+  const comision = Math.round(total * 0.10);
+
+  resumen.innerHTML = `
+    <div>Alumnos: <strong>${tempAlumnosRegistro.length}</strong> × $${precio.toLocaleString('es-UY')} c/u</div>
+    <div class="reg-total">Total cobrado: $${total.toLocaleString('es-UY')}</div>
+    <div>Comisión a pagar a la Asociación (10%): <strong>$${comision.toLocaleString('es-UY')}</strong></div>
+  `;
+}
+
+function guardarRegistroClase() {
+  const fecha = document.getElementById('regFecha').value;
+  if (!fecha) { alert('Elegí la fecha de la clase'); return; }
+  if (tempAlumnosRegistro.length === 0) { alert('Agregá al menos un alumno'); return; }
+
+  const act = actividadesDB.find(a => a.id === actividadRegistroActual);
+  const precio = act.precioPorAlumno ?? 250;
+  const total = tempAlumnosRegistro.length * precio;
+  const comision = Math.round(total * 0.10);
+  const usuarioActual = localStorage.getItem('currentUser');
+
+  const nuevoId = registrosClaseDB.length ? Math.max(...registrosClaseDB.map(r => r.id)) + 1 : 1;
+  registrosClaseDB.push({
+    id: nuevoId,
+    actividadId: act.id,
+    actividadTitulo: act.titulo,
+    profesor: usuarioActual,
+    fecha,
+    alumnos: tempAlumnosRegistro,
+    precioPorAlumno: precio,
+    totalCobrado: total,
+    comision,
+    registradoEn: new Date().toISOString()
+  });
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarPanelProfesor();
+  alert(`✅ Clase registrada.\n\nTotal cobrado: $${total.toLocaleString('es-UY')}\nComisión a pagar: $${comision.toLocaleString('es-UY')}`);
+}
+
+function eliminarRegistroClase(id) {
+  if (!confirm('¿Seguro que querés eliminar este registro?')) return;
+  registrosClaseDB = registrosClaseDB.filter(r => r.id !== id);
+  guardarTodo();
+  cargarPanelProfesor();
+  if (document.getElementById('tablaRegistrosClaseTesorero')) cargarTablaRegistrosClaseTesorero();
 }
 
 function cargarCarouselProfesor() {

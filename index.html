@@ -430,6 +430,35 @@ body {
   .oct-resumen-row.total { font-weight:700; color:var(--navy); font-size:15px; border-top:1px solid #e5ddc8; padding-top:8px; margin-top:4px; }
   .oct-warning { background:#fff3cd; color:#856404; font-size:11.5px; padding:12px; border-radius:10px; margin-bottom:16px; line-height:1.4; }
 
+  /* ===== ACTIVIDADES (vista Semana del socio) ===== */
+  .act-tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .act-tab { flex:1; text-align:center; padding:8px; border-radius:20px; font-size:12px; font-weight:700; background:#F1EFE9; color: var(--gray); cursor:pointer; border:none; }
+  .act-tab.active { background: var(--navy); color:white; }
+  .act-tab.disabled { opacity:0.5; cursor:default; }
+  .act-week-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .act-week-header button { background:none; border:none; font-size:16px; color: var(--navy2); cursor:pointer; padding:4px 10px; }
+  .act-week-header span { font-size:12px; color: var(--gray); font-weight:600; }
+  .act-week-strip { display:flex; justify-content:space-between; gap:4px; margin-bottom:18px; }
+  .act-day-btn { flex:1; text-align:center; padding:8px 2px; border-radius:12px; cursor:pointer; background:white; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
+  .act-day-btn .act-day-dow { font-size:9px; color: var(--gray); font-weight:700; display:block; }
+  .act-day-btn .act-day-num { font-size:14px; color: var(--navy); font-weight:700; display:block; margin-top:2px; }
+  .act-day-btn.selected { background: var(--navy); }
+  .act-day-btn.selected .act-day-dow, .act-day-btn.selected .act-day-num { color:white; }
+  .act-fecha-titulo { font-size:12px; font-weight:700; color: var(--gray); letter-spacing:0.5px; margin-bottom:12px; text-transform:uppercase; }
+  .act-clase-card { display:flex; align-items:center; gap:12px; background:white; border-radius:12px; padding:12px 14px; margin-bottom:10px; box-shadow:0 1px 3px rgba(0,0,0,0.06); border-left:4px solid var(--gold2); }
+  .act-clase-icon { width:38px; height:38px; border-radius:10px; background:var(--cream); display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  .act-clase-info { flex:1; min-width:0; }
+  .act-clase-info .act-clase-nombre { font-weight:700; font-size:14px; color: var(--navy); }
+  .act-clase-info .act-clase-prof { font-size:11.5px; color: var(--gray); }
+  .act-clase-info .act-clase-horario { font-size:11px; color: var(--gold); font-weight:700; }
+  .act-clase-btn { font-size:10.5px; font-weight:700; border:none; border-radius:14px; padding:6px 12px; cursor:pointer; white-space:nowrap; }
+  .act-clase-btn.anotar { background: var(--navy2); color:white; }
+  .act-clase-btn.cancelar { background:#FBEEEF; color:#A33; }
+
+  /* ===== PROFESOR: panel de sus actividades ===== */
+  .prof-act-toolbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; }
+
+
 </style>
 </head>
 <body>
@@ -630,6 +659,7 @@ function refrescarVistaActual() {
   if (document.getElementById('documentosListaSocio')) cargarDocumentosSocio();
   if (document.getElementById('historialAvisosSocio')) cargarHistorialAvisosSocio();
   if (document.getElementById('octCalendario') && octEstado.fecha) dibujarTurnosOctogono();
+  if (document.getElementById('actWeekStrip')) dibujarListaActividadesDia();
   if (document.getElementById('totalSocios')) actualizarDashboard();
 }
 
@@ -916,7 +946,10 @@ function renderSecciones(rol) {
   } else if (rol === 'profesor') {
     html = `
       <div id="misactividades" class="section active">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">🎯 Mis Actividades</h2>
+        <div class="prof-act-toolbar">
+          <h2 style="color: var(--navy);">🎯 Mis Actividades</h2>
+          <button class="btn-add-circle" onclick="abrirModalActividadProfesor()" title="Agregar nueva actividad">+</button>
+        </div>
         <div id="panelProfesor"></div>
       </div>
       <div id="novedades" class="section">
@@ -958,7 +991,7 @@ function renderSecciones(rol) {
           <button class="quick-action-tile" onclick="mostrarSeccionSocio('octogono')">
             <span class="qa-icon">🏡</span><span class="qa-label">Octógono</span>
           </button>
-          <button class="quick-action-tile" onclick="toggleCalendarioSocio()">
+          <button class="quick-action-tile" onclick="mostrarSeccionSocio('actividadesSocio')">
             <span class="qa-icon">📅</span><span class="qa-label">Actividades</span>
           </button>
         </div>
@@ -995,6 +1028,26 @@ function renderSecciones(rol) {
         <div class="oct-calendar" id="octCalendario"></div>
         <div id="octTurnosContainer"></div>
         <div id="octResumenContainer"></div>
+      </div>
+
+      <div id="actividadesSocio" class="section app-shell-socio">
+        <a class="oct-back-link" onclick="mostrarSeccionSocio('inicio')" style="color: var(--navy2);">← Inicio</a>
+        <div class="oct-header-card">
+          <h2>Actividades</h2>
+          <p>Agenda y reserva de lugar</p>
+        </div>
+        <div class="act-tabs">
+          <button class="act-tab active">Semana</button>
+          <button class="act-tab disabled" title="Próximamente">Mes</button>
+          <button class="act-tab disabled" title="Próximamente">Año</button>
+        </div>
+        <div class="act-week-header">
+          <button onclick="cambiarSemanaActividades(-1)">‹</button>
+          <span id="actRangoSemana"></span>
+          <button onclick="cambiarSemanaActividades(1)">›</button>
+        </div>
+        <div class="act-week-strip" id="actWeekStrip"></div>
+        <div id="actListaDia"></div>
       </div>
 
       <div id="avisos" class="section app-shell-socio">
@@ -1042,6 +1095,7 @@ function renderSecciones(rol) {
     cargarDocumentosSocio();
     cargarHistorialAvisosSocio();
     renderOctogonoSocio();
+    renderActividadesSocio();
   }
 }
 
@@ -2244,17 +2298,102 @@ function abrirModalHistorialSocio(usuario) {
 // ===== PROFESOR =====
 function cargarPanelProfesor() {
   const usuarioActual = localStorage.getItem('currentUser');
-  let html = `<table><thead><tr><th>Actividad</th><th>Día</th><th>Hora</th><th>Cantidad</th><th>Alumnos inscritos</th></tr></thead><tbody>`;
-  
+  let html = `<table><thead><tr><th>Actividad</th><th>Día</th><th>Hora</th><th>Cantidad</th><th>Alumnos inscritos</th><th>Acciones</th></tr></thead><tbody>`;
+  let hayActividades = false;
+
   actividadesDB.forEach(act => {
     if (act.profesor === usuarioActual) {
+      hayActividades = true;
       const alumnos = act.inscriptos.map(user => usuariosDB[user]?.nombre || user).join(', ');
-      html += `<tr><td><strong>${act.titulo}</strong></td><td>${act.dia}</td><td>${act.hora}</td><td style="text-align:center;"><strong>${act.inscriptos.length}</strong></td><td>${alumnos || 'Sin inscritos'}</td></tr>`;
+      const rangoHorario = act.horaFin ? `${act.hora} a ${act.horaFin}` : act.hora;
+      html += `<tr>
+        <td data-label="Actividad"><strong>${act.titulo}</strong></td>
+        <td data-label="Día">${act.dia}</td>
+        <td data-label="Hora">${rangoHorario}</td>
+        <td data-label="Cantidad" style="text-align:center;"><strong>${act.inscriptos.length}</strong></td>
+        <td data-label="Alumnos inscritos">${alumnos || 'Sin inscritos'}</td>
+        <td data-label="Acciones">
+          <button class="btn-editar" onclick="abrirModalActividadProfesor(${act.id})">Editar</button>
+          <button class="btn-baja-rojo" onclick="eliminarActividad(${act.id}); cargarPanelProfesor();">Eliminar</button>
+        </td>
+      </tr>`;
     }
   });
-  
+
+  if (!hayActividades) {
+    html += `<tr><td colspan="6" style="color: var(--gray); text-align:center;">Todavía no cargaste ninguna actividad. Tocá el botón "+" para agregar la primera.</td></tr>`;
+  }
+
   html += `</tbody></table>`;
   document.getElementById('panelProfesor').innerHTML = html;
+}
+
+// ===== PROFESOR: modal para crear/editar SU PROPIA actividad =====
+function abrirModalActividadProfesor(idExistente) {
+  const usuarioActual = localStorage.getItem('currentUser');
+  const editando = idExistente !== undefined;
+  const act = editando ? actividadesDB.find(a => a.id === idExistente) : null;
+  const profesor = usuariosDB[usuarioActual];
+  const nombreProf = `${profesor.nombre} ${profesor.apellido1 || ''}`.trim();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar mi actividad' : '➕ Nueva actividad'}</h2>
+      <label style="font-size:12px; font-weight:600;">Título</label>
+      <input type="text" id="actProfTitulo" placeholder="Ej: Yoga, Pilates, Zumba..." value="${editando ? act.titulo : ''}">
+      <label style="font-size:12px; font-weight:600;">Profesor a cargo</label>
+      <input type="text" value="${nombreProf}" disabled style="background:#f2f2f2;">
+      <label style="font-size:12px; font-weight:600;">Día</label>
+      <input type="text" id="actProfDia" placeholder="Ej: Martes y Jueves" value="${editando ? act.dia : ''}">
+      <label style="font-size:12px; font-weight:600;">Hora desde</label>
+      <input type="time" id="actProfHora" value="${editando ? act.hora : ''}">
+      <label style="font-size:12px; font-weight:600;">Hora hasta</label>
+      <input type="time" id="actProfHoraFin" value="${editando ? (act.horaFin || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Descripción</label>
+      <textarea id="actProfDescripcion" placeholder="Descripción de la actividad">${editando ? act.descripcion : ''}</textarea>
+      <button class="btn" onclick="guardarActividadProfesor(${editando ? idExistente : 'null'})">Guardar Actividad</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarActividadProfesor(idExistente) {
+  const usuarioActual = localStorage.getItem('currentUser');
+  const titulo = document.getElementById('actProfTitulo').value.trim();
+  const dia = document.getElementById('actProfDia').value.trim();
+  const hora = document.getElementById('actProfHora').value;
+  const horaFin = document.getElementById('actProfHoraFin').value;
+  const descripcion = document.getElementById('actProfDescripcion').value.trim();
+
+  if (!titulo || !dia) {
+    alert('Título y día son obligatorios');
+    return;
+  }
+
+  if (idExistente !== null && idExistente !== undefined) {
+    const act = actividadesDB.find(a => a.id === idExistente);
+    if (act.profesor !== usuarioActual) {
+      alert('Solo podés editar tus propias actividades');
+      return;
+    }
+    act.titulo = titulo;
+    act.dia = dia;
+    act.hora = hora;
+    act.horaFin = horaFin;
+    act.descripcion = descripcion;
+    alert('✅ Actividad actualizada');
+  } else {
+    const nuevoId = actividadesDB.length ? Math.max(...actividadesDB.map(a => a.id)) + 1 : 1;
+    actividadesDB.push({ id: nuevoId, titulo, profesor: usuarioActual, descripcion, dia, hora, horaFin, inscriptos: [] });
+    alert('✅ Actividad creada');
+  }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarPanelProfesor();
 }
 
 function cargarCarouselProfesor() {
@@ -2699,6 +2838,120 @@ function confirmarReservaOctogono() {
   dibujarCalendarioOctogono();
   document.getElementById('octTurnosContainer').innerHTML = '';
   document.getElementById('octResumenContainer').innerHTML = '';
+}
+
+// ===== SOCIO: vista semanal de Actividades =====
+let actSemanaOffset = 0; // 0 = semana actual, -1 = anterior, +1 = siguiente...
+let actDiaSeleccionado = null; // fecha ISO seleccionada dentro de la semana
+
+function inicioDeSemana(fecha) {
+  const d = new Date(fecha);
+  const dow = d.getDay(); // 0=domingo
+  const diff = dow === 0 ? -6 : 1 - dow; // llevar al lunes
+  d.setDate(d.getDate() + diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function cambiarSemanaActividades(delta) {
+  actSemanaOffset += delta;
+  actDiaSeleccionado = null;
+  renderActividadesSocio();
+}
+
+function renderActividadesSocio() {
+  const cont = document.getElementById('actWeekStrip');
+  if (!cont) return;
+
+  const hoy = new Date();
+  hoy.setDate(hoy.getDate() + actSemanaOffset * 7);
+  const lunes = inicioDeSemana(hoy);
+
+  const nombresCortos = ['L','M','M','J','V','S','D'];
+  const nombresMes = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+  const dias = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(lunes);
+    d.setDate(lunes.getDate() + i);
+    dias.push(d);
+  }
+
+  const primero = dias[0], ultimo = dias[6];
+  const rango = `${primero.getDate()} ${primero.getMonth() !== ultimo.getMonth() ? nombresMes[primero.getMonth()] + ' ' : ''}– ${ultimo.getDate()} ${nombresMes[ultimo.getMonth()]} ${ultimo.getFullYear()}`;
+  document.getElementById('actRangoSemana').textContent = rango;
+
+  const hoyISO = new Date().toISOString().split('T')[0];
+  if (!actDiaSeleccionado) {
+    const hoyEnSemana = dias.find(d => d.toISOString().split('T')[0] === hoyISO);
+    actDiaSeleccionado = (hoyEnSemana || dias[0]).toISOString().split('T')[0];
+  }
+
+  let html = '';
+  dias.forEach((d, i) => {
+    const fechaISO = d.toISOString().split('T')[0];
+    const seleccionado = fechaISO === actDiaSeleccionado;
+    html += `<div class="act-day-btn ${seleccionado ? 'selected' : ''}" onclick="seleccionarDiaActividades('${fechaISO}')">
+      <span class="act-day-dow">${nombresCortos[i]}</span>
+      <span class="act-day-num">${d.getDate()}</span>
+    </div>`;
+  });
+  cont.innerHTML = html;
+
+  dibujarListaActividadesDia();
+}
+
+function seleccionarDiaActividades(fechaISO) {
+  actDiaSeleccionado = fechaISO;
+  renderActividadesSocio();
+}
+
+function dibujarListaActividadesDia() {
+  const cont = document.getElementById('actListaDia');
+  if (!cont || !actDiaSeleccionado) return;
+
+  const usuarioActual = localStorage.getItem('currentUser');
+  const nombresDiaCompleto = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const fechaObj = new Date(actDiaSeleccionado + 'T00:00:00');
+  const dow = fechaObj.getDay();
+  const diaTexto = nombresDiaCompleto[dow];
+  const nombresMes = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const titulo = `${diaTexto} ${fechaObj.getDate()} de ${nombresMes[fechaObj.getMonth()]}`;
+
+  const coloresBorde = ['var(--gold2)', '#5B8DEF', '#3FAE7A', '#B15BE8', '#E85B5B'];
+
+  const clasesDelDia = actividadesDB
+    .filter(act => parsearDiasActividad(act.dia).includes(diaTexto))
+    .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
+
+  let html = `<p class="act-fecha-titulo">${titulo}</p>`;
+
+  if (clasesDelDia.length === 0) {
+    html += `<p style="color: var(--gray); font-size:13px;">No hay actividades programadas este día</p>`;
+  } else {
+    clasesDelDia.forEach((act, idx) => {
+      const prof = usuariosDB[act.profesor];
+      const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : act.profesor;
+      const rangoHorario = act.horaFin ? `${act.hora} a ${act.horaFin}` : act.hora;
+      const inscripto = act.inscriptos.includes(usuarioActual);
+      const color = coloresBorde[idx % coloresBorde.length];
+
+      html += `<div class="act-clase-card" style="border-left-color:${color};">
+        <div class="act-clase-icon">🧘</div>
+        <div class="act-clase-info">
+          <div class="act-clase-nombre">${act.titulo}</div>
+          <div class="act-clase-prof">Prof. ${nombreProf}</div>
+          <div class="act-clase-horario">${rangoHorario} hs</div>
+        </div>
+        ${inscripto
+          ? `<button class="act-clase-btn cancelar" onclick="cancelarInscripcion(${act.id})">Cancelar</button>`
+          : `<button class="act-clase-btn anotar" onclick="anotarseActividad(${act.id})">Anotarme</button>`
+        }
+      </div>`;
+    });
+  }
+
+  cont.innerHTML = html;
 }
 
 // ===== SOCIO: subir y comprimir foto de perfil =====

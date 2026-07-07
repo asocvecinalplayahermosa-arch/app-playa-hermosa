@@ -698,7 +698,7 @@ function guardarNuevaPassword(usuario) {
 function renderMenu(usuario) {
   const rol = usuariosDB[usuario].rol;
   let opciones = [];
-  
+
   if (rol === 'admin') {
     opciones = [
       { id: 'dashboard', label: '📊 Dashboard' },
@@ -718,12 +718,49 @@ function renderMenu(usuario) {
       { id: 'misactividades', label: '🎯 Mis Actividades' },
       { id: 'novedades', label: '📢 Novedades' }
     ];
-  } else if (rol === 'socio') {
-    opciones = [
-      { id: 'inicio', label: '🏠 Inicio' },
-      { id: 'perfil', label: '👤 Perfil' }
-    ];
   }
+
+  if (rol === 'socio') {
+    document.getElementById('menuButtons').innerHTML = '';
+    renderSecciones(rol);
+    renderBottomNavSocio();
+    mostrarSeccionSocio('inicio');
+    return;
+  }
+
+  let html = '';
+  opciones.forEach((opt, idx) => {
+    html += `<button class="menu-btn ${idx === 0 ? 'active' : ''}" onclick="mostrarSeccion('${opt.id}')">${opt.label}</button>`;
+  });
+  document.getElementById('menuButtons').innerHTML = html;
+
+  renderSecciones(rol);
+  mostrarSeccion(opciones[0].id);
+}
+
+// ===== SOCIO: menú inferior fijo =====
+function renderBottomNavSocio() {
+  const existente = document.getElementById('bottomNavSocio');
+  if (existente) existente.remove();
+
+  const nav = document.createElement('div');
+  nav.className = 'bottom-nav';
+  nav.id = 'bottomNavSocio';
+  nav.innerHTML = `
+    <button data-tab="inicio" onclick="mostrarSeccionSocio('inicio')"><span class="bn-icon">🏠</span>Inicio</button>
+    <button data-tab="documentos" onclick="mostrarSeccionSocio('documentos')"><span class="bn-icon">📄</span>Documentos</button>
+    <button data-tab="avisos" onclick="mostrarSeccionSocio('avisos')"><span class="bn-icon">🔔</span>Avisos</button>
+    <button data-tab="perfil" onclick="mostrarSeccionSocio('perfil')"><span class="bn-icon">👤</span>Mi perfil</button>
+  `;
+  document.body.appendChild(nav);
+}
+
+function mostrarSeccionSocio(id) {
+  mostrarSeccion(id);
+  document.querySelectorAll('.bottom-nav button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === id);
+  });
+}
   
   let html = '';
   opciones.forEach((opt, idx) => {

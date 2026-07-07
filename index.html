@@ -1885,6 +1885,13 @@ function guardarActividad(idExistente) {
     return;
   }
 
+  const idParaExcluir = (idExistente !== null && idExistente !== undefined) ? idExistente : null;
+  const conflicto = buscarConflictoHorarioActividad(dia, hora, horaFin, idParaExcluir);
+  if (conflicto) {
+    const forzar = confirm(mensajeConflictoHorario(conflicto) + '\n\n¿Igualmente querés guardarla así (como administrador)?');
+    if (!forzar) return;
+  }
+
   if (idExistente !== null && idExistente !== undefined) {
     const act = actividadesDB.find(a => a.id === idExistente);
     act.titulo = titulo;
@@ -2373,6 +2380,13 @@ function guardarActividadProfesor(idExistente) {
     return;
   }
 
+  const idParaExcluir = (idExistente !== null && idExistente !== undefined) ? idExistente : null;
+  const conflicto = buscarConflictoHorarioActividad(dia, hora, horaFin, idParaExcluir);
+  if (conflicto) {
+    alert(mensajeConflictoHorario(conflicto));
+    return;
+  }
+
   if (idExistente !== null && idExistente !== undefined) {
     const act = actividadesDB.find(a => a.id === idExistente);
     if (act.profesor !== usuarioActual) {
@@ -2607,6 +2621,37 @@ function rangosSeSuperponen(inicio1, fin1, inicio2, fin2) {
   let b2 = horaAMinutos(fin2);
   if (b2 <= a2) b2 += 24 * 60;
   return a1 < b2 && a2 < b1;
+}
+
+// ===== ACTIVIDADES: detectar choque de horario con otra clase ya cargada =====
+// Devuelve la actividad en conflicto (con la que se superpone) o null si no hay choque.
+function buscarConflictoHorarioActividad(dia, hora, horaFin, idExcluir) {
+  if (!hora) return null;
+  const finComparar = horaFin || hora;
+  const diasNuevos = parsearDiasActividad(dia);
+  if (diasNuevos.length === 0) return null;
+
+  for (const act of actividadesDB) {
+    if (idExcluir !== undefined && idExcluir !== null && act.id === idExcluir) continue;
+    if (!act.hora) continue;
+
+    const diasExistentes = parsearDiasActividad(act.dia);
+    const hayDiaEnComun = diasNuevos.some(d => diasExistentes.includes(d));
+    if (!hayDiaEnComun) continue;
+
+    const finExistente = act.horaFin || act.hora;
+    if (rangosSeSuperponen(hora, finComparar, act.hora, finExistente)) {
+      return act;
+    }
+  }
+  return null;
+}
+
+function mensajeConflictoHorario(actConflicto) {
+  const prof = usuariosDB[actConflicto.profesor];
+  const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : actConflicto.profesor;
+  const rango = actConflicto.horaFin ? `${actConflicto.hora} a ${actConflicto.horaFin}` : actConflicto.hora;
+  return `⚠️ Ese horario ya está ocupado por "${actConflicto.titulo}" (Prof. ${nombreProf}), ${actConflicto.dia} de ${rango} hs.\n\nElegí otro horario o día.`;
 }
 
 function turnoOcupado(fechaISO, turnoId) {

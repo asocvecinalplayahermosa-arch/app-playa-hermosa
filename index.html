@@ -535,6 +535,7 @@ body {
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 // ===== FIREBASE: conexión a la base de datos compartida en la nube =====
 const firebaseConfig = {
@@ -612,10 +613,24 @@ let registrosClaseDB = [];
 // (requieren aprobación del admin)
 let solicitudesCambioClaseDB = [];
 
+// Egresos/gastos de la Asociación
+let egresosDB = [];
+
+const CATEGORIAS_EGRESO = [
+  'Mantenimiento del edificio',
+  'Servicios (luz, agua, internet)',
+  'Limpieza',
+  'Sueldos / Honorarios',
+  'Compras e insumos',
+  'Eventos y actividades',
+  'Trámites y gestoría',
+  'Otros'
+];
+
 // Guarda todo en Firebase; todos los dispositivos conectados reciben el cambio al instante
 function guardarTodo() {
   docRefDatos.set({
-    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB
+    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB, egresosDB
   }).catch(err => {
     console.error('Error guardando en Firebase:', err);
     alert('⚠️ No se pudo guardar en la nube. Revisá tu conexión a internet e intentá de nuevo.');
@@ -653,6 +668,7 @@ docRefDatos.onSnapshot((snap) => {
     alquileresDB = data.alquileresDB || alquileresDB;
     registrosClaseDB = data.registrosClaseDB || registrosClaseDB;
     solicitudesCambioClaseDB = data.solicitudesCambioClaseDB || solicitudesCambioClaseDB;
+    egresosDB = data.egresosDB || egresosDB;
     if (migrarDatosSocios()) guardarTodo();
   } else {
     // Primera vez: no existe el documento todavía, subimos los datos iniciales
@@ -681,8 +697,9 @@ function refrescarVistaActual() {
   if (document.getElementById('tablaActividades')) cargarTablaActividades();
   if (document.getElementById('panelProfesor')) cargarPanelProfesor();
   if (document.getElementById('tablaRegistrosClaseTesorero')) cargarTablaRegistrosClaseTesorero();
+  if (document.getElementById('tablaEgresosTesorero')) cargarTablaEgresosTesorero();
   if (document.getElementById('tablaSolicitudesCambio')) cargarSolicitudesCambioAdmin();
-  if (document.getElementById('reporteFinancieroResultado')) generarReporteFinanciero();
+  if (document.getElementById('reporteFinancieroResultado') && reporteFinancieroYaGenerado) generarReporteFinanciero();
   actualizarBadgeProfesoresAdmin();
   if (document.getElementById('eventosLista')) cargarEventosSocio();
   if (document.getElementById('calendarioSocioContainer') && document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
@@ -2049,11 +2066,19 @@ function cargarPanelTesorero() {
       <h3 style="color: var(--navy);">📊 Reportes Financieros</h3>
     </div>
     <div class="form-section">
-      <label style="font-size:12px; font-weight:600;">Desde</label>
+      <label style="font-size:12px; font-weight:600;">¿Qué querés ver en el reporte?</label>
+      <div style="display:flex; gap:15px; flex-wrap:wrap; margin-bottom:15px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal;"><input type="checkbox" id="repChkIngresos" checked style="width:auto; margin:0;"> Ingresos</label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal;"><input type="checkbox" id="repChkDeuda" checked style="width:auto; margin:0;"> Socios con deuda</label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal;"><input type="checkbox" id="repChkAlDia" checked style="width:auto; margin:0;"> Socios al día</label>
+        <label style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:normal;"><input type="checkbox" id="repChkEgresos" checked style="width:auto; margin:0;"> Egresos</label>
+      </div>
+      <label style="font-size:12px; font-weight:600;">Desde (para Ingresos)</label>
       <input type="date" id="repFechaDesde" value="${primerDiaMes}">
-      <label style="font-size:12px; font-weight:600;">Hasta</label>
+      <label style="font-size:12px; font-weight:600;">Hasta (para Ingresos)</label>
       <input type="date" id="repFechaHasta" value="${hoyISO}">
       <button class="btn btn-small" onclick="generarReporteFinanciero()">Generar reporte</button>
+      <button class="btn btn-small" style="background:#1D6F42;" onclick="exportarReporteExcel()">📥 Descargar Excel</button>
     </div>
     <div id="reporteFinancieroResultado"></div>
 
@@ -2087,13 +2112,23 @@ function cargarPanelTesorero() {
     <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Cada profesor registra sus clases con los alumnos que asistieron (socios y no socios). Acá se ve el total cobrado y la comisión del 10% que corresponde a la Asociación.</p>
     <div id="resumenRegistrosClase"></div>
     <div id="tablaRegistrosClaseTesorero"></div>
+
+    <div class="socios-toolbar" style="margin-top: 35px;">
+      <h3 style="color: var(--navy);">💸 Egresos</h3>
+      <button class="btn-add-circle" onclick="abrirModalEgreso()" title="Registrar nuevo egreso">+</button>
+    </div>
+    <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Gastos de la Asociación: mantenimiento, servicios, sueldos, compras, etc.</p>
+    <div id="resumenEgresos"></div>
+    <div id="tablaEgresosTesorero"></div>
   `;
   
   document.getElementById('panelTesorero').innerHTML = html;
   cargarTablaDeudasTesorero();
   cargarTablaAlquileres();
-  generarReporteFinanciero();
+  document.getElementById('reporteFinancieroResultado').innerHTML = '<p style="color: var(--gray); font-size:13px;">Elegí qué querés ver y tocá "Generar reporte".</p>';
+  reporteFinancieroYaGenerado = false;
   cargarTablaRegistrosClaseTesorero();
+  cargarTablaEgresosTesorero();
 }
 
 // ===== TESORERO: Reportes Financieros =====
@@ -2157,12 +2192,27 @@ function calcularAlDiaHasta(u) {
   return new Date(mejorCobertura.anio, mejorCobertura.mes, 1);
 }
 
+let reporteFinancieroYaGenerado = false;
+let ultimoReporteData = null;
+
 function generarReporteFinanciero() {
   const cont = document.getElementById('reporteFinancieroResultado');
   if (!cont) return;
 
+  reporteFinancieroYaGenerado = true;
+
   const desde = document.getElementById('repFechaDesde').value;
   const hasta = document.getElementById('repFechaHasta').value;
+  const verIngresos = document.getElementById('repChkIngresos').checked;
+  const verDeuda = document.getElementById('repChkDeuda').checked;
+  const verAlDia = document.getElementById('repChkAlDia').checked;
+  const verEgresos = document.getElementById('repChkEgresos').checked;
+
+  if (!verIngresos && !verDeuda && !verAlDia && !verEgresos) {
+    cont.innerHTML = '<p style="color: var(--gray); font-size:13px;">Elegí al menos una opción para ver el reporte.</p>';
+    ultimoReporteData = null;
+    return;
+  }
 
   // ===== Ingresos por cuotas sociales =====
   let ingresosCuotas = 0;
@@ -2188,49 +2238,155 @@ function generarReporteFinanciero() {
 
   const totalIngresos = ingresosCuotas + ingresosAlquileres + ingresosComisiones;
 
+  // ===== Egresos del período =====
+  const egresosDelPeriodo = egresosDB.filter(e => e.fecha >= desde && e.fecha <= hasta);
+  const totalEgresos = egresosDelPeriodo.reduce((sum, e) => sum + (e.monto || 0), 0);
+  const egresosPorCategoria = {};
+  egresosDelPeriodo.forEach(e => {
+    egresosPorCategoria[e.categoria] = (egresosPorCategoria[e.categoria] || 0) + e.monto;
+  });
+
   // ===== Socios con deuda / al día (estado actual, no depende del período elegido) =====
   const socios = Object.entries(usuariosDB).filter(([user, u]) => u.rol === 'socio' && u.estado === 'Activo');
   const conDeuda = socios.filter(([user, u]) => (u.mesesEnDeuda || 0) > 0)
     .sort((a, b) => (b[1].mesesEnDeuda || 0) - (a[1].mesesEnDeuda || 0));
   const alDia = socios.filter(([user, u]) => !(u.mesesEnDeuda > 0));
 
-  let htmlDeuda = '';
-  if (conDeuda.length === 0) {
-    htmlDeuda = `<p style="color: var(--gray); font-size:13px;">No hay socios con cuotas pendientes 🎉</p>`;
-  } else {
-    htmlDeuda = `<table><thead><tr><th>Socio</th><th>Meses adeudados</th></tr></thead><tbody>`;
-    conDeuda.forEach(([user, u]) => {
-      htmlDeuda += `<tr><td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td><td data-label="Meses adeudados"><strong style="color:#A33;">${u.mesesEnDeuda}</strong></td></tr>`;
-    });
-    htmlDeuda += `</tbody></table>`;
+  // Guardamos todo para que el botón de Excel use exactamente los mismos datos
+  ultimoReporteData = { desde, hasta, verIngresos, verDeuda, verAlDia, verEgresos, ingresosCuotas, ingresosAlquileres, ingresosComisiones, totalIngresos, conDeuda, alDia, egresosDelPeriodo, totalEgresos, egresosPorCategoria };
+
+  let htmlFinal = '';
+
+  if (verIngresos) {
+    htmlFinal += `
+      <h3 style="color: var(--navy); margin: 20px 0 15px 0;">💰 Ingresos del período</h3>
+      <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosCuotas.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Cuotas sociales</p></div>
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosAlquileres.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Alquileres pagados</p></div>
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosComisiones.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Comisión profesores</p></div>
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color: var(--navy2);"><h3 style="color:var(--navy2);">$${totalIngresos.toLocaleString('es-UY')}</h3><p style="font-size:12px; font-weight:700;">Total ingresos</p></div>
+      </div>
+    `;
   }
 
-  let htmlAlDia = `<table><thead><tr><th>Socio</th><th>Al día hasta</th></tr></thead><tbody>`;
-  alDia.forEach(([user, u]) => {
-    const hastaFecha = calcularAlDiaHasta(u);
-    const texto = hastaFecha
-      ? hastaFecha.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
-      : 'Sin pagos registrados';
-    htmlAlDia += `<tr><td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td><td data-label="Al día hasta" style="text-transform:capitalize;">${texto}</td></tr>`;
-  });
-  htmlAlDia += `</tbody></table>`;
+  if (verEgresos) {
+    let htmlCategorias = Object.entries(egresosPorCategoria)
+      .map(([cat, monto]) => `<div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color:#A33;"><h3 style="color:#A33; font-size:16px;">$${monto.toLocaleString('es-UY')}</h3><p style="font-size:11px;">${cat}</p></div>`)
+      .join('');
+    if (!htmlCategorias) htmlCategorias = `<p style="color: var(--gray); font-size:13px;">No hay egresos registrados en este período</p>`;
 
-  cont.innerHTML = `
-    <h3 style="color: var(--navy); margin: 20px 0 15px 0;">💰 Ingresos del período</h3>
-    <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
-      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosCuotas.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Cuotas sociales</p></div>
-      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosAlquileres.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Alquileres pagados</p></div>
-      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosComisiones.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Comisión profesores</p></div>
-      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color: var(--navy2);"><h3 style="color:var(--navy2);">$${totalIngresos.toLocaleString('es-UY')}</h3><p style="font-size:12px; font-weight:700;">Total ingresos</p></div>
-    </div>
+    htmlFinal += `
+      <h3 style="color: var(--navy); margin: 25px 0 15px 0;">💸 Egresos del período</h3>
+      <div style="display:flex; gap:15px; margin-bottom:10px; flex-wrap:wrap;">${htmlCategorias}</div>
+      <p style="font-size:13px; margin-bottom:20px;">Total egresos: <strong style="color:#A33;">$${totalEgresos.toLocaleString('es-UY')}</strong></p>
+    `;
+  }
 
-    <h3 style="color: var(--navy); margin: 25px 0 12px 0;">🔴 Socios con cuota pendiente</h3>
-    ${htmlDeuda}
+  if (verIngresos && verEgresos) {
+    const balance = totalIngresos - totalEgresos;
+    htmlFinal += `
+      <div class="card" style="text-align:center; border-left-color: ${balance >= 0 ? '#28a745' : '#A33'}; margin-bottom:20px;">
+        <h3 style="color: ${balance >= 0 ? '#28a745' : '#A33'};">$${balance.toLocaleString('es-UY')}</h3>
+        <p style="font-size:13px; font-weight:700;">Balance neto del período (Ingresos − Egresos)</p>
+      </div>
+    `;
+  }
 
-    <h3 style="color: var(--navy); margin: 25px 0 12px 0;">✅ Socios al día</h3>
-    <p style="color: var(--gray); font-size:12px; margin-bottom:10px;">Calculado a partir del último pago registrado + 1 mes.</p>
-    ${htmlAlDia}
-  `;
+  if (verDeuda) {
+    let htmlDeuda = '';
+    if (conDeuda.length === 0) {
+      htmlDeuda = `<p style="color: var(--gray); font-size:13px;">No hay socios con cuotas pendientes 🎉</p>`;
+    } else {
+      htmlDeuda = `<table><thead><tr><th>Socio</th><th>Meses adeudados</th></tr></thead><tbody>`;
+      conDeuda.forEach(([user, u]) => {
+        htmlDeuda += `<tr><td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td><td data-label="Meses adeudados"><strong style="color:#A33;">${u.mesesEnDeuda}</strong></td></tr>`;
+      });
+      htmlDeuda += `</tbody></table>`;
+    }
+    htmlFinal += `<h3 style="color: var(--navy); margin: 25px 0 12px 0;">🔴 Socios con cuota pendiente</h3>${htmlDeuda}`;
+  }
+
+  if (verAlDia) {
+    let htmlAlDia = `<table><thead><tr><th>Socio</th><th>Al día hasta</th></tr></thead><tbody>`;
+    alDia.forEach(([user, u]) => {
+      const hastaFecha = calcularAlDiaHasta(u);
+      const texto = hastaFecha
+        ? hastaFecha.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+        : 'Sin pagos registrados';
+      htmlAlDia += `<tr><td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td><td data-label="Al día hasta" style="text-transform:capitalize;">${texto}</td></tr>`;
+    });
+    htmlAlDia += `</tbody></table>`;
+    htmlFinal += `
+      <h3 style="color: var(--navy); margin: 25px 0 12px 0;">✅ Socios al día</h3>
+      <p style="color: var(--gray); font-size:12px; margin-bottom:10px;">Calculado a partir del período real cubierto en cada pago.</p>
+      ${htmlAlDia}
+    `;
+  }
+
+  cont.innerHTML = htmlFinal;
+}
+
+// ===== TESORERO: exportar el reporte financiero a Excel =====
+function exportarReporteExcel() {
+  if (!ultimoReporteData) {
+    alert('Primero tocá "Generar reporte" para poder exportarlo.');
+    return;
+  }
+
+  const d = ultimoReporteData;
+  const wb = XLSX.utils.book_new();
+
+  if (d.verIngresos) {
+    const filasIngresos = [
+      ['Concepto', 'Monto'],
+      ['Cuotas sociales', d.ingresosCuotas],
+      ['Alquileres pagados', d.ingresosAlquileres],
+      ['Comisión profesores', d.ingresosComisiones],
+      ['TOTAL INGRESOS', d.totalIngresos],
+      [],
+      [`Período: ${d.desde} a ${d.hasta}`]
+    ];
+    if (d.verEgresos) {
+      filasIngresos.push([], ['TOTAL EGRESOS', d.totalEgresos], ['BALANCE NETO', d.totalIngresos - d.totalEgresos]);
+    }
+    const wsIngresos = XLSX.utils.aoa_to_sheet(filasIngresos);
+    XLSX.utils.book_append_sheet(wb, wsIngresos, 'Ingresos');
+  }
+
+  if (d.verEgresos) {
+    const filasEgresos = [['Fecha', 'Categoría', 'Concepto', 'Monto']];
+    d.egresosDelPeriodo.forEach(e => {
+      filasEgresos.push([e.fecha, e.categoria, e.concepto, e.monto]);
+    });
+    filasEgresos.push([], ['TOTAL EGRESOS', '', '', d.totalEgresos]);
+    const wsEgresos = XLSX.utils.aoa_to_sheet(filasEgresos);
+    XLSX.utils.book_append_sheet(wb, wsEgresos, 'Egresos');
+  }
+
+  if (d.verDeuda) {
+    const filasDeuda = [['Socio', 'Meses adeudados']];
+    d.conDeuda.forEach(([user, u]) => {
+      filasDeuda.push([`${u.nombre} ${u.apellido1 || ''}`.trim(), u.mesesEnDeuda]);
+    });
+    const wsDeuda = XLSX.utils.aoa_to_sheet(filasDeuda);
+    XLSX.utils.book_append_sheet(wb, wsDeuda, 'Socios con deuda');
+  }
+
+  if (d.verAlDia) {
+    const filasAlDia = [['Socio', 'Al día hasta']];
+    d.alDia.forEach(([user, u]) => {
+      const hastaFecha = calcularAlDiaHasta(u);
+      const texto = hastaFecha
+        ? hastaFecha.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+        : 'Sin pagos registrados';
+      filasAlDia.push([`${u.nombre} ${u.apellido1 || ''}`.trim(), texto]);
+    });
+    const wsAlDia = XLSX.utils.aoa_to_sheet(filasAlDia);
+    XLSX.utils.book_append_sheet(wb, wsAlDia, 'Socios al dia');
+  }
+
+  const nombreArchivo = `Reporte_Financiero_PlayaHermosa_${d.desde}_a_${d.hasta}.xlsx`;
+  XLSX.writeFile(wb, nombreArchivo);
 }
 
 // ===== TESORERO: registros de clase (comisión de profesores) =====
@@ -2273,6 +2429,112 @@ function cargarTablaRegistrosClaseTesorero() {
       <td data-label="Alumnos" title="${detalleAlumnos}">${r.alumnos.length}</td>
       <td data-label="Total cobrado">$${r.totalCobrado.toLocaleString('es-UY')}</td>
       <td data-label="Comisión (10%)"><strong>$${r.comision.toLocaleString('es-UY')}</strong></td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  cont.innerHTML = html;
+}
+
+// ===== TESORERO: Egresos =====
+function abrirModalEgreso(idExistente) {
+  const editando = idExistente !== undefined;
+  const egreso = editando ? egresosDB.find(e => e.id === idExistente) : null;
+  const hoy = new Date().toISOString().split('T')[0];
+
+  let opcionesCategorias = '';
+  CATEGORIAS_EGRESO.forEach(cat => {
+    opcionesCategorias += `<option value="${cat}" ${editando && egreso.categoria === cat ? 'selected' : ''}>${cat}</option>`;
+  });
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar egreso' : '➕ Registrar nuevo egreso'}</h2>
+      <label style="font-size:12px; font-weight:600;">Fecha</label>
+      <input type="date" id="egrFecha" value="${editando ? egreso.fecha : hoy}">
+      <label style="font-size:12px; font-weight:600;">Categoría</label>
+      <select id="egrCategoria">${opcionesCategorias}</select>
+      <label style="font-size:12px; font-weight:600;">Concepto / detalle</label>
+      <input type="text" id="egrConcepto" placeholder="Ej: Pintura para el frente" value="${editando ? egreso.concepto : ''}">
+      <label style="font-size:12px; font-weight:600;">Monto</label>
+      <input type="number" id="egrMonto" min="0" step="0.01" value="${editando ? egreso.monto : ''}">
+      <button class="btn" onclick="guardarEgreso(${editando ? idExistente : 'null'})">Guardar egreso</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarEgreso(idExistente) {
+  const fecha = document.getElementById('egrFecha').value;
+  const categoria = document.getElementById('egrCategoria').value;
+  const concepto = document.getElementById('egrConcepto').value.trim();
+  const monto = parseFloat(document.getElementById('egrMonto').value);
+  const tesorero = localStorage.getItem('currentUser');
+
+  if (!fecha || !concepto || !monto || monto <= 0) {
+    alert('Completá fecha, concepto y monto correctamente');
+    return;
+  }
+
+  if (idExistente !== null && idExistente !== undefined) {
+    const egreso = egresosDB.find(e => e.id === idExistente);
+    egreso.fecha = fecha; egreso.categoria = categoria; egreso.concepto = concepto; egreso.monto = monto;
+    alert('✅ Egreso actualizado');
+  } else {
+    const nuevoId = egresosDB.length ? Math.max(...egresosDB.map(e => e.id)) + 1 : 1;
+    egresosDB.push({ id: nuevoId, fecha, categoria, concepto, monto, registradoPor: tesorero });
+    alert('✅ Egreso registrado');
+  }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaEgresosTesorero();
+}
+
+function eliminarEgreso(id) {
+  if (!confirm('¿Seguro que querés eliminar este egreso?')) return;
+  egresosDB = egresosDB.filter(e => e.id !== id);
+  guardarTodo();
+  cargarTablaEgresosTesorero();
+}
+
+function cargarTablaEgresosTesorero() {
+  const cont = document.getElementById('tablaEgresosTesorero');
+  const resumenCont = document.getElementById('resumenEgresos');
+  if (!cont) return;
+
+  const lista = egresosDB.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  const totalEgresos = egresosDB.reduce((sum, e) => sum + (e.monto || 0), 0);
+
+  if (resumenCont) {
+    resumenCont.innerHTML = `
+      <div class="card" style="text-align:center; margin-bottom:15px; border-left-color:#A33;">
+        <h3 style="color:#A33;">$${totalEgresos.toLocaleString('es-UY')}</h3>
+        <p style="font-size:12px;">Total egresos registrados</p>
+      </div>
+    `;
+  }
+
+  let html = `<table><thead><tr><th>Fecha</th><th>Categoría</th><th>Concepto</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>`;
+
+  if (lista.length === 0) {
+    html += `<tr><td colspan="5" style="color: var(--gray); text-align:center;">No hay egresos registrados todavía</td></tr>`;
+  }
+
+  lista.forEach(e => {
+    const fechaFormateada = new Date(e.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+    html += `<tr>
+      <td data-label="Fecha"><strong>${fechaFormateada}</strong></td>
+      <td data-label="Categoría">${e.categoria}</td>
+      <td data-label="Concepto">${e.concepto}</td>
+      <td data-label="Monto">$${e.monto.toLocaleString('es-UY')}</td>
+      <td data-label="Acciones">
+        <button class="btn-editar" onclick="abrirModalEgreso(${e.id})">Editar</button>
+        <button class="btn-baja-rojo" onclick="eliminarEgreso(${e.id})">Eliminar</button>
+      </td>
     </tr>`;
   });
 

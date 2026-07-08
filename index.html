@@ -551,6 +551,14 @@ const docRefDatos = dbFirestore.collection('portalData').doc('main');
 let datosListos = false;
 
 // ===== BASE DE DATOS (valores por defecto; se sobreescriben con lo que venga de Firebase) =====
+// ===== Planes de cuota social =====
+const PLANES_CUOTA = {
+  individual: { label: 'Individual', precioMensual: 200 },
+  familiar2: { label: 'Familiar (2 personas)', precioMensual: 340 },
+  familiar3: { label: 'Familiar (3 personas)', precioMensual: 450 },
+  familiar4mas: { label: 'Familiar (4 o más personas)', precioMensual: 500 }
+};
+
 let usuariosDB = {
   'admin': { 
     password: 'admin', nombre: 'Administrador', apellido1: '', apellido2: '', email: 'admin@playahermosa.com', 
@@ -624,6 +632,8 @@ function migrarDatosSocios() {
       if (!Array.isArray(u.historialAvisos)) { u.historialAvisos = []; huboCambios = true; }
       if (typeof u.avisosPorDeuda !== 'number') { u.avisosPorDeuda = u.historialAvisos.length; huboCambios = true; }
       if (typeof u.fechaNacimiento === 'undefined') { u.fechaNacimiento = ''; huboCambios = true; }
+      if (typeof u.planCuota === 'undefined') { u.planCuota = 'individual'; huboCambios = true; }
+      if (!Array.isArray(u.familiaMiembros)) { u.familiaMiembros = []; huboCambios = true; }
     }
   }
   actividadesDB.forEach(act => {
@@ -1237,6 +1247,22 @@ function abrirModalSocio(usuarioExistente) {
         <option value="Honorario" ${editando && u.tipoSocio === 'Honorario' ? 'selected' : ''}>🌟 Honorario</option>
         <option value="Suscriptor" ${editando && u.tipoSocio === 'Suscriptor' ? 'selected' : ''}>🧒 Suscriptor</option>
       </select>
+      <label style="font-size:12px; font-weight:600;">Plan de cuota</label>
+      <select id="socioPlanCuota">
+        ${Object.entries(PLANES_CUOTA).map(([key, plan]) =>
+          `<option value="${key}" ${editando && u.planCuota === key ? 'selected' : ''}>${plan.label} — $${plan.precioMensual}/mes</option>`
+        ).join('')}
+      </select>
+      <label style="font-size:12px; font-weight:600;">Integrantes del grupo familiar (si el plan es familiar)</label>
+      <select id="socioFamiliaMiembros" multiple style="height:100px;">
+        ${Object.entries(usuariosDB)
+          .filter(([otroUser, otroU]) => otroU.rol === 'socio' && otroU.estado === 'Activo' && otroUser !== usuarioExistente)
+          .map(([otroUser, otroU]) => {
+            const seleccionado = editando && Array.isArray(u.familiaMiembros) && u.familiaMiembros.includes(otroUser);
+            return `<option value="${otroUser}" ${seleccionado ? 'selected' : ''}>${otroU.nombre} ${otroU.apellido1 || ''}</option>`;
+          }).join('')}
+      </select>
+      <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Mantené Ctrl (o Cmd) apretado para elegir varios. Al registrar un pago familiar, estos socios también quedarán al día automáticamente.</p>
       <button class="btn" onclick="guardarSocio(${editando ? `'${usuarioExistente}'` : 'null'})">Guardar Socio</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
@@ -1253,6 +1279,8 @@ function guardarSocio(usuarioExistente) {
   const direccion = document.getElementById('socioDireccion').value.trim();
   const email = document.getElementById('socioEmail').value.trim();
   const tipoSocio = document.getElementById('socioTipo').value;
+  const planCuota = document.getElementById('socioPlanCuota').value;
+  const familiaMiembros = Array.from(document.getElementById('socioFamiliaMiembros').selectedOptions).map(opt => opt.value);
 
   if (!nombre || !apellido1 || !email) {
     alert('Nombre, primer apellido y email son obligatorios');
@@ -1270,6 +1298,8 @@ function guardarSocio(usuarioExistente) {
     u.direccion = direccion;
     u.email = email;
     u.tipoSocio = tipoSocio;
+    u.planCuota = planCuota;
+    u.familiaMiembros = familiaMiembros;
     guardarTodo();
     document.querySelector('.modal-overlay').remove();
     cargarTablaSocios();
@@ -1284,6 +1314,8 @@ function guardarSocio(usuarioExistente) {
       rol: 'socio',
       passwordCambiada: false,
       tipoSocio,
+      planCuota,
+      familiaMiembros,
       estado: 'Activo',
       mesesEnDeuda: 0,
       avisosPorDeuda: 0,
@@ -2065,12 +2097,64 @@ function cargarPanelTesorero() {
 }
 
 // ===== TESORERO: Reportes Financieros =====
+const NOMBRES_MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function quitarAcentos(str) {
+  return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+// Busca en el texto del concepto (ej: "Cuota social - Julio a Diciembre 2026")
+// hasta qué mes quedó cubierto el pago. Si hay dos meses mencionados, se toma
+// el último (el mes final del rango). Si no se encuentra ningún mes, devuelve null.
+function extraerCoberturaConcepto(concepto) {
+  if (!concepto) return null;
+  const texto = quitarAcentos(concepto.toLowerCase());
+  const anioMatch = texto.match(/\b(20\d{2})\b/);
+  if (!anioMatch) return null;
+  const anio = parseInt(anioMatch[1]);
+
+  const encontrados = [];
+  NOMBRES_MESES_ES.forEach((nombre, idx) => {
+    let pos = texto.indexOf(nombre);
+    while (pos !== -1) {
+      encontrados.push({ idx, pos });
+      pos = texto.indexOf(nombre, pos + nombre.length);
+    }
+  });
+  if (encontrados.length === 0) return null;
+
+  encontrados.sort((a, b) => a.pos - b.pos);
+  const mesFinal = encontrados[encontrados.length - 1].idx; // el último mes mencionado = hasta dónde cubre
+  return { mes: mesFinal, anio };
+}
+
 function calcularAlDiaHasta(u) {
   if (!u.historialPagos || u.historialPagos.length === 0) return null;
-  const ultimoPago = u.historialPagos.reduce((max, p) => (p.fecha > max.fecha ? p : max), u.historialPagos[0]);
-  const fecha = new Date(ultimoPago.fecha + 'T00:00:00');
-  fecha.setMonth(fecha.getMonth() + 1);
-  return fecha;
+
+  let mejorCobertura = null;
+
+  u.historialPagos.forEach(p => {
+    let candidato;
+    if (typeof p.periodoHastaMes === 'number' && p.periodoHastaAnio) {
+      // dato estructurado cargado desde el formulario (el más confiable)
+      candidato = { mes: p.periodoHastaMes, anio: p.periodoHastaAnio };
+    } else {
+      candidato = extraerCoberturaConcepto(p.concepto);
+      if (!candidato) {
+        // no se pudo interpretar el concepto: como respaldo, asumimos que cubre
+        // el mes de la fecha en que se registró el pago
+        const f = new Date(p.fecha + 'T00:00:00');
+        candidato = { mes: f.getMonth(), anio: f.getFullYear() };
+      }
+    }
+    if (!mejorCobertura || candidato.anio > mejorCobertura.anio ||
+        (candidato.anio === mejorCobertura.anio && candidato.mes > mejorCobertura.mes)) {
+      mejorCobertura = candidato;
+    }
+  });
+
+  if (!mejorCobertura) return null;
+  return new Date(mejorCobertura.anio, mejorCobertura.mes, 1);
 }
 
 function generarReporteFinanciero() {
@@ -2358,15 +2442,26 @@ function eliminarAlquiler(id) {
 function abrirModalPago(usuario) {
   const u = usuariosDB[usuario];
   const hoy = new Date().toISOString().split('T')[0];
+  const mesActual = hoy.slice(0, 7);
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal-content">
       <h2>💰 Registrar pago - ${u.nombre}</h2>
-      <label style="font-size:12px; font-weight:600;">Monto</label>
+      <p style="font-size:12px; color: var(--gray); margin-bottom:12px;">Plan: <strong>${(PLANES_CUOTA[u.planCuota] || PLANES_CUOTA.individual).label}</strong> ($${(PLANES_CUOTA[u.planCuota] || PLANES_CUOTA.individual).precioMensual}/mes)</p>
+
+      <label style="font-size:12px; font-weight:600;">Mes desde</label>
+      <input type="month" id="pagoMesDesde" value="${mesActual}" onchange="actualizarSugerenciaPago('${usuario}')">
+      <label style="font-size:12px; font-weight:600;">Mes hasta</label>
+      <input type="month" id="pagoMesHasta" value="${mesActual}" onchange="actualizarSugerenciaPago('${usuario}')">
+
+      <label style="font-size:12px; font-weight:600;">Monto (sugerido según el plan; se puede ajustar)</label>
       <input type="number" id="pagoMonto" placeholder="Monto pagado" min="0" step="0.01">
       <label style="font-size:12px; font-weight:600;">Concepto / período</label>
       <input type="text" id="pagoConcepto" placeholder="Ej: Cuota social - Julio 2026">
+
+      <div id="pagoFamiliaNota"></div>
+
       <label style="font-size:12px; font-weight:600;">Fecha</label>
       <input type="date" id="pagoFecha" value="${hoy}">
       <button class="btn" onclick="confirmarPago('${usuario}')">Registrar y generar recibo</button>
@@ -2374,12 +2469,54 @@ function abrirModalPago(usuario) {
     </div>
   `;
   document.body.appendChild(overlay);
+  actualizarSugerenciaPago(usuario);
+}
+
+function actualizarSugerenciaPago(usuario) {
+  const u = usuariosDB[usuario];
+  const mesDesdeVal = document.getElementById('pagoMesDesde').value; // "YYYY-MM"
+  const mesHastaVal = document.getElementById('pagoMesHasta').value;
+  if (!mesDesdeVal || !mesHastaVal) return;
+
+  const [anioDesde, mesDesde] = mesDesdeVal.split('-').map(Number);
+  const [anioHasta, mesHasta] = mesHastaVal.split('-').map(Number);
+
+  const totalMeses = (anioHasta * 12 + (mesHasta - 1)) - (anioDesde * 12 + (mesDesde - 1)) + 1;
+  const plan = PLANES_CUOTA[u.planCuota] || PLANES_CUOTA.individual;
+
+  if (totalMeses > 0) {
+    document.getElementById('pagoMonto').value = totalMeses * plan.precioMensual;
+
+    const nombreMesDesde = NOMBRES_MESES_ES[mesDesde - 1];
+    const nombreMesHasta = NOMBRES_MESES_ES[mesHasta - 1];
+    const conceptoSugerido = (mesDesdeVal === mesHastaVal)
+      ? `Cuota social - ${capitalizar(nombreMesDesde)} ${anioHasta}`
+      : `Cuota social - ${capitalizar(nombreMesDesde)}${anioDesde !== anioHasta ? ' ' + anioDesde : ''} a ${capitalizar(nombreMesHasta)} ${anioHasta}`;
+    document.getElementById('pagoConcepto').value = conceptoSugerido;
+  }
+
+  const notaDiv = document.getElementById('pagoFamiliaNota');
+  if (Array.isArray(u.familiaMiembros) && u.familiaMiembros.length > 0) {
+    const nombres = u.familiaMiembros.map(fu => {
+      const fam = usuariosDB[fu];
+      return fam ? `${fam.nombre} ${fam.apellido1 || ''}`.trim() : fu;
+    }).join(', ');
+    notaDiv.innerHTML = `<div class="warning-box" style="margin-bottom:15px;">👨‍👩‍👧 Este pago también va a marcar como al día a su grupo familiar: <strong>${nombres}</strong></div>`;
+  } else {
+    notaDiv.innerHTML = '';
+  }
+}
+
+function capitalizar(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 function confirmarPago(usuario) {
   const monto = parseFloat(document.getElementById('pagoMonto').value);
   const concepto = document.getElementById('pagoConcepto').value.trim();
   const fecha = document.getElementById('pagoFecha').value;
+  const mesDesdeVal = document.getElementById('pagoMesDesde').value;
+  const mesHastaVal = document.getElementById('pagoMesHasta').value;
   const tesorero = localStorage.getItem('currentUser');
 
   if (!monto || monto <= 0 || !concepto || !fecha) {
@@ -2388,8 +2525,36 @@ function confirmarPago(usuario) {
   }
 
   const u = usuariosDB[usuario];
-  const pago = { fecha, monto, concepto, registradoPor: tesorero };
+  const [anioDesde, mesDesde] = mesDesdeVal ? mesDesdeVal.split('-').map(Number) : [null, null];
+  const [anioHasta, mesHasta] = mesHastaVal ? mesHastaVal.split('-').map(Number) : [null, null];
+
+  const pago = {
+    fecha, monto, concepto, registradoPor: tesorero,
+    periodoDesdeMes: mesDesde ? mesDesde - 1 : null,
+    periodoDesdeAnio: anioDesde,
+    periodoHastaMes: mesHasta ? mesHasta - 1 : null,
+    periodoHastaAnio: anioHasta
+  };
   u.historialPagos.push(pago);
+
+  // Si el socio tiene un grupo familiar, el mismo período queda cubierto para todos
+  if (Array.isArray(u.familiaMiembros) && u.familiaMiembros.length > 0) {
+    u.familiaMiembros.forEach(fu => {
+      const familiar = usuariosDB[fu];
+      if (!familiar) return;
+      familiar.historialPagos.push({
+        fecha, monto: 0, registradoPor: tesorero,
+        concepto: `${concepto} (incluido en el pago familiar de ${u.nombre} ${u.apellido1 || ''})`,
+        periodoDesdeMes: mesDesde ? mesDesde - 1 : null,
+        periodoDesdeAnio: anioDesde,
+        periodoHastaMes: mesHasta ? mesHasta - 1 : null,
+        periodoHastaAnio: anioHasta,
+        cubiertoPorFamilia: true
+      });
+      familiar.mesesEnDeuda = 0;
+    });
+  }
+
   guardarTodo();
 
   document.querySelector('.modal-overlay').remove();
@@ -2471,7 +2636,8 @@ function abrirModalHistorialSocio(usuario) {
   let pagosHtml = (u.historialPagos || []).length
     ? u.historialPagos.map(p => {
         const f = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-ES');
-        return `<p style="font-size:13px; margin-bottom:6px;">💰 <strong>${f}</strong> - ${p.concepto} - $${p.monto.toFixed(2)}</p>`;
+        const montoTexto = p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `$${p.monto.toFixed(2)}`;
+        return `<p style="font-size:13px; margin-bottom:6px;">💰 <strong>${f}</strong> - ${p.concepto} - ${montoTexto}</p>`;
       }).join('')
     : '<p style="font-size:13px; color: var(--gray);">Sin pagos registrados</p>';
 
@@ -3051,7 +3217,8 @@ function cargarPerfilSocio() {
       let html = `<table><thead><tr><th>Fecha</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
       u.historialPagos.slice().reverse().forEach(p => {
         const f = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-ES');
-        html += `<tr><td>${f}</td><td>${p.concepto}</td><td>$${p.monto.toFixed(2)}</td></tr>`;
+        const montoTexto = p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `$${p.monto.toFixed(2)}`;
+        html += `<tr><td>${f}</td><td>${p.concepto}</td><td>${montoTexto}</td></tr>`;
       });
       html += `</tbody></table>`;
       pagosDiv.innerHTML = html;

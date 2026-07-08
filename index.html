@@ -1280,6 +1280,9 @@ function abrirModalSocio(usuarioExistente) {
           }).join('')}
       </select>
       <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Mantené Ctrl (o Cmd) apretado para elegir varios. Al registrar un pago familiar, estos socios también quedarán al día automáticamente.</p>
+      <label style="font-size:12px; font-weight:600;">Meses en deuda (ajuste manual)</label>
+      <input type="number" id="socioMesesEnDeuda" min="0" value="${editando ? (u.mesesEnDeuda || 0) : 0}">
+      <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Este valor se recalcula solo apenas el socio tenga algún pago registrado. Usalo a mano solo para casos excepcionales (por ejemplo, un socio que todavía no registró ningún pago en la app).</p>
       <button class="btn" onclick="guardarSocio(${editando ? `'${usuarioExistente}'` : 'null'})">Guardar Socio</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
@@ -1298,6 +1301,7 @@ function guardarSocio(usuarioExistente) {
   const tipoSocio = document.getElementById('socioTipo').value;
   const planCuota = document.getElementById('socioPlanCuota').value;
   const familiaMiembros = Array.from(document.getElementById('socioFamiliaMiembros').selectedOptions).map(opt => opt.value);
+  const mesesEnDeudaManual = parseInt(document.getElementById('socioMesesEnDeuda').value) || 0;
 
   if (!nombre || !apellido1 || !email) {
     alert('Nombre, primer apellido y email son obligatorios');
@@ -1317,6 +1321,9 @@ function guardarSocio(usuarioExistente) {
     u.tipoSocio = tipoSocio;
     u.planCuota = planCuota;
     u.familiaMiembros = familiaMiembros;
+    if (!u.historialPagos || u.historialPagos.length === 0) {
+      u.mesesEnDeuda = mesesEnDeudaManual;
+    }
     guardarTodo();
     document.querySelector('.modal-overlay').remove();
     cargarTablaSocios();
@@ -2061,6 +2068,21 @@ function cargarPanelTesorero() {
   const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
   const hoyISO = hoy.toISOString().split('T')[0];
 
+  // Resumen rápido del mes en curso (Ingresos / Egresos / Balance)
+  let resumenIngresosMes = 0;
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.rol !== 'socio' || !u.historialPagos) continue;
+    u.historialPagos.forEach(p => { if (p.fecha >= primerDiaMes && p.fecha <= hoyISO) resumenIngresosMes += p.monto; });
+  }
+  alquileresDB.forEach(r => { if (r.estadoPago === 'Pagado' && r.fecha >= primerDiaMes && r.fecha <= hoyISO) resumenIngresosMes += (r.montoTotal || 0); });
+  registrosClaseDB.forEach(r => { if (r.fecha >= primerDiaMes && r.fecha <= hoyISO) resumenIngresosMes += (r.comision || 0); });
+
+  let resumenEgresosMes = 0;
+  egresosDB.forEach(e => { if (e.fecha >= primerDiaMes && e.fecha <= hoyISO) resumenEgresosMes += (e.monto || 0); });
+
+  const resumenBalanceMes = resumenIngresosMes - resumenEgresosMes;
+
   let html = `
     <div class="socios-toolbar">
       <h3 style="color: var(--navy);">📊 Reportes Financieros</h3>
@@ -2082,21 +2104,13 @@ function cargarPanelTesorero() {
     </div>
     <div id="reporteFinancieroResultado"></div>
 
-    <div class="form-section">
-      <h3>Actualizar meses en deuda</h3>
-      <select id="tesoreroSocio"><option value="">-- Selecciona socio --</option>
-  `;
-  
-  for (let user in usuariosDB) {
-    if (usuariosDB[user].rol === 'socio' && usuariosDB[user].estado === 'Activo') {
-      html += `<option value="${user}">${usuariosDB[user].nombre} ${usuariosDB[user].apellido1 || ''}</option>`;
-    }
-  }
-  
-  html += `</select>
-    <input type="number" id="tesoreroMeses" placeholder="Meses sin pagar (0 = al día)" min="0">
-    <button class="btn btn-small" onclick="guardarDeudasTesorero()">Actualizar meses en deuda</button>
+    <h3 style="color: var(--navy); margin: 30px 0 15px 0;">📌 Resumen del mes en curso</h3>
+    <div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;">
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${resumenIngresosMes.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Ingresos</p></div>
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color:#A33;"><h3 style="color:#A33;">$${resumenEgresosMes.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Egresos</p></div>
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color: ${resumenBalanceMes >= 0 ? '#28a745' : '#A33'};"><h3 style="color: ${resumenBalanceMes >= 0 ? '#28a745' : '#A33'};">$${resumenBalanceMes.toLocaleString('es-UY')}</h3><p style="font-size:12px; font-weight:700;">Resultado</p></div>
     </div>
+
     <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Estado de deudas y acciones</h3>
     <table id="tablaDeudasTesorero"></table>
 
@@ -2161,6 +2175,35 @@ function extraerCoberturaConcepto(concepto) {
   encontrados.sort((a, b) => a.pos - b.pos);
   const mesFinal = encontrados[encontrados.length - 1].idx; // el último mes mencionado = hasta dónde cubre
   return { mes: mesFinal, anio };
+}
+
+// Recalcula automáticamente "mesesEnDeuda" para los socios que ya tienen pagos
+// registrados, comparando hasta qué mes están cubiertos contra el mes actual.
+// A los socios sin ningún pago registrado no los toca (se pueden ajustar a mano
+// desde "Editar socio", por ejemplo para casos excepcionales).
+function actualizarMesesEnDeudaAutomatico() {
+  const hoy = new Date();
+  const mesActualTotal = hoy.getFullYear() * 12 + hoy.getMonth();
+  let huboCambios = false;
+
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.rol !== 'socio' || u.estado !== 'Activo') continue;
+    if (!u.historialPagos || u.historialPagos.length === 0) continue;
+
+    const alDiaHasta = calcularAlDiaHasta(u);
+    if (!alDiaHasta) continue;
+
+    const mesCubiertoTotal = alDiaHasta.getFullYear() * 12 + alDiaHasta.getMonth();
+    const mesesAtraso = Math.max(0, mesActualTotal - mesCubiertoTotal);
+
+    if (u.mesesEnDeuda !== mesesAtraso) {
+      u.mesesEnDeuda = mesesAtraso;
+      huboCambios = true;
+    }
+  }
+
+  if (huboCambios) guardarTodo();
 }
 
 function calcularAlDiaHasta(u) {
@@ -2543,6 +2586,7 @@ function cargarTablaEgresosTesorero() {
 }
 
 function cargarTablaDeudasTesorero() {
+  actualizarMesesEnDeudaAutomatico();
   let html = `<thead><tr><th>Socio</th><th>Meses en deuda</th><th>Avisos enviados</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>`;
   
   for (let user in usuariosDB) {
@@ -2566,23 +2610,6 @@ function cargarTablaDeudasTesorero() {
   html += `</tbody>`;
   document.getElementById('tablaDeudasTesorero').innerHTML = html;
 }
-function guardarDeudasTesorero() {
-  const usuario = document.getElementById('tesoreroSocio').value;
-  const meses = parseInt(document.getElementById('tesoreroMeses').value) || 0;
-  
-  if (!usuario) {
-    alert('Selecciona un socio');
-    return;
-  }
-  
-  usuariosDB[usuario].mesesEnDeuda = meses;
-  
-  guardarTodo();
-  cargarTablaSocios();
-  cargarTablaDeudasTesorero();
-  alert('✅ Deuda actualizada');
-}
-
 // ===== TESORERO: alquiler Octógono + Parrillero =====
 function cargarTablaAlquileres() {
   const hoyStr = new Date().toISOString().split('T')[0];

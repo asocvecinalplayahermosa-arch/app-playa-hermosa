@@ -600,10 +600,14 @@ let alquileresDB = [];
 // Registros de asistencia/cobro por clase, cargados por cada profesor
 let registrosClaseDB = [];
 
+// Solicitudes del profesor para modificar/anular un registro de clase ya guardado
+// (requieren aprobación del admin)
+let solicitudesCambioClaseDB = [];
+
 // Guarda todo en Firebase; todos los dispositivos conectados reciben el cambio al instante
 function guardarTodo() {
   docRefDatos.set({
-    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB
+    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB
   }).catch(err => {
     console.error('Error guardando en Firebase:', err);
     alert('⚠️ No se pudo guardar en la nube. Revisá tu conexión a internet e intentá de nuevo.');
@@ -638,6 +642,7 @@ docRefDatos.onSnapshot((snap) => {
     noticiasDB = data.noticiasDB || noticiasDB;
     alquileresDB = data.alquileresDB || alquileresDB;
     registrosClaseDB = data.registrosClaseDB || registrosClaseDB;
+    solicitudesCambioClaseDB = data.solicitudesCambioClaseDB || solicitudesCambioClaseDB;
     if (migrarDatosSocios()) guardarTodo();
   } else {
     // Primera vez: no existe el documento todavía, subimos los datos iniciales
@@ -666,6 +671,9 @@ function refrescarVistaActual() {
   if (document.getElementById('tablaActividades')) cargarTablaActividades();
   if (document.getElementById('panelProfesor')) cargarPanelProfesor();
   if (document.getElementById('tablaRegistrosClaseTesorero')) cargarTablaRegistrosClaseTesorero();
+  if (document.getElementById('tablaSolicitudesCambio')) cargarSolicitudesCambioAdmin();
+  if (document.getElementById('reporteFinancieroResultado')) generarReporteFinanciero();
+  actualizarBadgeProfesoresAdmin();
   if (document.getElementById('eventosLista')) cargarEventosSocio();
   if (document.getElementById('calendarioSocioContainer') && document.getElementById('calendarioSocioContainer').style.display !== 'none') cargarCalendarioSocio();
   if (document.getElementById('profileName')) cargarPerfilSocio();
@@ -846,12 +854,13 @@ function renderMenu(usuario) {
 
   let html = '';
   opciones.forEach((opt, idx) => {
-    html += `<button class="menu-btn ${idx === 0 ? 'active' : ''}" onclick="mostrarSeccion('${opt.id}')">${opt.label}</button>`;
+    html += `<button id="menuBtn-${opt.id}" class="menu-btn ${idx === 0 ? 'active' : ''}" onclick="mostrarSeccion('${opt.id}')">${opt.label}</button>`;
   });
   document.getElementById('menuButtons').innerHTML = html;
 
   renderSecciones(rol);
   mostrarSeccion(opciones[0].id);
+  if (rol === 'admin') actualizarBadgeProfesoresAdmin();
 }
 
 // ===== SOCIO: menú inferior fijo =====
@@ -929,6 +938,12 @@ function renderSecciones(rol) {
           </div>
         </div>
         <div id="tablaActividades"></div>
+
+        <div class="socios-toolbar" style="margin-top: 35px;">
+          <h2 style="color: var(--navy);">⏳ Solicitudes de cambio (registros de clase)</h2>
+        </div>
+        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Cuando un profesor pide quitar un alumno o anular un registro de clase ya cargado, aparece acá para tu aprobación.</p>
+        <div id="tablaSolicitudesCambio"></div>
       </div>
       <div id="eventos" class="section">
         <div class="socios-toolbar">
@@ -1103,7 +1118,7 @@ function renderSecciones(rol) {
     actualizarDashboard();
     if (rol === 'admin') cargarTablaEventos();
     if (rol === 'admin') cargarTablaNoticias();
-    if (rol === 'admin') { cargarTablaProfesores(); cargarTablaActividades(); }
+    if (rol === 'admin') { cargarTablaProfesores(); cargarTablaActividades(); cargarSolicitudesCambioAdmin(); }
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();
@@ -1149,42 +1164,42 @@ function calcularEdad(fechaNacimiento) {
 function cargarTablaSocios() {
   let html = `<table><thead><tr>
     <th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Tipo de socio</th><th>Teléfono</th>
-    <th>Edad</th><th>Estado</th><th>Acciones</th>
+    <th>Edad</th><th>Estado</th><th>Editar</th><th>Baja</th>
   </tr></thead><tbody>`;
 
-  let hayActivos = false;
-
+  const socios = [];
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol !== 'socio') continue;
     if (u.estado !== 'Activo') continue; // los dados de baja solo se ven en el Historial de bajas
-    hayActivos = true;
-
     const nombreCompleto = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
+    socios.push({ user, u, nombreCompleto });
+  }
 
+  socios.sort((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto, 'es', { sensitivity: 'base' }));
+
+  socios.forEach(({ user, u, nombreCompleto }) => {
     const colorClase = tieneCausalPorDeuda(u) ? 'btn-baja-rojo' : 'btn-baja-gris';
     const botonBaja = `<button class="${colorClase}" onclick="abrirModalBaja('${user}')">Dar de baja</button>`;
 
     const edad = calcularEdad(u.fechaNacimiento);
-    const edadTexto = edad === null ? '-' : `${edad} años${edad < 18 ? ' 🧒 <span style="color:#dc3545; font-size:11px; font-weight:bold;">Menor</span>' : ''}`;
+    const edadTexto = edad === null ? '-' : `${edad}${edad < 18 ? ' 🧒 <span style="color:#dc3545; font-size:11px; font-weight:bold;">Menor</span>' : ''}`;
 
     html += `<tr>
-      <td>${nombreCompleto}</td>
-      <td>${u.email}</td>
-      <td><strong>${user}</strong></td>
-      <td>${u.tipoSocio || '-'}</td>
-      <td style="white-space:nowrap;">${u.telefono || '-'}</td>
-      <td>${edadTexto}</td>
-      <td>✅ Activo</td>
-      <td>
-        <button class="btn-editar" onclick="abrirModalSocio('${user}')">Editar</button>
-        ${botonBaja}
-      </td>
+      <td data-label="Nombre completo">${nombreCompleto}</td>
+      <td data-label="Email">${u.email}</td>
+      <td data-label="Usuario"><strong>${user}</strong></td>
+      <td data-label="Tipo de socio">${u.tipoSocio || '-'}</td>
+      <td data-label="Teléfono" style="white-space:nowrap;">${u.telefono || '-'}</td>
+      <td data-label="Edad">${edadTexto}</td>
+      <td data-label="Estado">✅ Activo</td>
+      <td data-label="Editar"><button class="btn-editar" onclick="abrirModalSocio('${user}')">Editar</button></td>
+      <td data-label="Baja">${botonBaja}</td>
     </tr>`;
-  }
+  });
 
-  if (!hayActivos) {
-    html += `<tr><td colspan="8" style="color: var(--gray); text-align:center;">No hay socios activos</td></tr>`;
+  if (socios.length === 0) {
+    html += `<tr><td colspan="9" style="color: var(--gray); text-align:center;">No hay socios activos</td></tr>`;
   }
 
   html += `</tbody></table>`;
@@ -1993,7 +2008,23 @@ function combinarActividadesRepetidas() {
 
 // ===== TESORERO =====
 function cargarPanelTesorero() {
+  const hoy = new Date();
+  const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
+  const hoyISO = hoy.toISOString().split('T')[0];
+
   let html = `
+    <div class="socios-toolbar">
+      <h3 style="color: var(--navy);">📊 Reportes Financieros</h3>
+    </div>
+    <div class="form-section">
+      <label style="font-size:12px; font-weight:600;">Desde</label>
+      <input type="date" id="repFechaDesde" value="${primerDiaMes}">
+      <label style="font-size:12px; font-weight:600;">Hasta</label>
+      <input type="date" id="repFechaHasta" value="${hoyISO}">
+      <button class="btn btn-small" onclick="generarReporteFinanciero()">Generar reporte</button>
+    </div>
+    <div id="reporteFinancieroResultado"></div>
+
     <div class="form-section">
       <h3>Actualizar meses en deuda</h3>
       <select id="tesoreroSocio"><option value="">-- Selecciona socio --</option>
@@ -2029,7 +2060,93 @@ function cargarPanelTesorero() {
   document.getElementById('panelTesorero').innerHTML = html;
   cargarTablaDeudasTesorero();
   cargarTablaAlquileres();
+  generarReporteFinanciero();
   cargarTablaRegistrosClaseTesorero();
+}
+
+// ===== TESORERO: Reportes Financieros =====
+function calcularAlDiaHasta(u) {
+  if (!u.historialPagos || u.historialPagos.length === 0) return null;
+  const ultimoPago = u.historialPagos.reduce((max, p) => (p.fecha > max.fecha ? p : max), u.historialPagos[0]);
+  const fecha = new Date(ultimoPago.fecha + 'T00:00:00');
+  fecha.setMonth(fecha.getMonth() + 1);
+  return fecha;
+}
+
+function generarReporteFinanciero() {
+  const cont = document.getElementById('reporteFinancieroResultado');
+  if (!cont) return;
+
+  const desde = document.getElementById('repFechaDesde').value;
+  const hasta = document.getElementById('repFechaHasta').value;
+
+  // ===== Ingresos por cuotas sociales =====
+  let ingresosCuotas = 0;
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.rol !== 'socio' || !u.historialPagos) continue;
+    u.historialPagos.forEach(p => {
+      if (p.fecha >= desde && p.fecha <= hasta) ingresosCuotas += p.monto;
+    });
+  }
+
+  // ===== Ingresos por alquileres pagados =====
+  let ingresosAlquileres = 0;
+  alquileresDB.forEach(r => {
+    if (r.estadoPago === 'Pagado' && r.fecha >= desde && r.fecha <= hasta) ingresosAlquileres += (r.montoTotal || 0);
+  });
+
+  // ===== Ingresos por comisión de profesores (registrado, no necesariamente cobrado) =====
+  let ingresosComisiones = 0;
+  registrosClaseDB.forEach(r => {
+    if (r.fecha >= desde && r.fecha <= hasta) ingresosComisiones += (r.comision || 0);
+  });
+
+  const totalIngresos = ingresosCuotas + ingresosAlquileres + ingresosComisiones;
+
+  // ===== Socios con deuda / al día (estado actual, no depende del período elegido) =====
+  const socios = Object.entries(usuariosDB).filter(([user, u]) => u.rol === 'socio' && u.estado === 'Activo');
+  const conDeuda = socios.filter(([user, u]) => (u.mesesEnDeuda || 0) > 0)
+    .sort((a, b) => (b[1].mesesEnDeuda || 0) - (a[1].mesesEnDeuda || 0));
+  const alDia = socios.filter(([user, u]) => !(u.mesesEnDeuda > 0));
+
+  let htmlDeuda = '';
+  if (conDeuda.length === 0) {
+    htmlDeuda = `<p style="color: var(--gray); font-size:13px;">No hay socios con cuotas pendientes 🎉</p>`;
+  } else {
+    htmlDeuda = `<table><thead><tr><th>Socio</th><th>Meses adeudados</th></tr></thead><tbody>`;
+    conDeuda.forEach(([user, u]) => {
+      htmlDeuda += `<tr><td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td><td data-label="Meses adeudados"><strong style="color:#A33;">${u.mesesEnDeuda}</strong></td></tr>`;
+    });
+    htmlDeuda += `</tbody></table>`;
+  }
+
+  let htmlAlDia = `<table><thead><tr><th>Socio</th><th>Al día hasta</th></tr></thead><tbody>`;
+  alDia.forEach(([user, u]) => {
+    const hastaFecha = calcularAlDiaHasta(u);
+    const texto = hastaFecha
+      ? hastaFecha.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
+      : 'Sin pagos registrados';
+    htmlAlDia += `<tr><td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td><td data-label="Al día hasta" style="text-transform:capitalize;">${texto}</td></tr>`;
+  });
+  htmlAlDia += `</tbody></table>`;
+
+  cont.innerHTML = `
+    <h3 style="color: var(--navy); margin: 20px 0 15px 0;">💰 Ingresos del período</h3>
+    <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosCuotas.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Cuotas sociales</p></div>
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosAlquileres.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Alquileres pagados</p></div>
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosComisiones.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Comisión profesores</p></div>
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color: var(--navy2);"><h3 style="color:var(--navy2);">$${totalIngresos.toLocaleString('es-UY')}</h3><p style="font-size:12px; font-weight:700;">Total ingresos</p></div>
+    </div>
+
+    <h3 style="color: var(--navy); margin: 25px 0 12px 0;">🔴 Socios con cuota pendiente</h3>
+    ${htmlDeuda}
+
+    <h3 style="color: var(--navy); margin: 25px 0 12px 0;">✅ Socios al día</h3>
+    <p style="color: var(--gray); font-size:12px; margin-bottom:10px;">Calculado a partir del último pago registrado + 1 mes.</p>
+    ${htmlAlDia}
+  `;
 }
 
 // ===== TESORERO: registros de clase (comisión de profesores) =====
@@ -2423,13 +2540,17 @@ function cargarPanelProfesor() {
     html += `<table><thead><tr><th>Fecha</th><th>Actividad</th><th>Alumnos</th><th>Total cobrado</th><th>Comisión (10%)</th><th>Acciones</th></tr></thead><tbody>`;
     misRegistros.forEach(r => {
       const fechaFormateada = new Date(r.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+      const solicitudPendiente = solicitudesCambioClaseDB.find(s => s.registroId === r.id && s.estado === 'Pendiente');
+      const accion = solicitudPendiente
+        ? `<span style="font-size:11px; color:#B8860B; font-weight:700;">⏳ Pendiente de aprobación</span>`
+        : `<button class="btn-baja-gris" onclick="abrirModalSolicitudCambio(${r.id})">Solicitar cambio</button>`;
       html += `<tr>
         <td data-label="Fecha">${fechaFormateada}</td>
         <td data-label="Actividad">${r.actividadTitulo}</td>
         <td data-label="Alumnos">${r.alumnos.length}</td>
         <td data-label="Total cobrado">$${r.totalCobrado.toLocaleString('es-UY')}</td>
         <td data-label="Comisión (10%)"><strong>$${r.comision.toLocaleString('es-UY')}</strong></td>
-        <td data-label="Acciones"><button class="btn-baja-rojo" onclick="eliminarRegistroClase(${r.id})">Eliminar</button></td>
+        <td data-label="Acciones">${accion}</td>
       </tr>`;
     });
     html += `</tbody></table>`;
@@ -2658,6 +2779,196 @@ function eliminarRegistroClase(id) {
   guardarTodo();
   cargarPanelProfesor();
   if (document.getElementById('tablaRegistrosClaseTesorero')) cargarTablaRegistrosClaseTesorero();
+}
+
+// ===== PROFESOR: solicitar cambio/anulación de un registro ya guardado (requiere aprobación del admin) =====
+const MOTIVOS_BAJA_ALUMNO = [
+  'El alumno no asistió (error de carga)',
+  'El alumno canceló antes de la clase',
+  'Error en el nombre o el monto cargado',
+  'La clase no se dictó ese día',
+  'Otro motivo'
+];
+
+function abrirModalSolicitudCambio(registroId) {
+  const registro = registrosClaseDB.find(r => r.id === registroId);
+  if (!registro) return;
+
+  let opcionesAlumnos = '';
+  registro.alumnos.forEach((al, idx) => {
+    opcionesAlumnos += `<option value="${idx}">${al.nombre}${al.esSocio ? '' : ' (no socio)'}</option>`;
+  });
+
+  let opcionesMotivos = '';
+  MOTIVOS_BAJA_ALUMNO.forEach(m => { opcionesMotivos += `<option value="${m}">${m}</option>`; });
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>✏️ Solicitar cambio de registro</h2>
+      <p style="font-size:12.5px; color:#666; margin-bottom:15px;">Esta solicitud queda pendiente hasta que el administrador la apruebe. El registro original no se modifica todavía.</p>
+
+      <label style="font-size:12px; font-weight:600;">¿Qué querés hacer?</label>
+      <select id="solTipo" onchange="document.getElementById('solAlumnoWrapper').style.display = this.value === 'quitar_alumno' ? 'block' : 'none';">
+        <option value="quitar_alumno">Quitar un alumno de este registro</option>
+        <option value="anular_registro">Anular el registro completo (la clase no se dio)</option>
+      </select>
+
+      <div id="solAlumnoWrapper">
+        <label style="font-size:12px; font-weight:600;">Alumno a quitar</label>
+        <select id="solAlumnoIdx">${opcionesAlumnos}</select>
+      </div>
+
+      <label style="font-size:12px; font-weight:600;">Motivo</label>
+      <select id="solMotivo">${opcionesMotivos}</select>
+
+      <label style="font-size:12px; font-weight:600;">Detalle (opcional, obligatorio si elegís "Otro motivo")</label>
+      <textarea id="solDetalle" placeholder="Contale al administrador qué pasó..."></textarea>
+
+      <button class="btn" onclick="guardarSolicitudCambio(${registroId})">Enviar solicitud</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarSolicitudCambio(registroId) {
+  const registro = registrosClaseDB.find(r => r.id === registroId);
+  const tipo = document.getElementById('solTipo').value;
+  const motivo = document.getElementById('solMotivo').value;
+  const detalle = document.getElementById('solDetalle').value.trim();
+  const usuarioActual = localStorage.getItem('currentUser');
+
+  if (motivo === 'Otro motivo' && !detalle) {
+    alert('Contanos el detalle si elegís "Otro motivo"');
+    return;
+  }
+
+  let alumnoIndex = null;
+  let alumnoNombre = null;
+  if (tipo === 'quitar_alumno') {
+    alumnoIndex = parseInt(document.getElementById('solAlumnoIdx').value);
+    alumnoNombre = registro.alumnos[alumnoIndex]?.nombre || '';
+  }
+
+  const nuevoId = solicitudesCambioClaseDB.length ? Math.max(...solicitudesCambioClaseDB.map(s => s.id)) + 1 : 1;
+  solicitudesCambioClaseDB.push({
+    id: nuevoId,
+    registroId,
+    actividadTitulo: registro.actividadTitulo,
+    fechaClase: registro.fecha,
+    profesor: usuarioActual,
+    tipo,
+    alumnoIndex,
+    alumnoNombre,
+    motivo,
+    detalle,
+    estado: 'Pendiente',
+    fechaSolicitud: new Date().toISOString()
+  });
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarPanelProfesor();
+  alert('✅ Solicitud enviada. Quedará pendiente hasta que el administrador la revise.');
+}
+
+// ===== ADMIN: aprobar/rechazar solicitudes de cambio de registro de clase =====
+function contarSolicitudesPendientes() {
+  return solicitudesCambioClaseDB.filter(s => s.estado === 'Pendiente').length;
+}
+
+function actualizarBadgeProfesoresAdmin() {
+  const btn = document.getElementById('menuBtn-profesores');
+  if (!btn) return;
+  const pendientes = contarSolicitudesPendientes();
+  const badgeExistente = btn.querySelector('.badge-pendientes');
+  if (badgeExistente) badgeExistente.remove();
+  if (pendientes > 0) {
+    const span = document.createElement('span');
+    span.className = 'badge-pendientes';
+    span.style.cssText = 'background:#dc3545; color:white; font-size:10px; font-weight:700; border-radius:10px; padding:1px 6px; margin-left:6px;';
+    span.textContent = pendientes;
+    btn.appendChild(span);
+  }
+}
+
+function cargarSolicitudesCambioAdmin() {
+  const cont = document.getElementById('tablaSolicitudesCambio');
+  if (!cont) return;
+
+  const pendientes = solicitudesCambioClaseDB.filter(s => s.estado === 'Pendiente');
+
+  if (pendientes.length === 0) {
+    cont.innerHTML = `<p style="color: var(--gray); font-size:13px;">No hay solicitudes pendientes</p>`;
+    actualizarBadgeProfesoresAdmin();
+    return;
+  }
+
+  let html = `<table><thead><tr><th>Profesor</th><th>Actividad</th><th>Fecha clase</th><th>Tipo</th><th>Motivo</th><th>Acciones</th></tr></thead><tbody>`;
+  pendientes.forEach(s => {
+    const prof = usuariosDB[s.profesor];
+    const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : s.profesor;
+    const fechaFormateada = new Date(s.fechaClase + 'T00:00:00').toLocaleDateString('es-ES');
+    const tipoTexto = s.tipo === 'quitar_alumno' ? `Quitar a ${s.alumnoNombre}` : 'Anular registro completo';
+    const motivoTexto = s.motivo + (s.detalle ? `: ${s.detalle}` : '');
+
+    html += `<tr>
+      <td data-label="Profesor">${nombreProf}</td>
+      <td data-label="Actividad">${s.actividadTitulo}</td>
+      <td data-label="Fecha clase">${fechaFormateada}</td>
+      <td data-label="Tipo">${tipoTexto}</td>
+      <td data-label="Motivo">${motivoTexto}</td>
+      <td data-label="Acciones">
+        <button class="btn-baja-verde" onclick="aprobarSolicitudCambio(${s.id})">Aprobar</button>
+        <button class="btn-baja-rojo" onclick="rechazarSolicitudCambio(${s.id})">Rechazar</button>
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table>`;
+  cont.innerHTML = html;
+  actualizarBadgeProfesoresAdmin();
+}
+
+function aprobarSolicitudCambio(solicitudId) {
+  const s = solicitudesCambioClaseDB.find(x => x.id === solicitudId);
+  if (!s) return;
+  if (!confirm('¿Aprobar esta solicitud? Se va a aplicar el cambio sobre el registro.')) return;
+
+  const registro = registrosClaseDB.find(r => r.id === s.registroId);
+  if (registro) {
+    if (s.tipo === 'anular_registro') {
+      registrosClaseDB = registrosClaseDB.filter(r => r.id !== s.registroId);
+    } else if (s.tipo === 'quitar_alumno') {
+      registro.alumnos.splice(s.alumnoIndex, 1);
+      registro.totalCobrado = registro.alumnos.length * registro.precioPorAlumno;
+      registro.comision = Math.round(registro.totalCobrado * 0.10);
+    }
+  }
+
+  s.estado = 'Aprobado';
+  s.fechaResolucion = new Date().toISOString();
+  s.resueltoPor = localStorage.getItem('currentUser');
+
+  guardarTodo();
+  cargarSolicitudesCambioAdmin();
+  if (document.getElementById('tablaRegistrosClaseTesorero')) cargarTablaRegistrosClaseTesorero();
+  alert('✅ Solicitud aprobada y cambio aplicado.');
+}
+
+function rechazarSolicitudCambio(solicitudId) {
+  const s = solicitudesCambioClaseDB.find(x => x.id === solicitudId);
+  if (!s) return;
+  if (!confirm('¿Rechazar esta solicitud? El registro queda tal cual estaba.')) return;
+
+  s.estado = 'Rechazado';
+  s.fechaResolucion = new Date().toISOString();
+  s.resueltoPor = localStorage.getItem('currentUser');
+
+  guardarTodo();
+  cargarSolicitudesCambioAdmin();
+  alert('❌ Solicitud rechazada.');
 }
 
 function cargarCarouselProfesor() {

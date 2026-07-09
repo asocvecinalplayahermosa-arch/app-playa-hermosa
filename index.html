@@ -561,6 +561,7 @@ body {
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
@@ -575,6 +576,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const dbFirestore = firebase.firestore();
+const storage = firebase.storage();
 const docRefDatos = dbFirestore.collection('portalData').doc('main');
 let datosListos = false;
 
@@ -1818,9 +1820,11 @@ function abrirModalDocumento(idExistente) {
       <input type="text" id="docTitulo" placeholder="Ej: Acta Asamblea Ordinaria - Mayo 2026" value="${editando ? doc.titulo : ''}">
       <label style="font-size:12px; font-weight:600;">Descripción (opcional)</label>
       <textarea id="docDescripcion" placeholder="Breve resumen del contenido">${editando ? (doc.descripcion || '') : ''}</textarea>
-      <label style="font-size:12px; font-weight:600;">Link al documento (Google Drive, PDF, etc.)</label>
-      <input type="url" id="docLink" placeholder="https://..." value="${editando ? (doc.link || '') : ''}">
-      <button class="btn" onclick="guardarDocumento(${editando ? idExistente : 'null'})">Guardar documento</button>
+      <label style="font-size:12px; font-weight:600;">Archivo (PDF, Word, Excel, imagen...)</label>
+      ${editando && doc.link ? `<p style="font-size:11.5px; color: var(--gray); margin-top:-6px; margin-bottom:8px;">Ya hay un archivo cargado. Subí uno nuevo solo si querés reemplazarlo.</p>` : ''}
+      <input type="file" id="docArchivo">
+      <div id="docSubidaEstado" style="font-size:12px; color: var(--gold); margin-bottom:10px;"></div>
+      <button class="btn" id="docBtnGuardar" onclick="guardarDocumento(${editando ? idExistente : 'null'})">Guardar documento</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
   `;
@@ -1831,31 +1835,73 @@ function guardarDocumento(idExistente) {
   const categoria = document.getElementById('docCategoria').value;
   const titulo = document.getElementById('docTitulo').value.trim();
   const descripcion = document.getElementById('docDescripcion').value.trim();
-  const link = document.getElementById('docLink').value.trim();
+  const archivo = document.getElementById('docArchivo').files[0];
   const hoy = new Date().toISOString().split('T')[0];
+  const estadoDiv = document.getElementById('docSubidaEstado');
+  const btnGuardar = document.getElementById('docBtnGuardar');
 
   if (!titulo) {
     alert('El título es obligatorio');
     return;
   }
 
-  if (idExistente !== null && idExistente !== undefined) {
-    const doc = documentosDB.find(d => d.id === idExistente);
-    doc.categoria = categoria; doc.titulo = titulo; doc.descripcion = descripcion; doc.link = link;
-    alert('✅ Documento actualizado');
-  } else {
-    const nuevoId = documentosDB.length ? Math.max(...documentosDB.map(d => d.id)) + 1 : 1;
-    documentosDB.push({ id: nuevoId, categoria, titulo, descripcion, link, fecha: hoy });
-    alert('✅ Documento agregado');
+  function finalizarGuardadoDocumento(link) {
+    if (idExistente !== null && idExistente !== undefined) {
+      const doc = documentosDB.find(d => d.id === idExistente);
+      doc.categoria = categoria; doc.titulo = titulo; doc.descripcion = descripcion;
+      if (link) doc.link = link;
+      alert('✅ Documento actualizado');
+    } else {
+      const nuevoId = documentosDB.length ? Math.max(...documentosDB.map(d => d.id)) + 1 : 1;
+      documentosDB.push({ id: nuevoId, categoria, titulo, descripcion, link: link || '', fecha: hoy });
+      alert('✅ Documento agregado');
+    }
+
+    guardarTodo();
+    document.querySelector('.modal-overlay').remove();
+    cargarTablaDocumentosAdmin();
   }
 
-  guardarTodo();
-  document.querySelector('.modal-overlay').remove();
-  cargarTablaDocumentosAdmin();
+  if (archivo) {
+    btnGuardar.disabled = true;
+    estadoDiv.textContent = '⏳ Subiendo archivo...';
+
+    const nombreLimpio = archivo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const rutaArchivo = `documentos/${Date.now()}_${nombreLimpio}`;
+    const refArchivo = storage.ref().child(rutaArchivo);
+    const uploadTask = refArchivo.put(archivo);
+
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const porcentaje = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        estadoDiv.textContent = `⏳ Subiendo archivo... ${porcentaje}%`;
+      },
+      (error) => {
+        console.error('Error subiendo archivo:', error);
+        btnGuardar.disabled = false;
+        estadoDiv.textContent = '';
+        alert('❌ No se pudo subir el archivo. Puede que falten permisos en Firebase Storage (revisá las reglas de Storage en Firebase Console) o el archivo sea muy pesado.');
+      },
+      () => {
+        uploadTask.snapshot.ref.getDownloadURL().then((url) => {
+          estadoDiv.textContent = '';
+          finalizarGuardadoDocumento(url);
+        });
+      }
+    );
+  } else {
+    finalizarGuardadoDocumento(null);
+  }
 }
 
 function eliminarDocumento(id) {
   if (!confirm('¿Seguro que querés eliminar este documento?')) return;
+  const doc = documentosDB.find(d => d.id === id);
+
+  if (doc && doc.link && doc.link.includes('firebasestorage')) {
+    storage.refFromURL(doc.link).delete().catch(err => console.error('No se pudo borrar el archivo de Storage (puede que ya no exista):', err));
+  }
+
   documentosDB = documentosDB.filter(d => d.id !== id);
   guardarTodo();
   cargarTablaDocumentosAdmin();

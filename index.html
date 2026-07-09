@@ -379,6 +379,33 @@ body {
   .re-icon-azul { background: #E3F0FB; }
   .re-icon-violeta { background: #EDE7F9; }
 
+  /* ===== DOCUMENTOS: tarjetas por categoría ===== */
+  .doc-header-card {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+    border-radius: 16px; padding: 18px 20px; color: white; margin-bottom: 18px;
+  }
+  .doc-header-card h2 { font-size: 20px; margin-bottom: 4px; }
+  .doc-header-card p { font-size: 12px; opacity: 0.85; }
+  .doc-card {
+    display: flex; align-items: center; gap: 12px; background: white; border-radius: 12px;
+    padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    cursor: pointer; position: relative;
+  }
+  .doc-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+  .doc-icon.pdf { background: #FBE4E4; }
+  .doc-icon.doc { background: #E3F0FB; }
+  .doc-icon.xls { background: #E5F5EA; }
+  .doc-icon.generic { background: var(--cream); }
+  .doc-info { flex: 1; min-width: 0; }
+  .doc-info .doc-titulo { font-weight: 700; font-size: 13.5px; color: var(--navy); }
+  .doc-info .doc-fecha { font-size: 11px; color: var(--gray); margin-top: 2px; }
+  .doc-badge-tipo { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 10px; background: #eee; color: #666; white-space: nowrap; }
+  .doc-badge-nuevo {
+    position: absolute; top: -6px; right: 10px; background: var(--gold2); color: white;
+    font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+  }
+
+
   /* ===== OCTÓGONO: reservas ===== */
   .oct-back-link { color: rgba(255,255,255,0.85); font-size: 12px; text-decoration:none; cursor:pointer; display:inline-block; margin-bottom: 10px; }
   .oct-header-card {
@@ -616,6 +643,17 @@ let solicitudesCambioClaseDB = [];
 // Egresos/gastos de la Asociación
 let egresosDB = [];
 
+// Documentos institucionales de la Asociación, organizados por categoría
+let documentosDB = [];
+
+const CATEGORIAS_DOCUMENTO = {
+  actas: { label: 'Actas', icono: '📝' },
+  reglamentos: { label: 'Reglamentos', icono: '📜' },
+  resoluciones: { label: 'Resoluciones de Asamblea', icono: '🏛️' },
+  protocolos: { label: 'Protocolos', icono: '🛡️' },
+  otros: { label: 'Otros', icono: '📁' }
+};
+
 const CATEGORIAS_EGRESO = [
   'Mantenimiento del edificio',
   'Servicios (luz, agua, internet)',
@@ -630,7 +668,7 @@ const CATEGORIAS_EGRESO = [
 // Guarda todo en Firebase; todos los dispositivos conectados reciben el cambio al instante
 function guardarTodo() {
   docRefDatos.set({
-    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB, egresosDB
+    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB, egresosDB, documentosDB
   }).catch(err => {
     console.error('Error guardando en Firebase:', err);
     alert('⚠️ No se pudo guardar en la nube. Revisá tu conexión a internet e intentá de nuevo.');
@@ -669,6 +707,7 @@ docRefDatos.onSnapshot((snap) => {
     registrosClaseDB = data.registrosClaseDB || registrosClaseDB;
     solicitudesCambioClaseDB = data.solicitudesCambioClaseDB || solicitudesCambioClaseDB;
     egresosDB = data.egresosDB || egresosDB;
+    documentosDB = data.documentosDB || documentosDB;
     if (migrarDatosSocios()) guardarTodo();
   } else {
     // Primera vez: no existe el documento todavía, subimos los datos iniciales
@@ -691,6 +730,8 @@ function refrescarVistaActual() {
   if (document.getElementById('tablaSocios')) cargarTablaSocios();
   if (document.getElementById('tablaDeudasTesorero')) cargarTablaDeudasTesorero();
   if (document.getElementById('tablaAlquileres')) cargarTablaAlquileres();
+  if (document.getElementById('tablaAlquileresAdmin')) cargarTablaAlquileresAdmin();
+  if (document.getElementById('tablaDocumentosAdmin')) cargarTablaDocumentosAdmin();
   if (document.getElementById('tablaEventos')) cargarTablaEventos();
   if (document.getElementById('tablaNoticias')) cargarTablaNoticias();
   if (document.getElementById('tablaProfesores')) cargarTablaProfesores();
@@ -855,6 +896,8 @@ function renderMenu(usuario) {
       { id: 'socios', label: '👥 Socios' },
       { id: 'tesorero', label: '💰 Tesorero' },
       { id: 'profesores', label: '👨‍🏫 Profesores' },
+      { id: 'octogonoAdmin', label: '🏡 Octógono' },
+      { id: 'documentosAdmin', label: '📄 Documentos' },
       { id: 'eventos', label: '📅 Eventos' },
       { id: 'noticias', label: '📢 Noticias' }
     ];
@@ -971,6 +1014,23 @@ function renderSecciones(rol) {
         </div>
         <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Cuando un profesor pide quitar un alumno o anular un registro de clase ya cargado, aparece acá para tu aprobación.</p>
         <div id="tablaSolicitudesCambio"></div>
+      </div>
+      <div id="octogonoAdmin" class="section">
+        <div class="socios-toolbar">
+          <h2 style="color: var(--navy);">🏡 Octógono + Parrillero</h2>
+          <button class="btn-add-circle" onclick="abrirModalAlquiler()" title="Nueva reserva">+</button>
+        </div>
+        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Tarifas: Socios $4.500 · No socios $6.000 (incluye $700 de limpieza). Seña 30% al reservar, saldo al retirar la llave.</p>
+        <div id="resumenAlquileresAdmin"></div>
+        <div id="tablaAlquileresAdmin"></div>
+      </div>
+      <div id="documentosAdmin" class="section">
+        <div class="socios-toolbar">
+          <h2 style="color: var(--navy);">📄 Documentos</h2>
+          <button class="btn-add-circle" onclick="abrirModalDocumento()" title="Agregar nuevo documento">+</button>
+        </div>
+        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Actas, reglamentos, resoluciones de asamblea, protocolos y otros documentos de la Asociación. Los socios los ven organizados por categoría.</p>
+        <div id="tablaDocumentosAdmin"></div>
       </div>
       <div id="eventos" class="section">
         <div class="socios-toolbar">
@@ -1146,6 +1206,7 @@ function renderSecciones(rol) {
     if (rol === 'admin') cargarTablaEventos();
     if (rol === 'admin') cargarTablaNoticias();
     if (rol === 'admin') { cargarTablaProfesores(); cargarTablaActividades(); cargarSolicitudesCambioAdmin(); }
+    if (rol === 'admin') { cargarTablaAlquileresAdmin(); cargarTablaDocumentosAdmin(); }
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();
@@ -1702,6 +1763,103 @@ function eliminarNoticia(id) {
   guardarTodo();
   cargarTablaNoticias();
   actualizarDashboard();
+}
+
+// ===== ADMIN: gestión de Documentos (Actas, Reglamentos, Resoluciones, Protocolos, Otros) =====
+function cargarTablaDocumentosAdmin() {
+  const cont = document.getElementById('tablaDocumentosAdmin');
+  if (!cont) return;
+
+  const lista = documentosDB.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  let html = `<table><thead><tr><th>Categoría</th><th>Título</th><th>Descripción</th><th>Link</th><th>Acciones</th></tr></thead><tbody>`;
+
+  if (lista.length === 0) {
+    html += `<tr><td colspan="5" style="color: var(--gray); text-align:center;">No hay documentos cargados todavía</td></tr>`;
+  }
+
+  lista.forEach(doc => {
+    const cat = CATEGORIAS_DOCUMENTO[doc.categoria] || CATEGORIAS_DOCUMENTO.otros;
+    const linkHtml = doc.link ? `<a href="${doc.link}" target="_blank" rel="noopener noreferrer" style="color: var(--navy2); font-weight:600;">🔗 Ver</a>` : '<span style="color: var(--gray);">-</span>';
+    html += `<tr>
+      <td data-label="Categoría">${cat.icono} ${cat.label}</td>
+      <td data-label="Título"><strong>${doc.titulo}</strong></td>
+      <td data-label="Descripción">${doc.descripcion || '-'}</td>
+      <td data-label="Link">${linkHtml}</td>
+      <td data-label="Acciones">
+        <button class="btn-editar" onclick="abrirModalDocumento(${doc.id})">Editar</button>
+        <button class="btn-baja-rojo" onclick="eliminarDocumento(${doc.id})">Eliminar</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  cont.innerHTML = html;
+}
+
+function abrirModalDocumento(idExistente) {
+  const editando = idExistente !== undefined;
+  const doc = editando ? documentosDB.find(d => d.id === idExistente) : null;
+  const hoy = new Date().toISOString().split('T')[0];
+
+  let opcionesCategorias = '';
+  Object.entries(CATEGORIAS_DOCUMENTO).forEach(([key, cat]) => {
+    opcionesCategorias += `<option value="${key}" ${editando && doc.categoria === key ? 'selected' : ''}>${cat.icono} ${cat.label}</option>`;
+  });
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar documento' : '➕ Agregar nuevo documento'}</h2>
+      <label style="font-size:12px; font-weight:600;">Categoría</label>
+      <select id="docCategoria">${opcionesCategorias}</select>
+      <label style="font-size:12px; font-weight:600;">Título</label>
+      <input type="text" id="docTitulo" placeholder="Ej: Acta Asamblea Ordinaria - Mayo 2026" value="${editando ? doc.titulo : ''}">
+      <label style="font-size:12px; font-weight:600;">Descripción (opcional)</label>
+      <textarea id="docDescripcion" placeholder="Breve resumen del contenido">${editando ? (doc.descripcion || '') : ''}</textarea>
+      <label style="font-size:12px; font-weight:600;">Link al documento (Google Drive, PDF, etc.)</label>
+      <input type="url" id="docLink" placeholder="https://..." value="${editando ? (doc.link || '') : ''}">
+      <button class="btn" onclick="guardarDocumento(${editando ? idExistente : 'null'})">Guardar documento</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarDocumento(idExistente) {
+  const categoria = document.getElementById('docCategoria').value;
+  const titulo = document.getElementById('docTitulo').value.trim();
+  const descripcion = document.getElementById('docDescripcion').value.trim();
+  const link = document.getElementById('docLink').value.trim();
+  const hoy = new Date().toISOString().split('T')[0];
+
+  if (!titulo) {
+    alert('El título es obligatorio');
+    return;
+  }
+
+  if (idExistente !== null && idExistente !== undefined) {
+    const doc = documentosDB.find(d => d.id === idExistente);
+    doc.categoria = categoria; doc.titulo = titulo; doc.descripcion = descripcion; doc.link = link;
+    alert('✅ Documento actualizado');
+  } else {
+    const nuevoId = documentosDB.length ? Math.max(...documentosDB.map(d => d.id)) + 1 : 1;
+    documentosDB.push({ id: nuevoId, categoria, titulo, descripcion, link, fecha: hoy });
+    alert('✅ Documento agregado');
+  }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaDocumentosAdmin();
+}
+
+function eliminarDocumento(id) {
+  if (!confirm('¿Seguro que querés eliminar este documento?')) return;
+  documentosDB = documentosDB.filter(d => d.id !== id);
+  guardarTodo();
+  cargarTablaDocumentosAdmin();
+  if (document.getElementById('documentosListaSocio')) cargarDocumentosSocio();
 }
 
 // ===== PROFESORES (admin) =====
@@ -2611,7 +2769,7 @@ function cargarTablaDeudasTesorero() {
   document.getElementById('tablaDeudasTesorero').innerHTML = html;
 }
 // ===== TESORERO: alquiler Octógono + Parrillero =====
-function cargarTablaAlquileres() {
+function cargarTablaAlquileresEn(resumenId, tablaId) {
   const hoyStr = new Date().toISOString().split('T')[0];
   const listaOrdenada = alquileresDB.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
 
@@ -2623,7 +2781,7 @@ function cargarTablaAlquileres() {
     <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">${alquileresDB.length}</h3><p style="font-size:12px;">Reservas totales</p></div>
     <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">${pendientes}</h3><p style="font-size:12px;">Pagos pendientes</p></div>
   </div>`;
-  document.getElementById('resumenAlquileres').innerHTML = resumenHtml;
+  document.getElementById(resumenId).innerHTML = resumenHtml;
 
   let html = `<table><thead><tr><th>Fecha</th><th>Turno</th><th>Solicitante</th><th>Teléfono</th><th>Monto</th><th>Estado de pago</th><th>Acciones</th></tr></thead><tbody>`;
 
@@ -2651,7 +2809,15 @@ function cargarTablaAlquileres() {
   });
 
   html += `</tbody></table>`;
-  document.getElementById('tablaAlquileres').innerHTML = html;
+  document.getElementById(tablaId).innerHTML = html;
+}
+
+function cargarTablaAlquileres() {
+  if (document.getElementById('tablaAlquileres')) cargarTablaAlquileresEn('resumenAlquileres', 'tablaAlquileres');
+}
+
+function cargarTablaAlquileresAdmin() {
+  if (document.getElementById('tablaAlquileresAdmin')) cargarTablaAlquileresEn('resumenAlquileresAdmin', 'tablaAlquileresAdmin');
 }
 
 function abrirModalAlquiler(idExistente) {
@@ -2718,6 +2884,7 @@ function guardarAlquiler(idExistente) {
   guardarTodo();
   document.querySelector('.modal-overlay').remove();
   cargarTablaAlquileres();
+  cargarTablaAlquileresAdmin();
 }
 
 function eliminarAlquiler(id) {
@@ -2725,6 +2892,7 @@ function eliminarAlquiler(id) {
   alquileresDB = alquileresDB.filter(r => r.id !== id);
   guardarTodo();
   cargarTablaAlquileres();
+  cargarTablaAlquileresAdmin();
 }
 
 // ===== TESORERO: registrar pago + recibo =====
@@ -3571,27 +3739,85 @@ function cargarRecientesSocio() {
 }
 
 // ===== SOCIO: Documentos (por ahora reutiliza Noticias; Actas se suman en Fase 2) =====
+let documentosCategoriaSeleccionada = null;
+
 function cargarDocumentosSocio() {
   const cont = document.getElementById('documentosListaSocio');
   if (!cont) return;
 
-  if (noticiasDB.length === 0) {
-    cont.innerHTML = '<p style="color: var(--gray); font-size:13px;">No hay documentos cargados</p>';
+  if (!documentosCategoriaSeleccionada) {
+    // ===== Vista de categorías =====
+    let html = '<div class="quick-actions" style="grid-template-columns: repeat(2, 1fr);">';
+    Object.entries(CATEGORIAS_DOCUMENTO).forEach(([key, cat]) => {
+      const cantidad = documentosDB.filter(d => d.categoria === key).length;
+      html += `<button class="quick-action-tile" onclick="verCategoriaDocumento('${key}')">
+        <span class="qa-icon">${cat.icono}</span>
+        <span class="qa-label">${cat.label}</span>
+        <span style="display:block; font-size:10px; color: var(--gray); margin-top:2px;">${cantidad} documento${cantidad === 1 ? '' : 's'}</span>
+      </button>`;
+    });
+    html += '</div>';
+    cont.innerHTML = html;
     return;
   }
 
-  let html = '';
-  noticiasDB.forEach(no => {
-    html += `<div class="recientes-item" ${no.link ? `onclick="window.open('${no.link}','_blank')"` : ''}>
-      <div class="recientes-icon re-icon-azul">📢</div>
-      <div style="flex:1; min-width:0;">
-        <p style="font-weight:700; font-size:13px; color: var(--navy);">${no.titulo}</p>
-        <p style="font-size:12px; color: var(--text);">${no.descripcion}</p>
-      </div>
-      ${no.link ? '<span class="re-chevron">›</span>' : ''}
+  // ===== Vista de una categoría específica =====
+  const cat = CATEGORIAS_DOCUMENTO[documentosCategoriaSeleccionada] || CATEGORIAS_DOCUMENTO.otros;
+  const docsFiltrados = documentosDB.filter(d => d.categoria === documentosCategoriaSeleccionada)
+    .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  const hoyISO = new Date().toISOString().split('T')[0];
+  const fechaMasReciente = docsFiltrados.length ? docsFiltrados[0].fecha : null;
+  const actualizadoTexto = fechaMasReciente === hoyISO ? 'Actualizado hoy'
+    : fechaMasReciente ? `Actualizado el ${new Date(fechaMasReciente + 'T00:00:00').toLocaleDateString('es-ES')}`
+    : 'Sin documentos todavía';
+
+  let html = `<a class="oct-back-link" onclick="volverACategoriasDocumento()" style="color: var(--navy2);">← Categorías</a>
+    <div class="doc-header-card">
+      <h2>${cat.icono} ${cat.label}</h2>
+      <p>${docsFiltrados.length} documento${docsFiltrados.length === 1 ? '' : 's'} · ${actualizadoTexto}</p>
     </div>`;
-  });
+
+  if (docsFiltrados.length === 0) {
+    html += '<p style="color: var(--gray); font-size:13px;">Todavía no hay documentos en esta categoría</p>';
+  } else {
+    docsFiltrados.forEach(doc => {
+      const tipo = inferirTipoArchivo(doc.link);
+      const fechaFormateada = doc.fecha ? new Date(doc.fecha + 'T00:00:00').toLocaleDateString('es-ES') : '';
+      const esNuevo = doc.fecha && ((new Date(hoyISO) - new Date(doc.fecha)) / (1000 * 60 * 60 * 24)) <= 7;
+
+      html += `<div class="doc-card" ${doc.link ? `onclick="window.open('${doc.link}','_blank')"` : ''}>
+        ${esNuevo ? '<span class="doc-badge-nuevo">NUEVO</span>' : ''}
+        <div class="doc-icon ${tipo.clase}">${tipo.icono}</div>
+        <div class="doc-info">
+          <p class="doc-titulo">${doc.titulo}</p>
+          <p class="doc-fecha">${doc.descripcion ? doc.descripcion + ' · ' : ''}${fechaFormateada}</p>
+        </div>
+        ${doc.link ? `<span class="doc-badge-tipo">${tipo.etiqueta}</span>` : ''}
+      </div>`;
+    });
+  }
+
   cont.innerHTML = html;
+}
+
+function inferirTipoArchivo(link) {
+  const url = (link || '').toLowerCase();
+  if (url.includes('.pdf')) return { clase: 'pdf', icono: '📕', etiqueta: 'PDF' };
+  if (url.includes('.doc')) return { clase: 'doc', icono: '📘', etiqueta: 'DOC' };
+  if (url.includes('.xls')) return { clase: 'xls', icono: '📗', etiqueta: 'XLS' };
+  if (url.includes('drive.google.com') || url.includes('docs.google.com')) return { clase: 'doc', icono: '📁', etiqueta: 'DRIVE' };
+  return { clase: 'generic', icono: '📄', etiqueta: 'LINK' };
+}
+
+function verCategoriaDocumento(categoria) {
+  documentosCategoriaSeleccionada = categoria;
+  cargarDocumentosSocio();
+}
+
+function volverACategoriasDocumento() {
+  documentosCategoriaSeleccionada = null;
+  cargarDocumentosSocio();
 }
 
 // ===== SOCIO: historial de avisos (pestaña Avisos) =====

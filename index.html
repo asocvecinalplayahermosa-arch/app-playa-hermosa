@@ -3985,10 +3985,11 @@ function cargarRecientesSocio() {
   }
 
   let html = '';
-  items.forEach(it => {
+  recientesItemsCache = items;
+  items.forEach((it, idx) => {
     const icono = it._tipo === 'evento' ? '📅' : (it._tipo === 'flyer' ? '🖼️' : '📢');
     const claseColor = it._tipo === 'evento' ? 're-icon-violeta' : (it._tipo === 'flyer' ? 're-icon-azul' : 're-icon-rosa');
-    html += `<div class="recientes-item" onclick="mostrarSeccionSocio('documentos')">
+    html += `<div class="recientes-item" onclick="abrirDetalleReciente(${idx})">
       <div class="recientes-icon ${claseColor}">${icono}</div>
       <div style="flex:1; min-width:0;">
         <p style="font-weight:700; font-size:13px; color: var(--navy);">${it.titulo}</p>
@@ -3998,6 +3999,41 @@ function cargarRecientesSocio() {
     </div>`;
   });
   cont.innerHTML = html;
+}
+
+// Abre el detalle de un ítem de "Recientes": si tiene imagen (flyer o noticia con foto), la muestra ampliada;
+// si es una noticia con link pero sin imagen, abre el link; si no, lleva a Documentos.
+let recientesItemsCache = [];
+
+function abrirDetalleReciente(idx) {
+  const it = recientesItemsCache[idx];
+  if (!it) return;
+
+  if (it.imagen) {
+    mostrarLightboxImagen(it.imagen, it.titulo, it.descripcion, it.link);
+  } else if (it.link) {
+    window.open(it.link, '_blank', 'noopener,noreferrer');
+  } else {
+    mostrarSeccionSocio('documentos');
+  }
+}
+
+function mostrarLightboxImagen(imagen, titulo, descripcion, link) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div class="modal-content" style="padding:0; overflow:hidden;">
+      <img src="${imagen}" style="width:100%; max-height:60vh; object-fit:contain; background:#07294A; display:block;">
+      <div style="padding:18px;">
+        <h2 style="margin-top:0; color: var(--navy);">${titulo}</h2>
+        ${descripcion ? `<p style="color: var(--gray); font-size:14px; line-height:1.5;">${descripcion}</p>` : ''}
+        ${link ? `<p><a href="${link}" target="_blank" rel="noopener noreferrer" style="color: var(--navy2); font-weight:600;">🔗 Ver fuente</a></p>` : ''}
+        <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
 }
 
 // ===== SOCIO: Documentos (por ahora reutiliza Noticias; Actas se suman en Fase 2) =====

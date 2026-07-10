@@ -739,6 +739,7 @@ function refrescarVistaActual() {
   if (document.getElementById('tablaAlquileresAdmin')) cargarTablaAlquileresAdmin();
   if (document.getElementById('tablaDocumentosAdmin')) cargarTablaDocumentosAdmin();
   if (document.getElementById('tablaFlyers')) cargarTablaFlyers();
+  if (document.getElementById('tablaAccesos')) cargarTablaAccesos();
   if (document.getElementById('tablaEventos')) cargarTablaEventos();
   if (document.getElementById('tablaNoticias')) cargarTablaNoticias();
   if (document.getElementById('tablaProfesores')) cargarTablaProfesores();
@@ -907,7 +908,8 @@ function renderMenu(usuario) {
       { id: 'documentosAdmin', label: '📄 Documentos' },
       { id: 'eventos', label: '📅 Eventos' },
       { id: 'noticias', label: '📢 Noticias' },
-      { id: 'flyers', label: '🖼️ Flyers' }
+      { id: 'flyers', label: '🖼️ Flyers' },
+      { id: 'accesos', label: '🔑 Accesos' }
     ];
   } else if (rol === 'tesorero') {
     opciones = [
@@ -1063,6 +1065,13 @@ function renderSecciones(rol) {
         </div>
         <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Subí la imagen del flyer para invitar a los socios a una actividad (talleres, charlas, eventos especiales, etc.). Se muestra en el carrusel de inicio.</p>
         <div id="tablaFlyers"></div>
+      </div>
+      <div id="accesos" class="section">
+        <div class="socios-toolbar">
+          <h2 style="color: var(--navy);">🔑 Accesos del sistema</h2>
+        </div>
+        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Estas son las cuentas fijas del sistema (no son socios ni profesores comunes). Desde acá podés restablecerles la contraseña sin depender del email de recuperación.</p>
+        <div id="tablaAccesos"></div>
       </div>
     `;
   } else if (rol === 'tesorero') {
@@ -1268,7 +1277,7 @@ function calcularEdad(fechaNacimiento) {
 function cargarTablaSocios() {
   let html = `<table><thead><tr>
     <th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Tipo de socio</th><th>Teléfono</th>
-    <th>Edad</th><th>Estado</th><th>Editar</th><th>Baja</th>
+    <th>Edad</th><th>Estado</th><th>Editar</th><th>Contraseña</th><th>Baja</th>
   </tr></thead><tbody>`;
 
   const socios = [];
@@ -1298,12 +1307,13 @@ function cargarTablaSocios() {
       <td data-label="Edad">${edadTexto}</td>
       <td data-label="Estado">✅ Activo</td>
       <td data-label="Editar"><button class="btn-editar" onclick="abrirModalSocio('${user}')">Editar</button></td>
+      <td data-label="Contraseña"><button class="btn-editar" onclick="abrirModalResetPassword('${user}')" title="Restablecer contraseña">🔑</button></td>
       <td data-label="Baja">${botonBaja}</td>
     </tr>`;
   });
 
   if (socios.length === 0) {
-    html += `<tr><td colspan="9" style="color: var(--gray); text-align:center;">No hay socios activos</td></tr>`;
+    html += `<tr><td colspan="10" style="color: var(--gray); text-align:center;">No hay socios activos</td></tr>`;
   }
 
   html += `</tbody></table>`;
@@ -1367,6 +1377,18 @@ function abrirModalSocio(usuarioExistente) {
   document.body.appendChild(overlay);
 }
 
+// Chequea si un email ya está en uso por otra cuenta (para evitar que la recuperación de
+// contraseña termine mandándole el cambio a la persona equivocada)
+function emailYaUsadoPorOtro(email, usuarioAExcluir) {
+  const emailNorm = email.trim().toLowerCase();
+  for (let user in usuariosDB) {
+    if (user === usuarioAExcluir) continue;
+    const u = usuariosDB[user];
+    if (u.email && u.email.trim().toLowerCase() === emailNorm) return user;
+  }
+  return null;
+}
+
 function guardarSocio(usuarioExistente) {
   const nombre = document.getElementById('socioNombre').value.trim();
   const apellido1 = document.getElementById('socioApellido1').value.trim();
@@ -1382,6 +1404,13 @@ function guardarSocio(usuarioExistente) {
 
   if (!nombre || !apellido1 || !email) {
     alert('Nombre, primer apellido y email son obligatorios');
+    return;
+  }
+
+  const otroConMismoEmail = emailYaUsadoPorOtro(email, usuarioExistente);
+  if (otroConMismoEmail) {
+    const u2 = usuariosDB[otroConMismoEmail];
+    alert(`⚠️ Ese email ya está registrado en otra cuenta: ${u2.nombre || otroConMismoEmail} (usuario: ${otroConMismoEmail}).\n\nSi dos cuentas comparten el mismo email, la recuperación de contraseña puede resetear la cuenta equivocada. Usá un email distinto para cada socio, o dejalo vacío temporalmente si todavía no lo tenés.`);
     return;
   }
 
@@ -1960,6 +1989,68 @@ function eliminarFlyer(id) {
   cargarTablaFlyers();
 }
 
+// ===== ACCESOS: cuentas fijas del sistema (tesorero, admin, profesor genérico) =====
+function cargarTablaAccesos() {
+  let html = `<table><thead><tr><th>Cuenta</th><th>Usuario</th><th>Rol</th><th>Email registrado</th><th>Acciones</th></tr></thead><tbody>`;
+
+  const cuentasSistema = ['tesorero', 'admin', 'profesor'];
+  cuentasSistema.forEach(user => {
+    const u = usuariosDB[user];
+    if (!u) return;
+    html += `<tr>
+      <td><strong>${u.nombre || '-'}</strong></td>
+      <td>${user}</td>
+      <td>${u.rol}</td>
+      <td>${u.email || '-'}</td>
+      <td><button class="btn-editar" onclick="abrirModalResetPassword('${user}')">🔑 Restablecer contraseña</button></td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('tablaAccesos').innerHTML = html;
+}
+
+function abrirModalResetPassword(usuario) {
+  const u = usuariosDB[usuario];
+  if (!u) { alert('No se encontró ese usuario'); return; }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>🔑 Restablecer contraseña</h2>
+      <p style="font-size:13px; color:#666; margin-bottom:15px;">Cuenta: <strong>${u.nombre || usuario}</strong> (usuario: <strong>${usuario}</strong>)</p>
+      <label style="font-size:12px; font-weight:600;">Nueva contraseña</label>
+      <input type="text" id="resetNuevaPassword" placeholder="Mínimo 8 caracteres, con mayúscula, número y símbolo">
+      <div id="resetPasswordEstado" style="font-size:12px; color:#dc3545; margin-bottom:10px;"></div>
+      <button class="btn" onclick="confirmarResetPassword('${usuario}')">Guardar nueva contraseña</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function confirmarResetPassword(usuario) {
+  const nueva = document.getElementById('resetNuevaPassword').value;
+  const estadoDiv = document.getElementById('resetPasswordEstado');
+
+  if (!nueva || nueva.length < 8) {
+    estadoDiv.textContent = 'La contraseña debe tener al menos 8 caracteres.';
+    return;
+  }
+
+  const u = usuariosDB[usuario];
+  u.password = nueva;
+  u.passwordCambiada = true; // el admin ya la definió a mano, no forzamos otro cambio al entrar
+  guardarTodo();
+
+  document.querySelector('.modal-overlay').remove();
+  alert(`✅ Contraseña actualizada para ${u.nombre || usuario}.\n\nUsuario: ${usuario}\nContraseña nueva: ${nueva}\n\nCompartísela por un medio seguro (no por email, ya que esta cuenta puede no tener un correo real registrado).`);
+  if (document.getElementById('tablaAccesos')) cargarTablaAccesos();
+  if (document.getElementById('tablaSocios')) cargarTablaSocios();
+  if (document.getElementById('tablaProfesores')) cargarTablaProfesores();
+}
+
 // ===== ADMIN: gestión de Documentos (Actas, Reglamentos, Resoluciones, Protocolos, Otros) =====
 function cargarTablaDocumentosAdmin() {
   const cont = document.getElementById('tablaDocumentosAdmin');
@@ -2103,7 +2194,7 @@ function eliminarDocumento(id) {
 
 // ===== PROFESORES (admin) =====
 function cargarTablaProfesores() {
-  let html = `<table><thead><tr><th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Teléfono</th><th>Acredita conocimiento en</th><th>Acciones</th></tr></thead><tbody>`;
+  let html = `<table><thead><tr><th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Teléfono</th><th>Acredita conocimiento en</th><th>Editar</th><th>Contraseña</th></tr></thead><tbody>`;
   let hayProfesores = false;
 
   for (let user in usuariosDB) {
@@ -2117,11 +2208,12 @@ function cargarTablaProfesores() {
       <td data-label="Usuario"><strong>${user}</strong></td>
       <td data-label="Teléfono" style="white-space:nowrap;">${u.telefono || '-'}</td>
       <td data-label="Acredita conocimiento en">${u.acreditacion || '-'}</td>
-      <td data-label="Acciones"><button class="btn-editar" onclick="abrirModalProfesor('${user}')">Editar</button></td>
+      <td data-label="Editar"><button class="btn-editar" onclick="abrirModalProfesor('${user}')">Editar</button></td>
+      <td data-label="Contraseña"><button class="btn-editar" onclick="abrirModalResetPassword('${user}')" title="Restablecer contraseña">🔑</button></td>
     </tr>`;
   }
 
-  if (!hayProfesores) html += `<tr><td colspan="6" style="color: var(--gray); text-align:center;">No hay profesores registrados</td></tr>`;
+  if (!hayProfesores) html += `<tr><td colspan="7" style="color: var(--gray); text-align:center;">No hay profesores registrados</td></tr>`;
 
   html += `</tbody></table>`;
   document.getElementById('tablaProfesores').innerHTML = html;
@@ -2179,6 +2271,13 @@ function guardarProfesor(usuarioExistente) {
 
   if (!nombre || !apellido1 || !telefono || !email || !acreditacion) {
     alert('Nombres, primer apellido, teléfono, email y acreditación son obligatorios');
+    return;
+  }
+
+  const otroConMismoEmailProf = emailYaUsadoPorOtro(email, usuarioExistente);
+  if (otroConMismoEmailProf) {
+    const u2 = usuariosDB[otroConMismoEmailProf];
+    alert(`⚠️ Ese email ya está registrado en otra cuenta: ${u2.nombre || otroConMismoEmailProf} (usuario: ${otroConMismoEmailProf}).\n\nUsá un email distinto para cada persona, para que la recuperación de contraseña no afecte la cuenta equivocada.`);
     return;
   }
 

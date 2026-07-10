@@ -522,7 +522,10 @@ body {
         </div>
         <div class="form-group">
           <label>Contraseña</label>
-          <input type="password" id="password" placeholder="Tu contraseña" required>
+          <div style="position:relative;">
+            <input type="password" id="password" placeholder="Tu contraseña" required style="padding-right:42px;">
+            <button type="button" onclick="toggleMostrarPassword('password', this)" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:18px; padding:4px; line-height:1;" title="Mostrar/ocultar contraseña">👁️</button>
+          </div>
         </div>
         <button type="submit" class="btn">Ingresar</button>
       </form>
@@ -805,6 +808,17 @@ function obtenerMensajePasswordFuerte() {
 }
 
 // ===== LOGIN =====
+function toggleMostrarPassword(inputId, boton) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    boton.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    boton.textContent = '👁️';
+  }
+}
+
 function handleLogin(event) {
   event.preventDefault();
 
@@ -858,8 +872,14 @@ function pedirCambioPassword(usuario) {
       <h2>🔐 Cambiar contraseña</h2>
       <p style="margin-bottom: 20px; color: #666; font-size: 14px;">Esta es tu primera vez. Debes crear una contraseña fuerte para tu seguridad.</p>
       <div class="warning-box">${obtenerMensajePasswordFuerte()}</div>
-      <input type="password" id="newPassword" placeholder="Nueva contraseña" required>
-      <input type="password" id="confirmPassword" placeholder="Confirmar contraseña" required>
+      <div style="position:relative;">
+        <input type="password" id="newPassword" placeholder="Nueva contraseña" required style="padding-right:42px;">
+        <button type="button" onclick="toggleMostrarPassword('newPassword', this)" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:18px; padding:4px; line-height:1;" title="Mostrar/ocultar contraseña">👁️</button>
+      </div>
+      <div style="position:relative;">
+        <input type="password" id="confirmPassword" placeholder="Confirmar contraseña" required style="padding-right:42px;">
+        <button type="button" onclick="toggleMostrarPassword('confirmPassword', this)" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:18px; padding:4px; line-height:1;" title="Mostrar/ocultar contraseña">👁️</button>
+      </div>
       <button class="btn" onclick="guardarNuevaPassword('${usuario}')">Guardar nueva contraseña</button>
     </div>
   `;

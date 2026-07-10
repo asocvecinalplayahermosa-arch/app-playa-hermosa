@@ -1232,6 +1232,7 @@ function renderSecciones(rol) {
     if (rol === 'admin') cargarTablaNoticias();
     if (rol === 'admin') { cargarTablaProfesores(); cargarTablaActividades(); cargarSolicitudesCambioAdmin(); }
     if (rol === 'admin') { cargarTablaAlquileresAdmin(); cargarTablaDocumentosAdmin(); }
+    if (rol === 'admin') { cargarTablaFlyers(); cargarTablaAccesos(); }
   } else if (rol === 'profesor') {
     cargarPanelProfesor();
     cargarCarouselProfesor();

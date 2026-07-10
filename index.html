@@ -648,6 +648,9 @@ let egresosDB = [];
 // Documentos institucionales de la Asociación, organizados por categoría
 let documentosDB = [];
 
+// Flyers de actividades organizadas por la Asociación (imágenes para invitar a los socios)
+let flyersDB = [];
+
 const CATEGORIAS_DOCUMENTO = {
   actas: { label: 'Actas', icono: '📝' },
   reglamentos: { label: 'Reglamentos', icono: '📜' },
@@ -670,7 +673,7 @@ const CATEGORIAS_EGRESO = [
 // Guarda todo en Firebase; todos los dispositivos conectados reciben el cambio al instante
 function guardarTodo() {
   docRefDatos.set({
-    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB, egresosDB, documentosDB
+    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB, egresosDB, documentosDB, flyersDB
   }).catch(err => {
     console.error('Error guardando en Firebase:', err);
     alert('⚠️ No se pudo guardar en la nube. Revisá tu conexión a internet e intentá de nuevo.');
@@ -710,6 +713,7 @@ docRefDatos.onSnapshot((snap) => {
     solicitudesCambioClaseDB = data.solicitudesCambioClaseDB || solicitudesCambioClaseDB;
     egresosDB = data.egresosDB || egresosDB;
     documentosDB = data.documentosDB || documentosDB;
+    flyersDB = data.flyersDB || flyersDB;
     if (migrarDatosSocios()) guardarTodo();
   } else {
     // Primera vez: no existe el documento todavía, subimos los datos iniciales
@@ -734,6 +738,7 @@ function refrescarVistaActual() {
   if (document.getElementById('tablaAlquileres')) cargarTablaAlquileres();
   if (document.getElementById('tablaAlquileresAdmin')) cargarTablaAlquileresAdmin();
   if (document.getElementById('tablaDocumentosAdmin')) cargarTablaDocumentosAdmin();
+  if (document.getElementById('tablaFlyers')) cargarTablaFlyers();
   if (document.getElementById('tablaEventos')) cargarTablaEventos();
   if (document.getElementById('tablaNoticias')) cargarTablaNoticias();
   if (document.getElementById('tablaProfesores')) cargarTablaProfesores();
@@ -901,7 +906,8 @@ function renderMenu(usuario) {
       { id: 'octogonoAdmin', label: '🏡 Octógono' },
       { id: 'documentosAdmin', label: '📄 Documentos' },
       { id: 'eventos', label: '📅 Eventos' },
-      { id: 'noticias', label: '📢 Noticias' }
+      { id: 'noticias', label: '📢 Noticias' },
+      { id: 'flyers', label: '🖼️ Flyers' }
     ];
   } else if (rol === 'tesorero') {
     opciones = [
@@ -1049,6 +1055,14 @@ function renderSecciones(rol) {
         </div>
         <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Noticias de relevancia para el balneario (obras, comunicados, novedades locales). Podés adjuntar un link a la fuente.</p>
         <div id="tablaNoticias"></div>
+      </div>
+      <div id="flyers" class="section">
+        <div class="socios-toolbar">
+          <h2 style="color: var(--navy);">🖼️ Flyers de Actividades</h2>
+          <button class="btn-add-circle" onclick="abrirModalFlyer()" title="Agregar nuevo flyer">+</button>
+        </div>
+        <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Subí la imagen del flyer para invitar a los socios a una actividad (talleres, charlas, eventos especiales, etc.). Se muestra en el carrusel de inicio.</p>
+        <div id="tablaFlyers"></div>
       </div>
     `;
   } else if (rol === 'tesorero') {
@@ -1686,15 +1700,17 @@ function eliminarEvento(id) {
 
 // ===== NOTICIAS =====
 function cargarTablaNoticias() {
-  let html = `<table><thead><tr><th>Título</th><th>Descripción</th><th>Fuente</th><th>Acciones</th></tr></thead><tbody>`;
+  let html = `<table><thead><tr><th>Imagen</th><th>Título</th><th>Descripción</th><th>Fuente</th><th>Acciones</th></tr></thead><tbody>`;
 
   if (noticiasDB.length === 0) {
-    html += `<tr><td colspan="4" style="color: var(--gray); text-align:center;">No hay noticias cargadas</td></tr>`;
+    html += `<tr><td colspan="5" style="color: var(--gray); text-align:center;">No hay noticias cargadas</td></tr>`;
   }
 
   noticiasDB.forEach(no => {
     const fuente = no.link ? `<a href="${no.link}" target="_blank" rel="noopener noreferrer" style="color: var(--navy2); font-weight:600;">🔗 Ver fuente</a>` : '<span style="color: var(--gray);">-</span>';
+    const miniatura = no.imagen ? `<img src="${no.imagen}" alt="Noticia" style="width:60px; height:60px; object-fit:cover; border-radius:8px;">` : '-';
     html += `<tr>
+      <td>${miniatura}</td>
       <td><strong>${no.titulo}</strong></td>
       <td>${no.descripcion}</td>
       <td>${fuente}</td>
@@ -1718,12 +1734,19 @@ function abrirModalNoticia(idExistente) {
   overlay.innerHTML = `
     <div class="modal-content">
       <h2>${editando ? '✏️ Editar noticia' : '➕ Agregar nueva noticia'}</h2>
+      <label style="font-size:12px; font-weight:600;">Link a la fuente (opcional)</label>
+      <div style="display:flex; gap:8px; align-items:flex-start;">
+        <input type="url" id="noticiaLink" placeholder="https://..." style="flex:1;" value="${editando ? (no.link || '') : ''}">
+        <button type="button" class="btn" style="width:auto; padding:10px 14px; margin-top:0; background: var(--gold2); white-space:nowrap;" onclick="autocompletarNoticiaDesdeLink()">🔍 Autocompletar</button>
+      </div>
+      <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:10px;">Pegá el link y tocá "Autocompletar" para traer el título, la imagen y un resumen automáticamente.</p>
+      <div id="noticiaAutoEstado" style="font-size:12px; color: var(--gold); margin-bottom:8px;"></div>
+      <div id="noticiaImagenPreview">${editando && no.imagen ? `<img src="${no.imagen}" style="width:100%; max-height:160px; object-fit:cover; border-radius:8px; margin-bottom:10px;">` : ''}</div>
+      <input type="hidden" id="noticiaImagen" value="${editando ? (no.imagen || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Título</label>
       <input type="text" id="noticiaTitulo" placeholder="Título de la noticia" value="${editando ? no.titulo : ''}">
       <label style="font-size:12px; font-weight:600;">Descripción</label>
       <textarea id="noticiaDescripcion" placeholder="Contenido de la noticia">${editando ? no.descripcion : ''}</textarea>
-      <label style="font-size:12px; font-weight:600;">Link a la fuente (opcional)</label>
-      <input type="url" id="noticiaLink" placeholder="https://..." value="${editando ? (no.link || '') : ''}">
       <button class="btn" onclick="guardarNoticia(${editando ? idExistente : 'null'})">Guardar Noticia</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
@@ -1731,10 +1754,50 @@ function abrirModalNoticia(idExistente) {
   document.body.appendChild(overlay);
 }
 
+// Trae título, descripción e imagen del link pegado (usa un servicio público de vista previa de links)
+async function autocompletarNoticiaDesdeLink() {
+  const link = document.getElementById('noticiaLink').value.trim();
+  const estadoDiv = document.getElementById('noticiaAutoEstado');
+
+  if (!link) {
+    alert('Pegá primero un link en el campo de arriba');
+    return;
+  }
+
+  estadoDiv.textContent = '⏳ Buscando datos del link...';
+
+  try {
+    const resp = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(link)}`);
+    const json = await resp.json();
+
+    if (json.status !== 'success') {
+      estadoDiv.textContent = '';
+      alert('No se pudieron obtener datos automáticamente de ese link. Completá el título y la descripción a mano.');
+      return;
+    }
+
+    const datos = json.data;
+    if (datos.title) document.getElementById('noticiaTitulo').value = datos.title;
+    if (datos.description) document.getElementById('noticiaDescripcion').value = datos.description;
+
+    if (datos.image && datos.image.url) {
+      document.getElementById('noticiaImagen').value = datos.image.url;
+      document.getElementById('noticiaImagenPreview').innerHTML = `<img src="${datos.image.url}" style="width:100%; max-height:160px; object-fit:cover; border-radius:8px; margin-bottom:10px;">`;
+    }
+
+    estadoDiv.textContent = '✅ Datos encontrados. Podés editarlos antes de guardar.';
+  } catch (err) {
+    console.error('Error obteniendo datos del link:', err);
+    estadoDiv.textContent = '';
+    alert('No se pudo conectar con el servicio de autocompletado. Completá el título y la descripción a mano.');
+  }
+}
+
 function guardarNoticia(idExistente) {
   const titulo = document.getElementById('noticiaTitulo').value.trim();
   const descripcion = document.getElementById('noticiaDescripcion').value.trim();
   const link = document.getElementById('noticiaLink').value.trim();
+  const imagen = document.getElementById('noticiaImagen').value.trim();
 
   if (!titulo || !descripcion) {
     alert('Título y descripción son obligatorios');
@@ -1746,10 +1809,11 @@ function guardarNoticia(idExistente) {
     no.titulo = titulo;
     no.descripcion = descripcion;
     no.link = link;
+    no.imagen = imagen;
     alert('✅ Noticia actualizada');
   } else {
     const nuevoId = noticiasDB.length ? Math.max(...noticiasDB.map(n => n.id)) + 1 : 1;
-    noticiasDB.push({ id: nuevoId, titulo, descripcion, link, tipo: 'noticia' });
+    noticiasDB.push({ id: nuevoId, titulo, descripcion, link, imagen, tipo: 'noticia' });
     alert('✅ Noticia creada');
   }
 
@@ -1765,6 +1829,135 @@ function eliminarNoticia(id) {
   guardarTodo();
   cargarTablaNoticias();
   actualizarDashboard();
+}
+
+// ===== FLYERS DE ACTIVIDADES =====
+function cargarTablaFlyers() {
+  let html = `<table><thead><tr><th>Imagen</th><th>Título</th><th>Descripción</th><th>Acciones</th></tr></thead><tbody>`;
+
+  if (flyersDB.length === 0) {
+    html += `<tr><td colspan="4" style="color: var(--gray); text-align:center;">No hay flyers cargados</td></tr>`;
+  }
+
+  flyersDB.slice().sort((a, b) => (b.id || 0) - (a.id || 0)).forEach(fl => {
+    const miniatura = fl.imagen ? `<img src="${fl.imagen}" alt="Flyer" style="width:60px; height:60px; object-fit:cover; border-radius:8px;">` : '-';
+    html += `<tr>
+      <td>${miniatura}</td>
+      <td><strong>${fl.titulo}</strong></td>
+      <td>${fl.descripcion || '-'}</td>
+      <td>
+        <button class="btn-editar" onclick="abrirModalFlyer(${fl.id})">Editar</button>
+        <button class="btn-baja-rojo" onclick="eliminarFlyer(${fl.id})">Eliminar</button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  document.getElementById('tablaFlyers').innerHTML = html;
+}
+
+function abrirModalFlyer(idExistente) {
+  const editando = idExistente !== undefined;
+  const fl = editando ? flyersDB.find(f => f.id === idExistente) : null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar flyer' : '➕ Agregar nuevo flyer'}</h2>
+      <label style="font-size:12px; font-weight:600;">Título de la actividad</label>
+      <input type="text" id="flyerTitulo" placeholder="Ej: Taller de Cocina - Sábado 20hs" value="${editando ? fl.titulo : ''}">
+      <label style="font-size:12px; font-weight:600;">Descripción (opcional)</label>
+      <textarea id="flyerDescripcion" placeholder="Detalles de la actividad">${editando ? (fl.descripcion || '') : ''}</textarea>
+      <label style="font-size:12px; font-weight:600;">Imagen del flyer</label>
+      ${editando && fl.imagen ? `<div style="margin-bottom:8px;"><img src="${fl.imagen}" style="width:100%; max-height:180px; object-fit:cover; border-radius:8px;"></div><p style="font-size:11.5px; color: var(--gray); margin-top:-6px; margin-bottom:8px;">Ya hay una imagen cargada. Subí una nueva solo si querés reemplazarla.</p>` : ''}
+      <input type="file" id="flyerArchivo" accept="image/*">
+      <div id="flyerSubidaEstado" style="font-size:12px; color: var(--gold); margin-bottom:10px;"></div>
+      <button class="btn" id="flyerBtnGuardar" onclick="guardarFlyer(${editando ? idExistente : 'null'})">Guardar Flyer</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarFlyer(idExistente) {
+  const titulo = document.getElementById('flyerTitulo').value.trim();
+  const descripcion = document.getElementById('flyerDescripcion').value.trim();
+  const archivo = document.getElementById('flyerArchivo').files[0];
+  const estadoDiv = document.getElementById('flyerSubidaEstado');
+  const btnGuardar = document.getElementById('flyerBtnGuardar');
+
+  if (!titulo) {
+    alert('El título es obligatorio');
+    return;
+  }
+
+  const editando = idExistente !== null && idExistente !== undefined;
+  if (!editando && !archivo) {
+    alert('Subí una imagen para el flyer');
+    return;
+  }
+
+  function finalizarGuardadoFlyer(imagen) {
+    if (editando) {
+      const fl = flyersDB.find(f => f.id === idExistente);
+      fl.titulo = titulo; fl.descripcion = descripcion;
+      if (imagen) fl.imagen = imagen;
+      alert('✅ Flyer actualizado');
+    } else {
+      const nuevoId = flyersDB.length ? Math.max(...flyersDB.map(f => f.id)) + 1 : 1;
+      flyersDB.push({ id: nuevoId, titulo, descripcion, imagen, tipo: 'flyer' });
+      alert('✅ Flyer agregado');
+    }
+
+    guardarTodo();
+    document.querySelector('.modal-overlay').remove();
+    cargarTablaFlyers();
+  }
+
+  if (archivo) {
+    btnGuardar.disabled = true;
+    estadoDiv.textContent = '⏳ Subiendo imagen...';
+
+    const nombreLimpio = archivo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const rutaArchivo = `flyers/${Date.now()}_${nombreLimpio}`;
+    const refArchivo = storage.ref().child(rutaArchivo);
+    const uploadTask = refArchivo.put(archivo);
+
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        const porcentaje = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        estadoDiv.textContent = `⏳ Subiendo imagen... ${porcentaje}%`;
+      },
+      (error) => {
+        console.error('Error subiendo flyer:', error);
+        btnGuardar.disabled = false;
+        estadoDiv.textContent = '';
+        alert('❌ No se pudo subir la imagen. Puede que falten permisos en Firebase Storage (revisá las reglas de Storage en Firebase Console) o el archivo sea muy pesado.');
+      },
+      () => {
+        uploadTask.snapshot.ref.getDownloadURL().then((url) => {
+          estadoDiv.textContent = '';
+          finalizarGuardadoFlyer(url);
+        });
+      }
+    );
+  } else {
+    finalizarGuardadoFlyer(null);
+  }
+}
+
+function eliminarFlyer(id) {
+  if (!confirm('¿Seguro que querés eliminar este flyer?')) return;
+  const fl = flyersDB.find(f => f.id === id);
+
+  if (fl && fl.imagen && fl.imagen.includes('firebasestorage')) {
+    storage.refFromURL(fl.imagen).delete().catch(err => console.error('No se pudo borrar la imagen de Storage (puede que ya no exista):', err));
+  }
+
+  flyersDB = flyersDB.filter(f => f.id !== id);
+  guardarTodo();
+  cargarTablaFlyers();
 }
 
 // ===== ADMIN: gestión de Documentos (Actas, Reglamentos, Resoluciones, Protocolos, Otros) =====
@@ -3641,15 +3834,26 @@ function rechazarSolicitudCambio(solicitudId) {
 }
 
 function cargarCarouselProfesor() {
-  const allItems = [...eventosDB, ...noticiasDB];
+  const allItems = [...eventosDB, ...noticiasDB, ...flyersDB];
   if (allItems.length === 0) return;
   
   let currentIndex = 0;
   function actualizar() {
     const item = allItems[currentIndex];
     document.getElementById('carouselTitleP').textContent = item.titulo;
-    document.getElementById('carouselDescP').innerHTML = item.descripcion + (item.link ? ` <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="color: var(--gold2); font-weight:bold;">Ver más →</a>` : '');
-    
+    document.getElementById('carouselDescP').innerHTML = (item.descripcion || '') + (item.link ? ` <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="color: var(--gold2); font-weight:bold;">Ver más →</a>` : '');
+
+    const contEl = document.getElementById('carouselProf');
+    if (contEl) {
+      if (item.imagen) {
+        contEl.style.backgroundImage = `linear-gradient(135deg, rgba(7,41,74,0.75), rgba(20,72,122,0.75)), url('${item.imagen}')`;
+        contEl.style.backgroundSize = 'cover';
+        contEl.style.backgroundPosition = 'center';
+      } else {
+        contEl.style.backgroundImage = '';
+      }
+    }
+
     let ind = '';
     for (let i = 0; i < allItems.length; i++) {
       ind += `<div class="carousel-dot ${i === currentIndex ? 'active' : ''}" onclick="currentIndex=${i}; actualizar()"></div>`;
@@ -3730,15 +3934,26 @@ function cargarPerfilSocio() {
 }
 
 function cargarCarouselSocio() {
-  const allItems = [...eventosDB, ...noticiasDB];
+  const allItems = [...eventosDB, ...noticiasDB, ...flyersDB];
   if (allItems.length === 0) return;
   
   let currentIndex = 0;
   function actualizar() {
     const item = allItems[currentIndex];
     if (document.getElementById('carouselTitleS')) document.getElementById('carouselTitleS').textContent = item.titulo;
-    if (document.getElementById('carouselDescS')) document.getElementById('carouselDescS').innerHTML = item.descripcion + (item.link ? ` <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="color: var(--gold2); font-weight:bold;">Ver más →</a>` : '');
-    
+    if (document.getElementById('carouselDescS')) document.getElementById('carouselDescS').innerHTML = (item.descripcion || '') + (item.link ? ` <a href="${item.link}" target="_blank" rel="noopener noreferrer" style="color: var(--gold2); font-weight:bold;">Ver más →</a>` : '');
+
+    const contEl = document.getElementById('carouselSoc');
+    if (contEl) {
+      if (item.imagen) {
+        contEl.style.backgroundImage = `linear-gradient(135deg, rgba(63,42,107,0.75), rgba(108,74,182,0.75)), url('${item.imagen}')`;
+        contEl.style.backgroundSize = 'cover';
+        contEl.style.backgroundPosition = 'center';
+      } else {
+        contEl.style.backgroundImage = '';
+      }
+    }
+
     let ind = '';
     for (let i = 0; i < allItems.length; i++) {
       ind += `<div class="carousel-dot ${i === currentIndex ? 'active' : ''}" onclick="currentIndex=${i}; actualizar()"></div>`;
@@ -3760,7 +3975,8 @@ function cargarRecientesSocio() {
 
   const items = [
     ...eventosDB.map(e => ({ ...e, _tipo: 'evento' })),
-    ...noticiasDB.map(n => ({ ...n, _tipo: 'noticia' }))
+    ...noticiasDB.map(n => ({ ...n, _tipo: 'noticia' })),
+    ...flyersDB.map(f => ({ ...f, _tipo: 'flyer' }))
   ];
 
   if (items.length === 0) {
@@ -3770,13 +3986,13 @@ function cargarRecientesSocio() {
 
   let html = '';
   items.forEach(it => {
-    const icono = it._tipo === 'evento' ? '📅' : '📢';
-    const claseColor = it._tipo === 'evento' ? 're-icon-violeta' : 're-icon-rosa';
+    const icono = it._tipo === 'evento' ? '📅' : (it._tipo === 'flyer' ? '🖼️' : '📢');
+    const claseColor = it._tipo === 'evento' ? 're-icon-violeta' : (it._tipo === 'flyer' ? 're-icon-azul' : 're-icon-rosa');
     html += `<div class="recientes-item" onclick="mostrarSeccionSocio('documentos')">
       <div class="recientes-icon ${claseColor}">${icono}</div>
       <div style="flex:1; min-width:0;">
         <p style="font-weight:700; font-size:13px; color: var(--navy);">${it.titulo}</p>
-        <p style="font-size:11.5px; color: var(--gray);">${it._tipo === 'evento' ? 'Evento' : 'Comunicado'}</p>
+        <p style="font-size:11.5px; color: var(--gray);">${it._tipo === 'evento' ? 'Evento' : (it._tipo === 'flyer' ? 'Flyer de actividad' : 'Comunicado')}</p>
       </div>
       <span class="re-chevron">›</span>
     </div>`;

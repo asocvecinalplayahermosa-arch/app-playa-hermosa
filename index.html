@@ -494,6 +494,16 @@ body {
   .reg-resumen-box { background: var(--cream); border-radius:10px; padding:14px; margin: 15px 0; font-size:13px; }
   .reg-resumen-box .reg-total { font-weight:700; color: var(--navy); font-size:15px; margin-top:6px; }
 
+  /* ===== TESORERO: lista desplegable de socios en deuda ===== */
+  .deuda-item { border: 1px solid #eee; border-radius: 10px; margin-bottom: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(7,41,74,0.05); }
+  .deuda-item-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; cursor: pointer; background: white; }
+  .deuda-item-header:hover { background: var(--cream); }
+  .deuda-item-nombre { font-weight: 700; color: var(--navy); font-size: 14px; }
+  .deuda-item-badge { font-size: 12px; color: var(--text); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+  .deuda-item-chevron { color: var(--gray); font-size: 12px; }
+  .deuda-item-detalle { padding: 4px 14px 14px 14px; background: var(--cream); border-top: 1px solid #eee; }
+  .deuda-item-detalle button { margin: 4px 6px 0 0; }
+
 
 </style>
 </head>
@@ -2655,7 +2665,8 @@ function cargarPanelTesorero() {
     </div>` : '<div style="margin-bottom:25px;"></div>'}
 
     <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Estado de deudas y acciones</h3>
-    <table id="tablaDeudasTesorero"></table>
+    <p style="color: var(--gray); font-size: 12px; margin-bottom: 10px;">Tocá el nombre de un socio para ver el detalle y las acciones.</p>
+    <div id="tablaDeudasTesorero"></div>
 
     <div class="socios-toolbar" style="margin-top: 35px;">
       <h3 style="color: var(--navy);">🏡 Alquiler Octógono + Parrillero</h3>
@@ -3150,28 +3161,51 @@ function cargarTablaEgresosTesorero() {
 
 function cargarTablaDeudasTesorero() {
   actualizarMesesEnDeudaAutomatico();
-  let html = `<thead><tr><th>Socio</th><th>Meses en deuda</th><th>Avisos enviados</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>`;
-  
+  let html = '';
+  let haySocios = false;
+
+  const socios = [];
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
-    if (u.rol === 'socio' && u.estado === 'Activo') {
-      const estado = tieneCausalPorDeuda(u) ? '🔴 Causal por deuda' : (u.mesesEnDeuda >= 1 ? '⚠️ En deuda' : '✅ Al día');
-      html += `<tr>
-        <td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td>
-        <td data-label="Meses en deuda">${u.mesesEnDeuda}</td>
-        <td data-label="Avisos enviados">${(u.historialAvisos || []).length}</td>
-        <td data-label="Estado">${estado}</td>
-        <td data-label="Acciones">
+    if (u.rol === 'socio' && u.estado === 'Activo') socios.push({ user, u });
+  }
+  socios.sort((a, b) => `${a.u.nombre} ${a.u.apellido1 || ''}`.localeCompare(`${b.u.nombre} ${b.u.apellido1 || ''}`, 'es', { sensitivity: 'base' }));
+
+  socios.forEach(({ user, u }) => {
+    haySocios = true;
+    const causal = tieneCausalPorDeuda(u);
+    const estadoIcono = causal ? '🔴' : (u.mesesEnDeuda >= 1 ? '⚠️' : '✅');
+    const estadoTexto = causal ? 'Causal por deuda' : (u.mesesEnDeuda >= 1 ? 'En deuda' : 'Al día');
+
+    html += `
+      <div class="deuda-item">
+        <div class="deuda-item-header" onclick="toggleDeudaDetalle('${user}')">
+          <span class="deuda-item-nombre">${u.nombre} ${u.apellido1 || ''}</span>
+          <span class="deuda-item-badge">${estadoIcono} ${estadoTexto} <span class="deuda-item-chevron" id="deudaChevron-${user}">▾</span></span>
+        </div>
+        <div class="deuda-item-detalle" id="deudaDetalle-${user}" style="display:none;">
+          <p style="font-size:13px; margin-bottom:4px;">Meses en deuda: <strong>${u.mesesEnDeuda}</strong></p>
+          <p style="font-size:13px; margin-bottom:10px;">Avisos enviados: <strong>${(u.historialAvisos || []).length}</strong></p>
           <button class="btn-editar" onclick="abrirModalPago('${user}')">💰 Registrar pago</button>
           <button class="btn-baja-gris" onclick="abrirModalAviso('${user}')">📨 Enviar aviso</button>
           <button class="btn-baja-verde" onclick="abrirModalHistorialSocio('${user}')">📋 Historial</button>
-        </td>
-      </tr>`;
-    }
-  }
-  
-  html += `</tbody>`;
+        </div>
+      </div>
+    `;
+  });
+
+  if (!haySocios) html = '<p style="color: var(--gray); font-size:13px;">No hay socios activos</p>';
+
   document.getElementById('tablaDeudasTesorero').innerHTML = html;
+}
+
+function toggleDeudaDetalle(user) {
+  const detalle = document.getElementById(`deudaDetalle-${user}`);
+  const chevron = document.getElementById(`deudaChevron-${user}`);
+  if (!detalle) return;
+  const abierto = detalle.style.display !== 'none';
+  detalle.style.display = abierto ? 'none' : 'block';
+  if (chevron) chevron.textContent = abierto ? '▾' : '▴';
 }
 // ===== TESORERO: alquiler Octógono + Parrillero =====
 function cargarTablaAlquileresEn(resumenId, tablaId) {

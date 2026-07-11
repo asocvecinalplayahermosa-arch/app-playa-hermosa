@@ -1463,8 +1463,8 @@ function guardarSocio(usuarioExistente) {
   const otroConMismoEmail = emailYaUsadoPorOtro(email, usuarioExistente);
   if (otroConMismoEmail) {
     const u2 = usuariosDB[otroConMismoEmail];
-    alert(`⚠️ Ese email ya está registrado en otra cuenta: ${u2.nombre || otroConMismoEmail} (usuario: ${otroConMismoEmail}).\n\nSi dos cuentas comparten el mismo email, la recuperación de contraseña puede resetear la cuenta equivocada. Usá un email distinto para cada socio, o dejalo vacío temporalmente si todavía no lo tenés.`);
-    return;
+    const continuar = confirm(`ℹ️ Ese email ya está registrado en otra cuenta: ${u2.nombre || otroConMismoEmail} (rol: ${u2.rol}, usuario: ${otroConMismoEmail}).\n\nEsto es normal si es la misma persona con dos roles distintos (por ejemplo, socio y profesor). Al recuperar la contraseña, la app va a preguntar cuál de las cuentas querés restablecer.\n\n¿Continuar y guardar igual?`);
+    if (!continuar) return;
   }
 
   if (usuarioExistente) {
@@ -2330,8 +2330,8 @@ function guardarProfesor(usuarioExistente) {
   const otroConMismoEmailProf = emailYaUsadoPorOtro(email, usuarioExistente);
   if (otroConMismoEmailProf) {
     const u2 = usuariosDB[otroConMismoEmailProf];
-    alert(`⚠️ Ese email ya está registrado en otra cuenta: ${u2.nombre || otroConMismoEmailProf} (usuario: ${otroConMismoEmailProf}).\n\nUsá un email distinto para cada persona, para que la recuperación de contraseña no afecte la cuenta equivocada.`);
-    return;
+    const continuarProf = confirm(`ℹ️ Ese email ya está registrado en otra cuenta: ${u2.nombre || otroConMismoEmailProf} (rol: ${u2.rol}, usuario: ${otroConMismoEmailProf}).\n\nEsto es normal si es la misma persona con dos roles distintos (por ejemplo, socio y profesor). Al recuperar la contraseña, la app va a preguntar cuál de las cuentas querés restablecer.\n\n¿Continuar y guardar igual?`);
+    if (!continuarProf) return;
   }
 
   if (usuarioExistente) {
@@ -5091,20 +5091,71 @@ function procesarRecuperarPassword() {
     return;
   }
 
-  let usuarioEncontrado = null;
-  for (let user in usuariosDB) {
-    const u = usuariosDB[user];
-    if (user.toLowerCase() === input || (u.email && u.email.toLowerCase() === input)) {
-      usuarioEncontrado = user;
-      break;
-    }
+  // Si coincide exactamente con un nombre de usuario, ese es único: vamos directo
+  const usuarioExacto = Object.keys(usuariosDB).find(user => user.toLowerCase() === input);
+  if (usuarioExacto) {
+    enviarPasswordTemporal(usuarioExacto);
+    return;
   }
 
-  if (!usuarioEncontrado) {
+  // Si no, buscamos TODAS las cuentas que tengan ese email (puede ser más de una,
+  // por ejemplo la misma persona como socio y como profesor)
+  const coincidencias = Object.keys(usuariosDB).filter(user => {
+    const u = usuariosDB[user];
+    return u.email && u.email.trim().toLowerCase() === input;
+  });
+
+  if (coincidencias.length === 0) {
     alert('No encontramos ninguna cuenta con ese usuario o correo. Verificá los datos o contactá al administrador.');
     return;
   }
 
+  if (coincidencias.length === 1) {
+    enviarPasswordTemporal(coincidencias[0]);
+    return;
+  }
+
+  // Varias cuentas con el mismo email: le pedimos que elija cuál quiere recuperar
+  mostrarSelectorCuentaRecuperacion(coincidencias);
+}
+
+function mostrarSelectorCuentaRecuperacion(usuarios) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  const etiquetasRol = { admin: 'Administrador', tesorero: 'Tesorero', profesor: 'Profesor', socio: 'Socio' };
+
+  let opcionesHtml = '';
+  usuarios.forEach(user => {
+    const u = usuariosDB[user];
+    const nombreCompleto = `${u.nombre} ${u.apellido1 || ''}`.trim();
+    opcionesHtml += `
+      <div class="deuda-item" style="cursor:pointer;" onclick="elegirCuentaRecuperacion('${user}')">
+        <div class="deuda-item-header" style="cursor:pointer;">
+          <span class="deuda-item-nombre">${nombreCompleto}</span>
+          <span class="deuda-item-badge">${etiquetasRol[u.rol] || u.rol}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>👤 Encontramos varias cuentas</h2>
+      <p style="font-size:13px; color:#666; margin-bottom:15px;">Ese correo está registrado en más de una cuenta. Elegí cuál querés recuperar:</p>
+      ${opcionesHtml}
+      <button class="btn" style="background:#6c757d; margin-top:15px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.querySelector('.modal-overlay').remove();
+  document.body.appendChild(overlay);
+}
+
+function elegirCuentaRecuperacion(usuario) {
+  document.querySelector('.modal-overlay').remove();
+  enviarPasswordTemporal(usuario);
+}
+
+function enviarPasswordTemporal(usuarioEncontrado) {
   const u = usuariosDB[usuarioEncontrado];
   if (!u.email) {
     alert('Esta cuenta no tiene un correo electrónico registrado. Pedile al administrador que te lo cargue o que te restablezca la contraseña manualmente.');
@@ -5112,8 +5163,7 @@ function procesarRecuperarPassword() {
   }
 
   const btn = document.getElementById('btnEnviarRecuperacion');
-  btn.disabled = true;
-  btn.textContent = 'Enviando...';
+  if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
   const nuevaPassword = generarPasswordTemporal();
 
@@ -5126,12 +5176,12 @@ function procesarRecuperarPassword() {
     u.password = nuevaPassword;
     u.passwordCambiada = false;
     guardarTodo();
-    document.querySelector('.modal-overlay').remove();
-    alert('✅ Te enviamos un correo a ' + u.email + ' con tu contraseña temporal. Revisá también la carpeta de spam.');
+    const overlayActivo = document.querySelector('.modal-overlay');
+    if (overlayActivo) overlayActivo.remove();
+    alert('✅ Te enviamos un correo a ' + u.email + ' con tu contraseña temporal (cuenta: ' + usuarioEncontrado + '). Revisá también la carpeta de spam.');
   }).catch((err) => {
     console.error('Error enviando email de recuperación:', err);
-    btn.disabled = false;
-    btn.textContent = 'Enviar contraseña temporal';
+    if (btn) { btn.disabled = false; btn.textContent = 'Enviar contraseña temporal'; }
     alert('❌ No se pudo enviar el correo. Intentá de nuevo en unos minutos, o contactá al administrador.');
   });
 }

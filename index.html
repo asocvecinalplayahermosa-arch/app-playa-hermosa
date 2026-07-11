@@ -2584,21 +2584,33 @@ function cargarPanelTesorero() {
   const hoy = new Date();
   const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split('T')[0];
   const hoyISO = hoy.toISOString().split('T')[0];
+  const anioActual = hoy.getFullYear();
+  const primerDiaAnio = `${anioActual}-01-01`;
+  const ultimoDiaAnio = `${anioActual}-12-31`;
 
-  // Resumen rápido del mes en curso (Ingresos / Egresos / Balance)
-  let resumenIngresosMes = 0;
+  // ===== Estado de Resultados del ejercicio (año en curso), separado por moneda =====
+  let ingresosAnioUYU = 0, ingresosAnioUSD = 0;
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol !== 'socio' || !u.historialPagos) continue;
-    u.historialPagos.forEach(p => { if (p.fecha >= primerDiaMes && p.fecha <= hoyISO) resumenIngresosMes += p.monto; });
+    u.historialPagos.forEach(p => {
+      if (p.fecha >= primerDiaAnio && p.fecha <= ultimoDiaAnio) {
+        if (p.moneda === 'USD') ingresosAnioUSD += p.monto; else ingresosAnioUYU += p.monto;
+      }
+    });
   }
-  alquileresDB.forEach(r => { if (r.estadoPago === 'Pagado' && r.fecha >= primerDiaMes && r.fecha <= hoyISO) resumenIngresosMes += (r.montoTotal || 0); });
-  registrosClaseDB.forEach(r => { if (r.fecha >= primerDiaMes && r.fecha <= hoyISO) resumenIngresosMes += (r.comision || 0); });
+  alquileresDB.forEach(r => { if (r.estadoPago === 'Pagado' && r.fecha >= primerDiaAnio && r.fecha <= ultimoDiaAnio) ingresosAnioUYU += (r.montoTotal || 0); });
+  registrosClaseDB.forEach(r => { if (r.fecha >= primerDiaAnio && r.fecha <= ultimoDiaAnio) ingresosAnioUYU += (r.comision || 0); });
 
-  let resumenEgresosMes = 0;
-  egresosDB.forEach(e => { if (e.fecha >= primerDiaMes && e.fecha <= hoyISO) resumenEgresosMes += (e.monto || 0); });
+  let egresosAnioUYU = 0, egresosAnioUSD = 0;
+  egresosDB.forEach(e => {
+    if (e.fecha >= primerDiaAnio && e.fecha <= ultimoDiaAnio) {
+      if (e.moneda === 'USD') egresosAnioUSD += (e.monto || 0); else egresosAnioUYU += (e.monto || 0);
+    }
+  });
 
-  const resumenBalanceMes = resumenIngresosMes - resumenEgresosMes;
+  const resultadoAnioUYU = ingresosAnioUYU - egresosAnioUYU;
+  const resultadoAnioUSD = ingresosAnioUSD - egresosAnioUSD;
 
   let html = `
     <div class="socios-toolbar">
@@ -2621,12 +2633,18 @@ function cargarPanelTesorero() {
     </div>
     <div id="reporteFinancieroResultado"></div>
 
-    <h3 style="color: var(--navy); margin: 30px 0 15px 0;">📌 Resumen del mes en curso</h3>
-    <div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;">
-      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${resumenIngresosMes.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Ingresos</p></div>
-      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color:#A33;"><h3 style="color:#A33;">$${resumenEgresosMes.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Egresos</p></div>
-      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color: ${resumenBalanceMes >= 0 ? '#28a745' : '#A33'};"><h3 style="color: ${resumenBalanceMes >= 0 ? '#28a745' : '#A33'};">$${resumenBalanceMes.toLocaleString('es-UY')}</h3><p style="font-size:12px; font-weight:700;">Resultado</p></div>
+    <h3 style="color: var(--navy); margin: 30px 0 15px 0;">📌 Estado de Resultados — Ejercicio ${anioActual}</h3>
+    <div style="display:flex; gap:15px; margin-bottom:10px; flex-wrap:wrap;">
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosAnioUYU.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Ingresos ($)</p></div>
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color:#A33;"><h3 style="color:#A33;">$${egresosAnioUYU.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Egresos ($)</p></div>
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color: ${resultadoAnioUYU >= 0 ? '#28a745' : '#A33'};"><h3 style="color: ${resultadoAnioUYU >= 0 ? '#28a745' : '#A33'};">$${resultadoAnioUYU.toLocaleString('es-UY')}</h3><p style="font-size:12px; font-weight:700;">Resultado del ejercicio ($)</p></div>
     </div>
+    ${(ingresosAnioUSD > 0 || egresosAnioUSD > 0) ? `
+    <div style="display:flex; gap:15px; margin-bottom:25px; flex-wrap:wrap;">
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">US$${ingresosAnioUSD.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Ingresos (USD)</p></div>
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color:#A33;"><h3 style="color:#A33;">US$${egresosAnioUSD.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Egresos (USD)</p></div>
+      <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color: ${resultadoAnioUSD >= 0 ? '#28a745' : '#A33'};"><h3 style="color: ${resultadoAnioUSD >= 0 ? '#28a745' : '#A33'};">US$${resultadoAnioUSD.toLocaleString('es-UY')}</h3><p style="font-size:12px; font-weight:700;">Resultado del ejercicio (USD)</p></div>
+    </div>` : '<div style="margin-bottom:25px;"></div>'}
 
     <h3 style="color: var(--navy); margin: 30px 0 15px 0;">Estado de deudas y acciones</h3>
     <table id="tablaDeudasTesorero"></table>
@@ -3018,6 +3036,11 @@ function abrirModalEgreso(idExistente) {
       <select id="egrCategoria">${opcionesCategorias}</select>
       <label style="font-size:12px; font-weight:600;">Concepto / detalle</label>
       <input type="text" id="egrConcepto" placeholder="Ej: Pintura para el frente" value="${editando ? egreso.concepto : ''}">
+      <label style="font-size:12px; font-weight:600;">Moneda</label>
+      <select id="egrMoneda">
+        <option value="UYU" ${!editando || egreso.moneda !== 'USD' ? 'selected' : ''}>$ (Pesos uruguayos)</option>
+        <option value="USD" ${editando && egreso.moneda === 'USD' ? 'selected' : ''}>USD (Dólares)</option>
+      </select>
       <label style="font-size:12px; font-weight:600;">Monto</label>
       <input type="number" id="egrMonto" min="0" step="0.01" value="${editando ? egreso.monto : ''}">
       <button class="btn" onclick="guardarEgreso(${editando ? idExistente : 'null'})">Guardar egreso</button>
@@ -3031,6 +3054,7 @@ function guardarEgreso(idExistente) {
   const fecha = document.getElementById('egrFecha').value;
   const categoria = document.getElementById('egrCategoria').value;
   const concepto = document.getElementById('egrConcepto').value.trim();
+  const moneda = document.getElementById('egrMoneda').value;
   const monto = parseFloat(document.getElementById('egrMonto').value);
   const tesorero = localStorage.getItem('currentUser');
 
@@ -3041,11 +3065,11 @@ function guardarEgreso(idExistente) {
 
   if (idExistente !== null && idExistente !== undefined) {
     const egreso = egresosDB.find(e => e.id === idExistente);
-    egreso.fecha = fecha; egreso.categoria = categoria; egreso.concepto = concepto; egreso.monto = monto;
+    egreso.fecha = fecha; egreso.categoria = categoria; egreso.concepto = concepto; egreso.monto = monto; egreso.moneda = moneda;
     alert('✅ Egreso actualizado');
   } else {
     const nuevoId = egresosDB.length ? Math.max(...egresosDB.map(e => e.id)) + 1 : 1;
-    egresosDB.push({ id: nuevoId, fecha, categoria, concepto, monto, registradoPor: tesorero });
+    egresosDB.push({ id: nuevoId, fecha, categoria, concepto, monto, moneda, registradoPor: tesorero });
     alert('✅ Egreso registrado');
   }
 
@@ -3067,13 +3091,21 @@ function cargarTablaEgresosTesorero() {
   if (!cont) return;
 
   const lista = egresosDB.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
-  const totalEgresos = egresosDB.reduce((sum, e) => sum + (e.monto || 0), 0);
+  const totalEgresosUYU = egresosDB.filter(e => e.moneda !== 'USD').reduce((sum, e) => sum + (e.monto || 0), 0);
+  const totalEgresosUSD = egresosDB.filter(e => e.moneda === 'USD').reduce((sum, e) => sum + (e.monto || 0), 0);
 
   if (resumenCont) {
     resumenCont.innerHTML = `
-      <div class="card" style="text-align:center; margin-bottom:15px; border-left-color:#A33;">
-        <h3 style="color:#A33;">$${totalEgresos.toLocaleString('es-UY')}</h3>
-        <p style="font-size:12px;">Total egresos registrados</p>
+      <div style="display:flex; gap:15px; margin-bottom:15px; flex-wrap:wrap;">
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color:#A33;">
+          <h3 style="color:#A33;">$${totalEgresosUYU.toLocaleString('es-UY')}</h3>
+          <p style="font-size:12px;">Total egresos ($)</p>
+        </div>
+        ${totalEgresosUSD > 0 ? `
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color:#A33;">
+          <h3 style="color:#A33;">US$${totalEgresosUSD.toLocaleString('es-UY')}</h3>
+          <p style="font-size:12px;">Total egresos (USD)</p>
+        </div>` : ''}
       </div>
     `;
   }
@@ -3086,11 +3118,12 @@ function cargarTablaEgresosTesorero() {
 
   lista.forEach(e => {
     const fechaFormateada = new Date(e.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+    const simboloMoneda = e.moneda === 'USD' ? 'US$' : '$';
     html += `<tr>
       <td data-label="Fecha"><strong>${fechaFormateada}</strong></td>
       <td data-label="Categoría">${e.categoria}</td>
       <td data-label="Concepto">${e.concepto}</td>
-      <td data-label="Monto">$${e.monto.toLocaleString('es-UY')}</td>
+      <td data-label="Monto">${simboloMoneda}${e.monto.toLocaleString('es-UY')}</td>
       <td data-label="Acciones">
         <button class="btn-editar" onclick="abrirModalEgreso(${e.id})">Editar</button>
         <button class="btn-baja-rojo" onclick="eliminarEgreso(${e.id})">Eliminar</button>
@@ -3271,6 +3304,12 @@ function abrirModalPago(usuario) {
       <label style="font-size:12px; font-weight:600;">Mes hasta</label>
       <input type="month" id="pagoMesHasta" value="${mesActual}" onchange="actualizarSugerenciaPago('${usuario}')">
 
+      <label style="font-size:12px; font-weight:600;">Moneda</label>
+      <select id="pagoMoneda">
+        <option value="UYU">$ (Pesos uruguayos)</option>
+        <option value="USD">USD (Dólares)</option>
+      </select>
+
       <label style="font-size:12px; font-weight:600;">Monto (sugerido según el plan; se puede ajustar)</label>
       <input type="number" id="pagoMonto" placeholder="Monto pagado" min="0" step="0.01">
       <label style="font-size:12px; font-weight:600;">Concepto / período</label>
@@ -3330,6 +3369,7 @@ function capitalizar(str) {
 function confirmarPago(usuario) {
   const monto = parseFloat(document.getElementById('pagoMonto').value);
   const concepto = document.getElementById('pagoConcepto').value.trim();
+  const moneda = document.getElementById('pagoMoneda').value;
   const fecha = document.getElementById('pagoFecha').value;
   const mesDesdeVal = document.getElementById('pagoMesDesde').value;
   const mesHastaVal = document.getElementById('pagoMesHasta').value;
@@ -3345,7 +3385,7 @@ function confirmarPago(usuario) {
   const [anioHasta, mesHasta] = mesHastaVal ? mesHastaVal.split('-').map(Number) : [null, null];
 
   const pago = {
-    fecha, monto, concepto, registradoPor: tesorero,
+    fecha, monto, concepto, moneda, registradoPor: tesorero,
     periodoDesdeMes: mesDesde ? mesDesde - 1 : null,
     periodoDesdeAnio: anioDesde,
     periodoHastaMes: mesHasta ? mesHasta - 1 : null,
@@ -3359,7 +3399,7 @@ function confirmarPago(usuario) {
       const familiar = usuariosDB[fu];
       if (!familiar) return;
       familiar.historialPagos.push({
-        fecha, monto: 0, registradoPor: tesorero,
+        fecha, monto: 0, moneda, registradoPor: tesorero,
         concepto: `${concepto} (incluido en el pago familiar de ${u.nombre} ${u.apellido1 || ''})`,
         periodoDesdeMes: mesDesde ? mesDesde - 1 : null,
         periodoDesdeAnio: anioDesde,
@@ -3382,6 +3422,7 @@ function mostrarRecibo(usuario, pago) {
   const u = usuariosDB[usuario];
   const numeroRecibo = u.historialPagos.length;
   const fechaFormateada = new Date(pago.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+  const simboloMonedaRecibo = pago.moneda === 'USD' ? 'US$' : '$';
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -3394,7 +3435,7 @@ function mostrarRecibo(usuario, pago) {
         <p><strong>Socio:</strong> ${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}</p>
         <p><strong>Usuario:</strong> ${usuario}</p>
         <p><strong>Concepto:</strong> ${pago.concepto}</p>
-        <p><strong>Monto:</strong> $${pago.monto.toFixed(2)}</p>
+        <p><strong>Monto:</strong> ${simboloMonedaRecibo}${pago.monto.toFixed(2)}</p>
         <p><strong>Fecha:</strong> ${fechaFormateada}</p>
         <p><strong>Registrado por:</strong> ${pago.registradoPor}</p>
       </div>
@@ -3452,7 +3493,8 @@ function abrirModalHistorialSocio(usuario) {
   let pagosHtml = (u.historialPagos || []).length
     ? u.historialPagos.map(p => {
         const f = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-ES');
-        const montoTexto = p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `$${p.monto.toFixed(2)}`;
+        const simboloMoneda = p.moneda === 'USD' ? 'US$' : '$';
+        const montoTexto = p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `${simboloMoneda}${p.monto.toFixed(2)}`;
         return `<p style="font-size:13px; margin-bottom:6px;">💰 <strong>${f}</strong> - ${p.concepto} - ${montoTexto}</p>`;
       }).join('')
     : '<p style="font-size:13px; color: var(--gray);">Sin pagos registrados</p>';
@@ -4044,7 +4086,8 @@ function cargarPerfilSocio() {
       let html = `<table><thead><tr><th>Fecha</th><th>Concepto</th><th>Monto</th></tr></thead><tbody>`;
       u.historialPagos.slice().reverse().forEach(p => {
         const f = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-ES');
-        const montoTexto = p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `$${p.monto.toFixed(2)}`;
+        const simboloMoneda = p.moneda === 'USD' ? 'US$' : '$';
+        const montoTexto = p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `${simboloMoneda}${p.monto.toFixed(2)}`;
         html += `<tr><td>${f}</td><td>${p.concepto}</td><td>${montoTexto}</td></tr>`;
       });
       html += `</tbody></table>`;

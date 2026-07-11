@@ -504,6 +504,20 @@ body {
   .deuda-item-detalle { padding: 4px 14px 14px 14px; background: var(--cream); border-top: 1px solid #eee; }
   .deuda-item-detalle button { margin: 4px 6px 0 0; }
 
+  /* ===== TESORERO: lista desplegable de egresos ===== */
+  .egreso-item { border: 1px solid #eee; border-radius: 10px; margin-bottom: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(7,41,74,0.05); }
+  .egreso-item-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; background: white; }
+  .egreso-item-header:hover { background: var(--cream); }
+  .egreso-item-main { min-width: 0; }
+  .egreso-item-concepto { font-weight: 700; color: var(--navy); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .egreso-item-fecha { font-size: 11px; color: var(--gray); }
+  .egreso-item-right { display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
+  .egreso-item-monto { font-weight: 700; color: #A33; font-size: 14px; }
+  .egreso-item-chevron { color: var(--gray); font-size: 12px; }
+  .egreso-item-detalle { padding: 4px 14px 14px 14px; background: var(--cream); border-top: 1px solid #eee; font-size: 13px; }
+  .egreso-item-detalle p { margin-bottom: 4px; }
+  .egreso-item-detalle button { margin: 8px 6px 0 0; }
+
 
 </style>
 </head>
@@ -3132,31 +3146,49 @@ function cargarTablaEgresosTesorero() {
     `;
   }
 
-  let html = `<table><thead><tr><th>Fecha</th><th>Categoría</th><th>Concepto</th><th>Comprobante</th><th>Monto</th><th>Acciones</th></tr></thead><tbody>`;
+  let html = '';
 
   if (lista.length === 0) {
-    html += `<tr><td colspan="6" style="color: var(--gray); text-align:center;">No hay egresos registrados todavía</td></tr>`;
+    html = `<p style="color: var(--gray); font-size:13px;">No hay egresos registrados todavía</p>`;
   }
 
   lista.forEach(e => {
     const fechaFormateada = new Date(e.fecha + 'T00:00:00').toLocaleDateString('es-ES');
     const simboloMoneda = e.moneda === 'USD' ? 'US$' : '$';
-    const comprobanteHtml = e.comprobante ? `<strong>${e.comprobante}</strong>` : '<span style="color: var(--gray);">-</span>';
-    html += `<tr>
-      <td data-label="Fecha"><strong>${fechaFormateada}</strong></td>
-      <td data-label="Categoría">${e.categoria}</td>
-      <td data-label="Concepto">${e.concepto}</td>
-      <td data-label="Comprobante">${comprobanteHtml}</td>
-      <td data-label="Monto">${simboloMoneda}${e.monto.toLocaleString('es-UY')}</td>
-      <td data-label="Acciones">
-        <button class="btn-editar" onclick="abrirModalEgreso(${e.id})">Editar</button>
-        <button class="btn-baja-rojo" onclick="eliminarEgreso(${e.id})">Eliminar</button>
-      </td>
-    </tr>`;
+    const comprobanteTexto = e.comprobante ? e.comprobante : '-';
+    html += `
+      <div class="egreso-item">
+        <div class="egreso-item-header" onclick="toggleEgresoDetalle(${e.id})">
+          <div class="egreso-item-main">
+            <div class="egreso-item-concepto">${e.concepto}</div>
+            <div class="egreso-item-fecha">${fechaFormateada} · ${e.categoria}</div>
+          </div>
+          <div class="egreso-item-right">
+            <span class="egreso-item-monto">${simboloMoneda}${e.monto.toLocaleString('es-UY')}</span>
+            <span class="egreso-item-chevron" id="egresoChevron-${e.id}">▾</span>
+          </div>
+        </div>
+        <div class="egreso-item-detalle" id="egresoDetalle-${e.id}" style="display:none;">
+          <p>Categoría: <strong>${e.categoria}</strong></p>
+          <p>N° de comprobante: <strong>${comprobanteTexto}</strong></p>
+          <p>Monto: <strong>${simboloMoneda}${e.monto.toLocaleString('es-UY')}</strong></p>
+          <button class="btn-editar" onclick="abrirModalEgreso(${e.id})">Editar</button>
+          <button class="btn-baja-rojo" onclick="eliminarEgreso(${e.id})">Eliminar</button>
+        </div>
+      </div>
+    `;
   });
 
-  html += `</tbody></table>`;
   cont.innerHTML = html;
+}
+
+function toggleEgresoDetalle(id) {
+  const detalle = document.getElementById(`egresoDetalle-${id}`);
+  const chevron = document.getElementById(`egresoChevron-${id}`);
+  if (!detalle) return;
+  const abierto = detalle.style.display !== 'none';
+  detalle.style.display = abierto ? 'none' : 'block';
+  if (chevron) chevron.textContent = abierto ? '▾' : '▴';
 }
 
 function cargarTablaDeudasTesorero() {

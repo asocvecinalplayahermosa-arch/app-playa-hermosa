@@ -3044,10 +3044,8 @@ function abrirModalEgreso(idExistente) {
       <select id="egrCategoria">${opcionesCategorias}</select>
       <label style="font-size:12px; font-weight:600;">Concepto / detalle</label>
       <input type="text" id="egrConcepto" placeholder="Ej: Pintura para el frente" value="${editando ? egreso.concepto : ''}">
-      <label style="font-size:12px; font-weight:600;">Comprobante (foto o PDF de la factura/ticket)</label>
-      ${editando && egreso.comprobante ? `<div style="margin-bottom:8px;">${inferirTipoArchivo(egreso.comprobante).clase === 'pdf' ? `<a href="${egreso.comprobante}" target="_blank" style="color: var(--navy2); font-weight:600; font-size:13px;">📕 Ver comprobante actual</a>` : `<img src="${egreso.comprobante}" style="width:100%; max-height:160px; object-fit:cover; border-radius:8px;">`}</div><p style="font-size:11.5px; color: var(--gray); margin-top:-6px; margin-bottom:8px;">Ya hay un comprobante cargado. Subí uno nuevo solo si querés reemplazarlo.</p>` : ''}
-      <input type="file" id="egrComprobante" accept="image/*,.pdf">
-      <div id="egrSubidaEstado" style="font-size:12px; color: var(--gold); margin-bottom:10px;"></div>
+      <label style="font-size:12px; font-weight:600;">N° de comprobante</label>
+      <input type="text" id="egrComprobante" placeholder="Ej: A 25412" value="${editando ? (egreso.comprobante || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Moneda</label>
       <select id="egrMoneda">
         <option value="UYU" ${!editando || egreso.moneda !== 'USD' ? 'selected' : ''}>$ (Pesos uruguayos)</option>
@@ -3055,7 +3053,7 @@ function abrirModalEgreso(idExistente) {
       </select>
       <label style="font-size:12px; font-weight:600;">Monto</label>
       <input type="number" id="egrMonto" min="0" step="0.01" value="${editando ? egreso.monto : ''}">
-      <button class="btn" id="egrBtnGuardar" onclick="guardarEgreso(${editando ? idExistente : 'null'})">Guardar egreso</button>
+      <button class="btn" onclick="guardarEgreso(${editando ? idExistente : 'null'})">Guardar egreso</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
   `;
@@ -3066,75 +3064,33 @@ function guardarEgreso(idExistente) {
   const fecha = document.getElementById('egrFecha').value;
   const categoria = document.getElementById('egrCategoria').value;
   const concepto = document.getElementById('egrConcepto').value.trim();
+  const comprobante = document.getElementById('egrComprobante').value.trim();
   const moneda = document.getElementById('egrMoneda').value;
   const monto = parseFloat(document.getElementById('egrMonto').value);
-  const archivo = document.getElementById('egrComprobante').files[0];
   const tesorero = localStorage.getItem('currentUser');
-  const estadoDiv = document.getElementById('egrSubidaEstado');
-  const btnGuardar = document.getElementById('egrBtnGuardar');
 
   if (!fecha || !concepto || !monto || monto <= 0) {
     alert('Completá fecha, concepto y monto correctamente');
     return;
   }
 
-  function finalizarGuardadoEgreso(comprobante) {
-    if (idExistente !== null && idExistente !== undefined) {
-      const egreso = egresosDB.find(e => e.id === idExistente);
-      egreso.fecha = fecha; egreso.categoria = categoria; egreso.concepto = concepto; egreso.monto = monto; egreso.moneda = moneda;
-      if (comprobante) egreso.comprobante = comprobante;
-      alert('✅ Egreso actualizado');
-    } else {
-      const nuevoId = egresosDB.length ? Math.max(...egresosDB.map(e => e.id)) + 1 : 1;
-      egresosDB.push({ id: nuevoId, fecha, categoria, concepto, monto, moneda, comprobante: comprobante || '', registradoPor: tesorero });
-      alert('✅ Egreso registrado');
-    }
-
-    guardarTodo();
-    document.querySelector('.modal-overlay').remove();
-    cargarTablaEgresosTesorero();
-  }
-
-  if (archivo) {
-    btnGuardar.disabled = true;
-    estadoDiv.textContent = '⏳ Subiendo comprobante...';
-
-    const nombreLimpio = archivo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const rutaArchivo = `comprobantes/${Date.now()}_${nombreLimpio}`;
-    const refArchivo = storage.ref().child(rutaArchivo);
-    const uploadTask = refArchivo.put(archivo);
-
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const porcentaje = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-        estadoDiv.textContent = `⏳ Subiendo comprobante... ${porcentaje}%`;
-      },
-      (error) => {
-        console.error('Error subiendo comprobante:', error);
-        btnGuardar.disabled = false;
-        estadoDiv.textContent = '';
-        alert('❌ No se pudo subir el comprobante. Puede que falten permisos en Firebase Storage (revisá las reglas de Storage en Firebase Console) o el archivo sea muy pesado.');
-      },
-      () => {
-        uploadTask.snapshot.ref.getDownloadURL().then((url) => {
-          estadoDiv.textContent = '';
-          finalizarGuardadoEgreso(url);
-        });
-      }
-    );
+  if (idExistente !== null && idExistente !== undefined) {
+    const egreso = egresosDB.find(e => e.id === idExistente);
+    egreso.fecha = fecha; egreso.categoria = categoria; egreso.concepto = concepto; egreso.comprobante = comprobante; egreso.monto = monto; egreso.moneda = moneda;
+    alert('✅ Egreso actualizado');
   } else {
-    finalizarGuardadoEgreso(null);
+    const nuevoId = egresosDB.length ? Math.max(...egresosDB.map(e => e.id)) + 1 : 1;
+    egresosDB.push({ id: nuevoId, fecha, categoria, concepto, comprobante, monto, moneda, registradoPor: tesorero });
+    alert('✅ Egreso registrado');
   }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaEgresosTesorero();
 }
 
 function eliminarEgreso(id) {
   if (!confirm('¿Seguro que querés eliminar este egreso?')) return;
-  const egreso = egresosDB.find(e => e.id === id);
-
-  if (egreso && egreso.comprobante && egreso.comprobante.includes('firebasestorage')) {
-    storage.refFromURL(egreso.comprobante).delete().catch(err => console.error('No se pudo borrar el comprobante de Storage (puede que ya no exista):', err));
-  }
-
   egresosDB = egresosDB.filter(e => e.id !== id);
   guardarTodo();
   cargarTablaEgresosTesorero();
@@ -3174,7 +3130,7 @@ function cargarTablaEgresosTesorero() {
   lista.forEach(e => {
     const fechaFormateada = new Date(e.fecha + 'T00:00:00').toLocaleDateString('es-ES');
     const simboloMoneda = e.moneda === 'USD' ? 'US$' : '$';
-    const comprobanteHtml = e.comprobante ? `<a href="${e.comprobante}" target="_blank" rel="noopener noreferrer" style="color: var(--navy2); font-weight:600;">📎 Ver</a>` : '<span style="color: var(--gray);">-</span>';
+    const comprobanteHtml = e.comprobante ? `<strong>${e.comprobante}</strong>` : '<span style="color: var(--gray);">-</span>';
     html += `<tr>
       <td data-label="Fecha"><strong>${fechaFormateada}</strong></td>
       <td data-label="Categoría">${e.categoria}</td>

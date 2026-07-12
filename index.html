@@ -1415,6 +1415,8 @@ function calcularEdad(fechaNacimiento) {
 
 // ===== SOCIOS: tabla =====
 function cargarTablaSocios() {
+  actualizarMesesEnDeudaAutomatico();
+
   let html = `<table><thead><tr>
     <th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Tipo de socio</th><th>Teléfono</th>
     <th>Edad</th><th>Estado</th><th>Editar</th><th>Contraseña</th><th>Baja</th>
@@ -1438,9 +1440,16 @@ function cargarTablaSocios() {
     const edad = calcularEdad(u.fechaNacimiento);
     const edadTexto = edad === null ? '-' : `${edad}${edad < 18 ? ' 🧒 <span style="color:#dc3545; font-size:11px; font-weight:bold;">Menor</span>' : ''}`;
 
-    const estadoTexto = u.estado === 'Activo'
-      ? '✅ Activo'
-      : '🕓 <span style="color:#B8860B; font-weight:700;">Pendiente de verificación</span>';
+    let estadoTexto;
+    if (u.estado === 'Pendiente de verificación') {
+      estadoTexto = '🕓 <span style="color:#B8860B; font-weight:700;">Pendiente de verificación</span>';
+    } else if (tieneCausalPorDeuda(u)) {
+      estadoTexto = '🔴 <span style="color:#dc3545; font-weight:700;">Causal por deuda</span>';
+    } else if (u.mesesEnDeuda >= 1) {
+      estadoTexto = '⚠️ <span style="color:#B8860B; font-weight:700;">En deuda</span>';
+    } else {
+      estadoTexto = '✅ Activo';
+    }
 
     html += `<tr>
       <td data-label="Nombre completo">${nombreCompleto}</td>

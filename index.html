@@ -518,6 +518,47 @@ body {
   .egreso-item-detalle p { margin-bottom: 4px; }
   .egreso-item-detalle button { margin: 8px 6px 0 0; }
 
+  /* ===== SOCIO: perfil rediseñado ===== */
+  .perfil-header-card {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+    border-radius: 18px; padding: 28px 20px 24px; color: white; text-align: center; margin-bottom: 18px;
+  }
+  .perfil-avatar-lg {
+    width: 96px; height: 96px; font-size: 36px; margin: 0 auto 14px; position: relative;
+    border: 3px solid rgba(255,255,255,0.5);
+  }
+  .perfil-avatar-edit {
+    position: absolute; bottom: -2px; right: -2px; background: var(--gold2); border-radius: 50%;
+    width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; border: 2px solid white;
+  }
+  .perfil-nombre { font-size: 19px; font-weight: 700; margin-bottom: 10px; }
+  .perfil-badges { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .perfil-badge-tipo, .perfil-badge-estado {
+    display: inline-block; padding: 5px 14px; border-radius: 20px; font-size: 11.5px; font-weight: 700;
+  }
+  .perfil-badge-tipo { background: rgba(255,255,255,0.18); color: white; }
+  .perfil-badge-activo { background: #d4edda; color: #155724; }
+  .perfil-badge-suspenso { background: #f8d7da; color: #721c24; }
+  .perfil-btn-editar {
+    margin-top: 14px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.4);
+    color: white; font-size: 12px; font-weight: 700; padding: 8px 16px; border-radius: 20px; cursor: pointer;
+  }
+  .perfil-btn-editar:hover { background: rgba(255,255,255,0.25); }
+
+  .perfil-info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .perfil-info-item {
+    background: white; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 1px 4px rgba(7,41,74,0.08);
+  }
+  .perfil-info-icon { font-size: 18px; flex-shrink: 0; }
+  .perfil-info-text { min-width: 0; display: flex; flex-direction: column; }
+  .perfil-info-label { font-size: 10px; color: var(--gray); font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+  .perfil-info-value { font-size: 13px; color: var(--navy); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 420px) {
+    .perfil-info-grid { grid-template-columns: 1fr; }
+  }
+
 
 </style>
 </head>
@@ -727,6 +768,7 @@ function migrarDatosSocios() {
       if (typeof u.fechaNacimiento === 'undefined') { u.fechaNacimiento = ''; huboCambios = true; }
       if (typeof u.planCuota === 'undefined') { u.planCuota = 'individual'; huboCambios = true; }
       if (!Array.isArray(u.familiaMiembros)) { u.familiaMiembros = []; huboCambios = true; }
+      if (typeof u.segundoNombre === 'undefined') { u.segundoNombre = ''; huboCambios = true; }
     }
   }
   actividadesDB.forEach(act => {
@@ -1255,19 +1297,42 @@ function renderSecciones(rol) {
       </div>
 
       <div id="perfil" class="section app-shell-socio">
-        <h2 style="color: var(--navy); margin-bottom: 20px;">👤 Mi Perfil</h2>
-
-        <div style="text-align:center; margin-bottom:20px;">
-          <div class="avatar-circle" style="width:90px;height:90px;font-size:32px;margin:0 auto;" onclick="document.getElementById('inputFotoPerfil').click()">
+        <div class="perfil-header-card">
+          <div class="avatar-circle perfil-avatar-lg" onclick="document.getElementById('inputFotoPerfil').click()">
             ${u.fotoPerfil ? `<img src="${u.fotoPerfil}">` : inicial}
+            <span class="perfil-avatar-edit">📷</span>
           </div>
-          <p style="font-size:11px; color: var(--gray); margin-top:8px;">Tocá para cambiar tu foto</p>
+          <p class="perfil-nombre" id="profileName">-</p>
+          <div class="perfil-badges">
+            <span class="perfil-badge-tipo" id="profileTipoBadge">-</span>
+            <span class="perfil-badge-estado" id="profileStatus">-</span>
+          </div>
+          <button class="perfil-btn-editar" onclick="abrirModalEditarPerfilSocio()">✏️ Editar mis datos</button>
         </div>
-        <div class="card">
-          <p><strong>Nombre:</strong> <span id="profileName">-</span></p>
-          <p><strong>Email:</strong> <span id="profileEmail">-</span></p>
-          <p><strong>Estado:</strong> <span id="profileStatus">-</span></p>
+
+        <div class="perfil-info-grid">
+          <div class="perfil-info-item">
+            <span class="perfil-info-icon">✉️</span>
+            <div class="perfil-info-text"><span class="perfil-info-label">Email</span><span class="perfil-info-value" id="profileEmail">-</span></div>
+          </div>
+          <div class="perfil-info-item">
+            <span class="perfil-info-icon">📞</span>
+            <div class="perfil-info-text"><span class="perfil-info-label">Teléfono</span><span class="perfil-info-value" id="profileTelefono">-</span></div>
+          </div>
+          <div class="perfil-info-item">
+            <span class="perfil-info-icon">📍</span>
+            <div class="perfil-info-text"><span class="perfil-info-label">Dirección</span><span class="perfil-info-value" id="profileDireccion">-</span></div>
+          </div>
+          <div class="perfil-info-item">
+            <span class="perfil-info-icon">🎂</span>
+            <div class="perfil-info-text"><span class="perfil-info-label">Nacimiento</span><span class="perfil-info-value" id="profileNacimiento">-</span></div>
+          </div>
+          <div class="perfil-info-item">
+            <span class="perfil-info-icon">💳</span>
+            <div class="perfil-info-text"><span class="perfil-info-label">Plan de cuota</span><span class="perfil-info-value" id="profilePlan">-</span></div>
+          </div>
         </div>
+
         <h3 style="color: var(--navy); margin: 25px 0 15px 0;">💰 Mis pagos</h3>
         <div id="misPagosSocio"></div>
       </div>
@@ -1385,6 +1450,8 @@ function abrirModalSocio(usuarioExistente) {
       <h2>${editando ? '✏️ Editar socio' : '➕ Agregar nuevo socio'}</h2>
       <label style="font-size:12px; font-weight:600;">Nombre</label>
       <input type="text" id="socioNombre" placeholder="Nombre" value="${editando ? u.nombre : ''}">
+      <label style="font-size:12px; font-weight:600;">Segundo Nombre</label>
+      <input type="text" id="socioSegundoNombre" placeholder="Segundo nombre (opcional)" value="${editando ? (u.segundoNombre || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Primer Apellido</label>
       <input type="text" id="socioApellido1" placeholder="Primer apellido" value="${editando ? (u.apellido1 || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Segundo Apellido</label>
@@ -1444,6 +1511,7 @@ function emailYaUsadoPorOtro(email, usuarioAExcluir) {
 
 function guardarSocio(usuarioExistente) {
   const nombre = document.getElementById('socioNombre').value.trim();
+  const segundoNombre = document.getElementById('socioSegundoNombre').value.trim();
   const apellido1 = document.getElementById('socioApellido1').value.trim();
   const apellido2 = document.getElementById('socioApellido2').value.trim();
   const telefono = document.getElementById('socioTelefono').value.trim();
@@ -1471,6 +1539,7 @@ function guardarSocio(usuarioExistente) {
     // EDITAR
     const u = usuariosDB[usuarioExistente];
     u.nombre = nombre;
+    u.segundoNombre = segundoNombre;
     u.apellido1 = apellido1;
     u.apellido2 = apellido2;
     u.telefono = telefono;
@@ -1493,7 +1562,7 @@ function guardarSocio(usuarioExistente) {
     const usuario = generarUsuario(nombre, apellido1, apellido2);
     usuariosDB[usuario] = {
       password: '1234',
-      nombre, apellido1, apellido2, telefono, fechaNacimiento, direccion, email,
+      nombre, segundoNombre, apellido1, apellido2, telefono, fechaNacimiento, direccion, email,
       rol: 'socio',
       passwordCambiada: false,
       tipoSocio,
@@ -4134,11 +4203,27 @@ function cargarPerfilProfesor() {
 function cargarPerfilSocio() {
   const usuario = localStorage.getItem('currentUser');
   const u = usuariosDB[usuario];
-  const estado = tieneCausal(u) ? '🔴 En suspenso' : '✅ Activo';
-  
-  if (document.getElementById('profileName')) document.getElementById('profileName').textContent = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
-  if (document.getElementById('profileEmail')) document.getElementById('profileEmail').textContent = u.email;
-  if (document.getElementById('profileStatus')) document.getElementById('profileStatus').textContent = estado;
+  const enSuspenso = tieneCausal(u);
+
+  if (document.getElementById('profileName')) document.getElementById('profileName').textContent = `${u.nombre} ${u.segundoNombre || ''} ${u.apellido1 || ''} ${u.apellido2 || ''}`.replace(/\s+/g, ' ').trim();
+  if (document.getElementById('profileTipoBadge')) document.getElementById('profileTipoBadge').textContent = u.tipoSocio || 'Socio';
+  if (document.getElementById('profileStatus')) {
+    const badge = document.getElementById('profileStatus');
+    badge.textContent = enSuspenso ? '🔴 En suspenso' : '✅ Activo';
+    badge.className = 'perfil-badge-estado ' + (enSuspenso ? 'perfil-badge-suspenso' : 'perfil-badge-activo');
+  }
+  if (document.getElementById('profileEmail')) document.getElementById('profileEmail').textContent = u.email || '-';
+  if (document.getElementById('profileTelefono')) document.getElementById('profileTelefono').textContent = u.telefono || '-';
+  if (document.getElementById('profileDireccion')) document.getElementById('profileDireccion').textContent = u.direccion || '-';
+  if (document.getElementById('profileNacimiento')) {
+    document.getElementById('profileNacimiento').textContent = u.fechaNacimiento
+      ? new Date(u.fechaNacimiento + 'T00:00:00').toLocaleDateString('es-ES')
+      : '-';
+  }
+  if (document.getElementById('profilePlan')) {
+    const plan = PLANES_CUOTA[u.planCuota] || PLANES_CUOTA.individual;
+    document.getElementById('profilePlan').textContent = `${plan.label} — $${plan.precioMensual}/mes`;
+  }
 
   // Aviso de deuda / avisos pendientes (visible en Avisos)
   const avisoDiv = document.getElementById('avisoDeudaSocio');
@@ -4173,6 +4258,72 @@ function cargarPerfilSocio() {
       pagosDiv.innerHTML = html;
     }
   }
+}
+
+// ===== SOCIO: editar sus propios datos personales =====
+function abrirModalEditarPerfilSocio() {
+  const usuario = localStorage.getItem('currentUser');
+  const u = usuariosDB[usuario];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>✏️ Editar mis datos</h2>
+      <label style="font-size:12px; font-weight:600;">Segundo Nombre</label>
+      <input type="text" id="miSegundoNombre" placeholder="Segundo nombre (opcional)" value="${u.segundoNombre || ''}">
+      <label style="font-size:12px; font-weight:600;">Segundo Apellido</label>
+      <input type="text" id="miApellido2" placeholder="Segundo apellido (opcional)" value="${u.apellido2 || ''}">
+      <label style="font-size:12px; font-weight:600;">Correo electrónico</label>
+      <input type="email" id="miEmail" placeholder="Correo electrónico" value="${u.email || ''}">
+      <label style="font-size:12px; font-weight:600;">Teléfono</label>
+      <input type="text" id="miTelefono" placeholder="Teléfono" value="${u.telefono || ''}">
+      <label style="font-size:12px; font-weight:600;">Dirección</label>
+      <input type="text" id="miDireccion" placeholder="Dirección" value="${u.direccion || ''}">
+      <label style="font-size:12px; font-weight:600;">Fecha de nacimiento</label>
+      <input type="date" id="miFechaNacimiento" value="${u.fechaNacimiento || ''}">
+      <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Tu nombre y primer apellido los podés corregir contactando al administrador.</p>
+      <button class="btn" onclick="guardarEditarPerfilSocio()">Guardar cambios</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarEditarPerfilSocio() {
+  const usuario = localStorage.getItem('currentUser');
+  const u = usuariosDB[usuario];
+
+  const segundoNombre = document.getElementById('miSegundoNombre').value.trim();
+  const apellido2 = document.getElementById('miApellido2').value.trim();
+  const email = document.getElementById('miEmail').value.trim();
+  const telefono = document.getElementById('miTelefono').value.trim();
+  const direccion = document.getElementById('miDireccion').value.trim();
+  const fechaNacimiento = document.getElementById('miFechaNacimiento').value;
+
+  if (!email) {
+    alert('El correo electrónico es obligatorio');
+    return;
+  }
+
+  const otroConMismoEmail = emailYaUsadoPorOtro(email, usuario);
+  if (otroConMismoEmail) {
+    const u2 = usuariosDB[otroConMismoEmail];
+    const continuar = confirm(`ℹ️ Ese email ya está registrado en otra cuenta: ${u2.nombre || otroConMismoEmail} (rol: ${u2.rol}).\n\nEsto es normal si sos la misma persona con otro rol en la app (por ejemplo, también profesor).\n\n¿Continuar y guardar igual?`);
+    if (!continuar) return;
+  }
+
+  u.segundoNombre = segundoNombre;
+  u.apellido2 = apellido2;
+  u.email = email;
+  u.telefono = telefono;
+  u.direccion = direccion;
+  u.fechaNacimiento = fechaNacimiento;
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarPerfilSocio();
+  alert('✅ Tus datos fueron actualizados');
 }
 
 function cargarCarouselSocio() {

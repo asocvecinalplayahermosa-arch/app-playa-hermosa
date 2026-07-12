@@ -652,7 +652,7 @@ let datosListos = false;
 // ===== NOTIFICACIONES PUSH (Firebase Cloud Messaging) =====
 // IMPORTANTE: reemplazá esta clave por la tuya (Firebase Console > Configuración del
 // proyecto > Cloud Messaging > "Certificados push web" > generar par de claves).
-const FCM_VAPID_KEY = 'BG7ksrnIweRWxr4itSyQ1Zi4ZgFs4EBAxGgWOe6NNWM4x7SfYL5sMAjLuXRuUJMp-0dPs_68xbhYoXGfNK4Tx_w';
+const FCM_VAPID_KEY = 'PEGA_ACA_TU_VAPID_KEY';
 let messaging = null;
 try {
   if (firebase.messaging.isSupported()) {
@@ -4375,7 +4375,18 @@ async function activarNotificaciones() {
       return;
     }
 
-    const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY });
+    // Reutilizamos el service worker (sw.js) que ya está registrado para la app,
+    // en vez de que Firebase busque uno con su nombre por defecto (que no existe).
+    let registro = swRegistrationGlobal;
+    if (!registro && 'serviceWorker' in navigator) {
+      registro = await navigator.serviceWorker.register('sw.js');
+      swRegistrationGlobal = registro;
+    }
+
+    const token = await messaging.getToken({
+      vapidKey: FCM_VAPID_KEY,
+      serviceWorkerRegistration: registro
+    });
     if (!token) {
       alert('No se pudo generar el token de notificaciones. Intentá de nuevo en unos segundos.');
       return;
@@ -5242,8 +5253,11 @@ function actualizarDashboard() {
 
 // ===== INIT: se ejecuta cuando llegan los primeros datos desde Firebase =====
 // ===== INSTALAR APP: botón propio que dispara el cartel nativo de instalación =====
+let swRegistrationGlobal = null;
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(err => console.error('Error registrando service worker:', err));
+  navigator.serviceWorker.register('sw.js')
+    .then((reg) => { swRegistrationGlobal = reg; })
+    .catch(err => console.error('Error registrando service worker:', err));
 }
 
 let deferredInstallPrompt = null;

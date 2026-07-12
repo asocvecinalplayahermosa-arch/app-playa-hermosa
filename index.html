@@ -1392,6 +1392,13 @@ function tieneCausalPorDeuda(u) {
   return (u.mesesEnDeuda || 0) > 3 && (u.avisosPorDeuda || 0) >= 3;
 }
 
+// Un socio solo puede figurar "al día" si el tesorero ya le registró al menos un pago.
+// Sin pagos registrados, el socio siempre se considera en deuda/pendiente, nunca al día
+// (aunque mesesEnDeuda arranque en 0 por defecto al crearlo).
+function socioEstaAlDia(u) {
+  return Array.isArray(u.historialPagos) && u.historialPagos.length > 0 && !(u.mesesEnDeuda > 0);
+}
+
 function tieneCausal(u) {
   return tieneCausalPorDeuda(u) || (u.causalSeleccionada && u.causalSeleccionada !== 'Sin causal');
 }
@@ -2884,6 +2891,7 @@ function calcularAlDiaHasta(u) {
   let mejorCobertura = null;
 
   u.historialPagos.forEach(p => {
+    if (p.sinPago) return; // un registro de "$0, no pagó" no cubre ningún período
     let candidato;
     if (typeof p.periodoHastaMes === 'number' && p.periodoHastaAnio) {
       // dato estructurado cargado desde el formulario (el más confiable)
@@ -2963,9 +2971,9 @@ function generarReporteFinanciero() {
 
   // ===== Socios con deuda / al día (estado actual, no depende del período elegido) =====
   const socios = Object.entries(usuariosDB).filter(([user, u]) => u.rol === 'socio' && u.estado !== 'Dado de baja');
-  const conDeuda = socios.filter(([user, u]) => (u.mesesEnDeuda || 0) > 0)
+  const conDeuda = socios.filter(([user, u]) => !socioEstaAlDia(u))
     .sort((a, b) => (b[1].mesesEnDeuda || 0) - (a[1].mesesEnDeuda || 0));
-  const alDia = socios.filter(([user, u]) => !(u.mesesEnDeuda > 0));
+  const alDia = socios.filter(([user, u]) => socioEstaAlDia(u));
 
   // Guardamos todo para que el botón de Excel use exactamente los mismos datos
   ultimoReporteData = { desde, hasta, verIngresos, verDeuda, verAlDia, verEgresos, ingresosCuotas, ingresosAlquileres, ingresosComisiones, totalIngresos, conDeuda, alDia, egresosDelPeriodo, totalEgresos, egresosPorCategoria };
@@ -3014,7 +3022,10 @@ function generarReporteFinanciero() {
     } else {
       htmlDeuda = `<table><thead><tr><th>Socio</th><th>Meses adeudados</th></tr></thead><tbody>`;
       conDeuda.forEach(([user, u]) => {
-        htmlDeuda += `<tr><td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td><td data-label="Meses adeudados"><strong style="color:#A33;">${u.mesesEnDeuda}</strong></td></tr>`;
+        const textoMeses = (Array.isArray(u.historialPagos) && u.historialPagos.length > 0)
+          ? u.mesesEnDeuda
+          : 'Sin pagos aún';
+        htmlDeuda += `<tr><td data-label="Socio">${u.nombre} ${u.apellido1 || ''}</td><td data-label="Meses adeudados"><strong style="color:#A33;">${textoMeses}</strong></td></tr>`;
       });
       htmlDeuda += `</tbody></table>`;
     }
@@ -3081,7 +3092,8 @@ function exportarReporteExcel() {
   if (d.verDeuda) {
     const filasDeuda = [['Socio', 'Meses adeudados']];
     d.conDeuda.forEach(([user, u]) => {
-      filasDeuda.push([`${u.nombre} ${u.apellido1 || ''}`.trim(), u.mesesEnDeuda]);
+      const textoMeses = (Array.isArray(u.historialPagos) && u.historialPagos.length > 0) ? u.mesesEnDeuda : 'Sin pagos aún';
+      filasDeuda.push([`${u.nombre} ${u.apellido1 || ''}`.trim(), textoMeses]);
     });
     const wsDeuda = XLSX.utils.aoa_to_sheet(filasDeuda);
     XLSX.utils.book_append_sheet(wb, wsDeuda, 'Socios con deuda');
@@ -3482,7 +3494,7 @@ function abrirModalPago(usuario) {
     <div class="modal-content">
       <h2>💰 Registrar pago - ${u.nombre}</h2>
       <p style="font-size:12px; color: var(--gray); margin-bottom:12px;">Plan: <strong>${(PLANES_CUOTA[u.planCuota] || PLANES_CUOTA.individual).label}</strong> ($${(PLANES_CUOTA[u.planCuota] || PLANES_CUOTA.individual).precioMensual}/mes)</p>
-      ${u.estado === 'Pendiente de verificación' ? `<div class="warning-box">🕓 Este socio todavía está "Pendiente de verificación". Al registrar este pago va a quedar marcado como <strong>Activo</strong> automáticamente.</div>` : ''}
+      ${u.estado === 'Pendiente de verificación' ? `<div class="warning-box">🕓 Este socio todavía está "Pendiente de verificación". Registrá acá el resultado de la verificación: si pagó, cargá el monto y el período; si NO pagó nada, dejá el monto en $0 y tocá "Registrar $0 (no pagó)". En ambos casos el socio queda verificado — con $0 queda marcado en deuda.</div>` : ''}
 
       <label style="font-size:12px; font-weight:600;">Mes desde</label>
       <input type="month" id="pagoMesDesde" value="${mesActual}" onchange="actualizarSugerenciaPago('${usuario}')">
@@ -3495,21 +3507,31 @@ function abrirModalPago(usuario) {
         <option value="USD">USD (Dólares)</option>
       </select>
 
-      <label style="font-size:12px; font-weight:600;">Monto (sugerido según el plan; se puede ajustar)</label>
+      <label style="font-size:12px; font-weight:600;">Monto (sugerido según el plan; se puede ajustar, o dejar en 0 si no pagó)</label>
       <input type="number" id="pagoMonto" placeholder="Monto pagado" min="0" step="0.01">
       <label style="font-size:12px; font-weight:600;">Concepto / período</label>
       <input type="text" id="pagoConcepto" placeholder="Ej: Cuota social - Julio 2026">
 
       <div id="pagoFamiliaNota"></div>
+      <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:6px;">Un pago de $0 no cubre ningún período: queda constancia de que se revisó, pero el socio sigue en deuda.</p>
 
       <label style="font-size:12px; font-weight:600;">Fecha</label>
       <input type="date" id="pagoFecha" value="${hoy}">
       <button class="btn" onclick="confirmarPago('${usuario}')">Registrar y generar recibo</button>
+      <button class="btn" style="background:#dc3545; margin-top:10px;" onclick="registrarSinPago('${usuario}')">🚫 Registrar $0 (no pagó)</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
   `;
   document.body.appendChild(overlay);
   actualizarSugerenciaPago(usuario);
+}
+
+// Atajo para dejar constancia de que el socio no pagó nada en esta verificación
+function registrarSinPago(usuario) {
+  document.getElementById('pagoMonto').value = 0;
+  const conceptoInput = document.getElementById('pagoConcepto');
+  if (!conceptoInput.value.trim()) conceptoInput.value = 'Verificación - no registra pago';
+  confirmarPago(usuario);
 }
 
 function actualizarSugerenciaPago(usuario) {
@@ -3560,31 +3582,40 @@ function confirmarPago(usuario) {
   const mesHastaVal = document.getElementById('pagoMesHasta').value;
   const tesorero = localStorage.getItem('currentUser');
 
-  if (!monto || monto <= 0 || !concepto || !fecha) {
-    alert('Completa monto, concepto y fecha correctamente');
+  if (isNaN(monto) || monto < 0 || !concepto || !fecha) {
+    alert('Completa monto (puede ser 0 si no pagó nada), concepto y fecha correctamente');
     return;
   }
 
   const u = usuariosDB[usuario];
+  const sinPago = monto === 0;
   const [anioDesde, mesDesde] = mesDesdeVal ? mesDesdeVal.split('-').map(Number) : [null, null];
   const [anioHasta, mesHasta] = mesHastaVal ? mesHastaVal.split('-').map(Number) : [null, null];
 
   const pago = {
     fecha, monto, concepto, moneda, registradoPor: tesorero,
-    periodoDesdeMes: mesDesde ? mesDesde - 1 : null,
-    periodoDesdeAnio: anioDesde,
-    periodoHastaMes: mesHasta ? mesHasta - 1 : null,
-    periodoHastaAnio: anioHasta
+    // Si el tesorero registra $0 (no pagó nada), este pago no cubre ningún período:
+    // queda constancia de que se revisó, pero el socio sigue en deuda.
+    periodoDesdeMes: sinPago ? null : (mesDesde ? mesDesde - 1 : null),
+    periodoDesdeAnio: sinPago ? null : anioDesde,
+    periodoHastaMes: sinPago ? null : (mesHasta ? mesHasta - 1 : null),
+    periodoHastaAnio: sinPago ? null : anioHasta,
+    sinPago
   };
   u.historialPagos.push(pago);
 
-  // El primer pago registrado por el tesorero verifica y activa al socio
+  // El tesorero ya revisó/verificó al socio (haya pagado o no), así que deja de estar
+  // "Pendiente de verificación". Si pagó $0, queda Activo pero en deuda.
   if (u.estado === 'Pendiente de verificación') {
     u.estado = 'Activo';
   }
+  if (sinPago) {
+    u.mesesEnDeuda = Math.max(u.mesesEnDeuda || 0, 1);
+  }
 
-  // Si el socio tiene un grupo familiar, el mismo período queda cubierto para todos
-  if (Array.isArray(u.familiaMiembros) && u.familiaMiembros.length > 0) {
+  // Si el socio tiene un grupo familiar y SÍ hubo un pago real, el mismo período
+  // queda cubierto para todos. Si fue un registro de "$0 no pagó", no se acredita a nadie.
+  if (!sinPago && Array.isArray(u.familiaMiembros) && u.familiaMiembros.length > 0) {
     u.familiaMiembros.forEach(fu => {
       const familiar = usuariosDB[fu];
       if (!familiar) return;
@@ -3688,8 +3719,10 @@ function abrirModalHistorialSocio(usuario) {
     ? u.historialPagos.map(p => {
         const f = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-ES');
         const simboloMoneda = p.moneda === 'USD' ? 'US$' : '$';
-        const montoTexto = p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `${simboloMoneda}${p.monto.toFixed(2)}`;
-        return `<p style="font-size:13px; margin-bottom:6px;">💰 <strong>${f}</strong> - ${p.concepto} - ${montoTexto}</p>`;
+        const montoTexto = p.sinPago
+          ? '🚫 No pagó'
+          : (p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `${simboloMoneda}${p.monto.toFixed(2)}`);
+        return `<p style="font-size:13px; margin-bottom:6px;">${p.sinPago ? '⚠️' : '💰'} <strong>${f}</strong> - ${p.concepto} - ${montoTexto}</p>`;
       }).join('')
     : '<p style="font-size:13px; color: var(--gray);">Sin pagos registrados</p>';
 
@@ -4312,7 +4345,9 @@ function cargarPerfilSocio() {
       u.historialPagos.slice().reverse().forEach(p => {
         const f = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-ES');
         const simboloMoneda = p.moneda === 'USD' ? 'US$' : '$';
-        const montoTexto = p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `${simboloMoneda}${p.monto.toFixed(2)}`;
+        const montoTexto = p.sinPago
+          ? '🚫 No pagó'
+          : (p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `${simboloMoneda}${p.monto.toFixed(2)}`);
         html += `<tr><td>${f}</td><td>${p.concepto}</td><td>${montoTexto}</td></tr>`;
       });
       html += `</tbody></table>`;
@@ -4766,17 +4801,44 @@ function turnoOcupado(fechaISO, turnoId) {
 function renderOctogonoSocio() {
   const usuario = localStorage.getItem('currentUser');
   const u = usuariosDB[usuario];
+  const esActivo = u.estado === 'Activo';
 
   // Estado de cuota
   const estadoDiv = document.getElementById('octEstadoSocio');
   if (estadoDiv) {
-    const alDia = !(u.mesesEnDeuda > 0);
-    estadoDiv.innerHTML = `
-      <div class="oct-status-card ${alDia ? 'oct-status-ok' : 'oct-status-warn'}">
-        <span class="oct-status-icon">${alDia ? '✅' : '⚠️'}</span>
-        <span><strong>${u.nombre}</strong> — ${alDia ? 'Cuota al día' : 'Tenés cuota pendiente'}</span>
-      </div>
-    `;
+    if (u.estado === 'Pendiente de verificación') {
+      estadoDiv.innerHTML = `
+        <div class="oct-status-card oct-status-warn">
+          <span class="oct-status-icon">🕓</span>
+          <span><strong>${u.nombre}</strong> — Pendiente de verificación por el tesorero</span>
+        </div>
+      `;
+    } else {
+      const alDia = socioEstaAlDia(u);
+      estadoDiv.innerHTML = `
+        <div class="oct-status-card ${alDia ? 'oct-status-ok' : 'oct-status-warn'}">
+          <span class="oct-status-icon">${alDia ? '✅' : '⚠️'}</span>
+          <span><strong>${u.nombre}</strong> — ${alDia ? 'Cuota al día' : 'Tenés cuota pendiente'}</span>
+        </div>
+      `;
+    }
+  }
+
+  // Solo los socios Activos (verificados y al día por el tesorero) pueden reservar
+  if (!esActivo) {
+    const tipoDivBloq = document.getElementById('octTipoReserva');
+    if (tipoDivBloq) {
+      tipoDivBloq.innerHTML = `
+        <div class="oct-warning">
+          🚫 Solo los socios <strong>Activos</strong> pueden reservar el Octógono. Tu cuenta todavía no está activada por el tesorero (falta verificar o regularizar tu cuota social). Una vez que el tesorero registre tu pago vas a poder reservar acá mismo.
+        </div>
+      `;
+    }
+    ['octCalendario', 'octTurnosContainer', 'octResumenContainer'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '';
+    });
+    return;
   }
 
   // Tipo de reserva (por ahora solo Salón, incluye Parrillero)
@@ -4941,6 +5003,12 @@ function confirmarReservaOctogono() {
 
   const usuario = localStorage.getItem('currentUser');
   const u = usuariosDB[usuario];
+
+  if (u.estado !== 'Activo') {
+    alert('🚫 Solo los socios Activos pueden reservar el Octógono. Tu cuenta todavía no está activada por el tesorero.');
+    return;
+  }
+
   const precio = calcularPrecioOctogonoSocio(usuario);
   const turnoInfo = TURNOS_OCTOGONO.find(t => t.id === octEstado.turno);
 

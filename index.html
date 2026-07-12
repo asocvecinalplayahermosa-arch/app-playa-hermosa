@@ -741,7 +741,7 @@ let flyersDB = [];
 
 const CATEGORIAS_DOCUMENTO = {
   actas: { label: 'Actas', icono: '📝' },
-  reglamentos: { label: 'Estatutos y Reglamentos', icono: '📜' },
+  reglamentos: { label: 'Reglamentos', icono: '📜' },
   resoluciones: { label: 'Resoluciones de Asamblea', icono: '🏛️' },
   protocolos: { label: 'Protocolos', icono: '🛡️' },
   otros: { label: 'Otros', icono: '📁' }
@@ -1424,7 +1424,7 @@ function cargarTablaSocios() {
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
     if (u.rol !== 'socio') continue;
-    if (u.estado !== 'Activo') continue; // los dados de baja solo se ven en el Historial de bajas
+    if (u.estado === 'Dado de baja') continue; // los dados de baja solo se ven en el Historial de bajas
     const nombreCompleto = `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
     socios.push({ user, u, nombreCompleto });
   }
@@ -1438,6 +1438,10 @@ function cargarTablaSocios() {
     const edad = calcularEdad(u.fechaNacimiento);
     const edadTexto = edad === null ? '-' : `${edad}${edad < 18 ? ' 🧒 <span style="color:#dc3545; font-size:11px; font-weight:bold;">Menor</span>' : ''}`;
 
+    const estadoTexto = u.estado === 'Activo'
+      ? '✅ Activo'
+      : '🕓 <span style="color:#B8860B; font-weight:700;">Pendiente de verificación</span>';
+
     html += `<tr>
       <td data-label="Nombre completo">${nombreCompleto}</td>
       <td data-label="Email">${u.email}</td>
@@ -1445,7 +1449,7 @@ function cargarTablaSocios() {
       <td data-label="Tipo de socio">${u.tipoSocio || '-'}</td>
       <td data-label="Teléfono" style="white-space:nowrap;">${u.telefono || '-'}</td>
       <td data-label="Edad">${edadTexto}</td>
-      <td data-label="Estado">✅ Activo</td>
+      <td data-label="Estado">${estadoTexto}</td>
       <td data-label="Editar"><button class="btn-editar" onclick="abrirModalSocio('${user}')">Editar</button></td>
       <td data-label="Contraseña"><button class="btn-editar" onclick="abrirModalResetPassword('${user}')" title="Restablecer contraseña">🔑</button></td>
       <td data-label="Baja">${botonBaja}</td>
@@ -1502,7 +1506,7 @@ function abrirModalSocio(usuarioExistente) {
       <label style="font-size:12px; font-weight:600;">Integrantes del grupo familiar (si el plan es familiar)</label>
       <select id="socioFamiliaMiembros" multiple style="height:100px;">
         ${Object.entries(usuariosDB)
-          .filter(([otroUser, otroU]) => otroU.rol === 'socio' && otroU.estado === 'Activo' && otroUser !== usuarioExistente)
+          .filter(([otroUser, otroU]) => otroU.rol === 'socio' && otroU.estado !== 'Dado de baja' && otroUser !== usuarioExistente)
           .map(([otroUser, otroU]) => {
             const seleccionado = editando && Array.isArray(u.familiaMiembros) && u.familiaMiembros.includes(otroUser);
             return `<option value="${otroUser}" ${seleccionado ? 'selected' : ''}>${otroU.nombre} ${otroU.apellido1 || ''}</option>`;
@@ -1590,7 +1594,7 @@ function guardarSocio(usuarioExistente) {
       tipoSocio,
       planCuota,
       familiaMiembros,
-      estado: 'Activo',
+      estado: 'Pendiente de verificación',
       mesesEnDeuda: 0,
       avisosPorDeuda: 0,
       causalSeleccionada: 'Sin causal',
@@ -1602,7 +1606,7 @@ function guardarSocio(usuarioExistente) {
     document.querySelector('.modal-overlay').remove();
     cargarTablaSocios();
     actualizarDashboard();
-    alert(`✅ Socio creado con usuario: ${usuario}\nContraseña inicial: 1234`);
+    alert(`✅ Socio creado con usuario: ${usuario}\nContraseña inicial: 1234\n\n⏳ Queda como "Pendiente de verificación" hasta que el tesorero le registre el primer pago de cuota social.`);
   }
 }
 
@@ -1679,7 +1683,7 @@ function abrirModalReactivar(usuario) {
 
 function confirmarReactivacion(usuario) {
   const u = usuariosDB[usuario];
-  u.estado = 'Activo';
+  u.estado = (u.historialPagos && u.historialPagos.length > 0) ? 'Activo' : 'Pendiente de verificación';
   u.causalSeleccionada = 'Sin causal';
   guardarTodo();
   document.querySelector('.modal-overlay').remove();
@@ -1723,7 +1727,7 @@ function mostrarCumpleanosDelMes() {
   let cumples = [];
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
-    if (u.rol === 'socio' && u.estado === 'Activo' && u.fechaNacimiento) {
+    if (u.rol === 'socio' && u.estado !== 'Dado de baja' && u.fechaNacimiento) {
       const nac = new Date(u.fechaNacimiento + 'T00:00:00');
       if (nac.getMonth() === mesActual) {
         cumples.push({ nombre: `${u.nombre} ${u.apellido1 || ''}`.trim(), dia: nac.getDate(), edadCumple: calcularEdad(u.fechaNacimiento) });
@@ -2847,7 +2851,7 @@ function actualizarMesesEnDeudaAutomatico() {
 
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
-    if (u.rol !== 'socio' || u.estado !== 'Activo') continue;
+    if (u.rol !== 'socio' || u.estado === 'Dado de baja') continue;
     if (!u.historialPagos || u.historialPagos.length === 0) continue;
 
     const alDiaHasta = calcularAlDiaHasta(u);
@@ -2949,7 +2953,7 @@ function generarReporteFinanciero() {
   });
 
   // ===== Socios con deuda / al día (estado actual, no depende del período elegido) =====
-  const socios = Object.entries(usuariosDB).filter(([user, u]) => u.rol === 'socio' && u.estado === 'Activo');
+  const socios = Object.entries(usuariosDB).filter(([user, u]) => u.rol === 'socio' && u.estado !== 'Dado de baja');
   const conDeuda = socios.filter(([user, u]) => (u.mesesEnDeuda || 0) > 0)
     .sort((a, b) => (b[1].mesesEnDeuda || 0) - (a[1].mesesEnDeuda || 0));
   const alDia = socios.filter(([user, u]) => !(u.mesesEnDeuda > 0));
@@ -3290,15 +3294,16 @@ function cargarTablaDeudasTesorero() {
   const socios = [];
   for (let user in usuariosDB) {
     const u = usuariosDB[user];
-    if (u.rol === 'socio' && u.estado === 'Activo') socios.push({ user, u });
+    if (u.rol === 'socio' && u.estado !== 'Dado de baja') socios.push({ user, u });
   }
   socios.sort((a, b) => `${a.u.nombre} ${a.u.apellido1 || ''}`.localeCompare(`${b.u.nombre} ${b.u.apellido1 || ''}`, 'es', { sensitivity: 'base' }));
 
   socios.forEach(({ user, u }) => {
     haySocios = true;
     const causal = tieneCausalPorDeuda(u);
-    const estadoIcono = causal ? '🔴' : (u.mesesEnDeuda >= 1 ? '⚠️' : '✅');
-    const estadoTexto = causal ? 'Causal por deuda' : (u.mesesEnDeuda >= 1 ? 'En deuda' : 'Al día');
+    const pendienteVerificacion = u.estado === 'Pendiente de verificación';
+    const estadoIcono = pendienteVerificacion ? '🕓' : (causal ? '🔴' : (u.mesesEnDeuda >= 1 ? '⚠️' : '✅'));
+    const estadoTexto = pendienteVerificacion ? 'Pendiente de verificación (sin pagos aún)' : (causal ? 'Causal por deuda' : (u.mesesEnDeuda >= 1 ? 'En deuda' : 'Al día'));
 
     html += `
       <div class="deuda-item">
@@ -3468,6 +3473,7 @@ function abrirModalPago(usuario) {
     <div class="modal-content">
       <h2>💰 Registrar pago - ${u.nombre}</h2>
       <p style="font-size:12px; color: var(--gray); margin-bottom:12px;">Plan: <strong>${(PLANES_CUOTA[u.planCuota] || PLANES_CUOTA.individual).label}</strong> ($${(PLANES_CUOTA[u.planCuota] || PLANES_CUOTA.individual).precioMensual}/mes)</p>
+      ${u.estado === 'Pendiente de verificación' ? `<div class="warning-box">🕓 Este socio todavía está "Pendiente de verificación". Al registrar este pago va a quedar marcado como <strong>Activo</strong> automáticamente.</div>` : ''}
 
       <label style="font-size:12px; font-weight:600;">Mes desde</label>
       <input type="month" id="pagoMesDesde" value="${mesActual}" onchange="actualizarSugerenciaPago('${usuario}')">
@@ -3563,6 +3569,11 @@ function confirmarPago(usuario) {
   };
   u.historialPagos.push(pago);
 
+  // El primer pago registrado por el tesorero verifica y activa al socio
+  if (u.estado === 'Pendiente de verificación') {
+    u.estado = 'Activo';
+  }
+
   // Si el socio tiene un grupo familiar, el mismo período queda cubierto para todos
   if (Array.isArray(u.familiaMiembros) && u.familiaMiembros.length > 0) {
     u.familiaMiembros.forEach(fu => {
@@ -3578,6 +3589,9 @@ function confirmarPago(usuario) {
         cubiertoPorFamilia: true
       });
       familiar.mesesEnDeuda = 0;
+      if (familiar.estado === 'Pendiente de verificación') {
+        familiar.estado = 'Activo';
+      }
     });
   }
 
@@ -3585,6 +3599,7 @@ function confirmarPago(usuario) {
 
   document.querySelector('.modal-overlay').remove();
   cargarTablaDeudasTesorero();
+  if (document.getElementById('tablaSocios')) cargarTablaSocios();
   mostrarRecibo(usuario, pago);
 }
 
@@ -4232,8 +4247,16 @@ function cargarPerfilSocio() {
   actualizarBotonNotificaciones();
   if (document.getElementById('profileStatus')) {
     const badge = document.getElementById('profileStatus');
-    badge.textContent = enSuspenso ? '🔴 En suspenso' : '✅ Activo';
-    badge.className = 'perfil-badge-estado ' + (enSuspenso ? 'perfil-badge-suspenso' : 'perfil-badge-activo');
+    if (enSuspenso) {
+      badge.textContent = '🔴 En suspenso';
+      badge.className = 'perfil-badge-estado perfil-badge-suspenso';
+    } else if (u.estado === 'Pendiente de verificación') {
+      badge.textContent = '🕓 Pendiente de verificación';
+      badge.className = 'perfil-badge-estado perfil-badge-suspenso';
+    } else {
+      badge.textContent = '✅ Activo';
+      badge.className = 'perfil-badge-estado perfil-badge-activo';
+    }
   }
   if (document.getElementById('profileEmail')) document.getElementById('profileEmail').textContent = u.email || '-';
   if (document.getElementById('profileTelefono')) document.getElementById('profileTelefono').textContent = u.telefono || '-';
@@ -4251,7 +4274,13 @@ function cargarPerfilSocio() {
   // Aviso de deuda / avisos pendientes (visible en Avisos)
   const avisoDiv = document.getElementById('avisoDeudaSocio');
   if (avisoDiv) {
-    if (u.mesesEnDeuda > 0 || (u.historialAvisos || []).length > 0) {
+    if (u.estado === 'Pendiente de verificación') {
+      avisoDiv.innerHTML = `
+        <div class="warning-box" style="margin-bottom: 20px;">
+          🕓 <strong>Tu cuenta está pendiente de verificación.</strong>
+          El tesorero va a activarla apenas registre tu primer pago de cuota social.
+        </div>`;
+    } else if (u.mesesEnDeuda > 0 || (u.historialAvisos || []).length > 0) {
       const ultimoAviso = (u.historialAvisos || []).length ? u.historialAvisos[u.historialAvisos.length - 1] : null;
       avisoDiv.innerHTML = `
         <div class="warning-box" style="margin-bottom: 20px;">
@@ -5238,7 +5267,7 @@ function actualizarDashboard() {
   let socios = 0, eventos = 0, noticias = 0;
   
   for (let user in usuariosDB) {
-    if (usuariosDB[user].rol === 'socio' && usuariosDB[user].estado === 'Activo') socios++;
+    if (usuariosDB[user].rol === 'socio' && usuariosDB[user].estado !== 'Dado de baja') socios++;
   }
   
   eventos = eventosDB.length;

@@ -4270,8 +4270,12 @@ function abrirModalEditarPerfilSocio() {
   overlay.innerHTML = `
     <div class="modal-content">
       <h2>✏️ Editar mis datos</h2>
+      <label style="font-size:12px; font-weight:600;">Nombre</label>
+      <input type="text" id="miNombre" placeholder="Nombre" value="${u.nombre || ''}">
       <label style="font-size:12px; font-weight:600;">Segundo Nombre</label>
       <input type="text" id="miSegundoNombre" placeholder="Segundo nombre (opcional)" value="${u.segundoNombre || ''}">
+      <label style="font-size:12px; font-weight:600;">Primer Apellido</label>
+      <input type="text" id="miApellido1" placeholder="Primer apellido" value="${u.apellido1 || ''}">
       <label style="font-size:12px; font-weight:600;">Segundo Apellido</label>
       <input type="text" id="miApellido2" placeholder="Segundo apellido (opcional)" value="${u.apellido2 || ''}">
       <label style="font-size:12px; font-weight:600;">Correo electrónico</label>
@@ -4282,7 +4286,6 @@ function abrirModalEditarPerfilSocio() {
       <input type="text" id="miDireccion" placeholder="Dirección" value="${u.direccion || ''}">
       <label style="font-size:12px; font-weight:600;">Fecha de nacimiento</label>
       <input type="date" id="miFechaNacimiento" value="${u.fechaNacimiento || ''}">
-      <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Tu nombre y primer apellido los podés corregir contactando al administrador.</p>
       <button class="btn" onclick="guardarEditarPerfilSocio()">Guardar cambios</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
@@ -4294,12 +4297,19 @@ function guardarEditarPerfilSocio() {
   const usuario = localStorage.getItem('currentUser');
   const u = usuariosDB[usuario];
 
+  const nombre = document.getElementById('miNombre').value.trim();
   const segundoNombre = document.getElementById('miSegundoNombre').value.trim();
+  const apellido1 = document.getElementById('miApellido1').value.trim();
   const apellido2 = document.getElementById('miApellido2').value.trim();
   const email = document.getElementById('miEmail').value.trim();
   const telefono = document.getElementById('miTelefono').value.trim();
   const direccion = document.getElementById('miDireccion').value.trim();
   const fechaNacimiento = document.getElementById('miFechaNacimiento').value;
+
+  if (!nombre || !apellido1) {
+    alert('El nombre y el primer apellido son obligatorios');
+    return;
+  }
 
   if (!email) {
     alert('El correo electrónico es obligatorio');
@@ -4313,7 +4323,9 @@ function guardarEditarPerfilSocio() {
     if (!continuar) return;
   }
 
+  u.nombre = nombre;
   u.segundoNombre = segundoNombre;
+  u.apellido1 = apellido1;
   u.apellido2 = apellido2;
   u.email = email;
   u.telefono = telefono;

@@ -630,6 +630,7 @@ body {
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
@@ -647,6 +648,25 @@ const dbFirestore = firebase.firestore();
 const storage = firebase.storage();
 const docRefDatos = dbFirestore.collection('portalData').doc('main');
 let datosListos = false;
+
+// ===== NOTIFICACIONES PUSH (Firebase Cloud Messaging) =====
+// IMPORTANTE: reemplazá esta clave por la tuya (Firebase Console > Configuración del
+// proyecto > Cloud Messaging > "Certificados push web" > generar par de claves).
+const FCM_VAPID_KEY = 'PEGA_ACA_TU_VAPID_KEY';
+let messaging = null;
+try {
+  if (firebase.messaging.isSupported()) {
+    messaging = firebase.messaging();
+    messaging.onMessage((payload) => {
+      // Notificación recibida con la app abierta (en primer plano)
+      const titulo = payload.notification ? payload.notification.title : 'Playa Hermosa';
+      const cuerpo = payload.notification ? payload.notification.body : '';
+      alert(`🔔 ${titulo}\n\n${cuerpo}`);
+    });
+  }
+} catch (err) {
+  console.warn('Notificaciones push no disponibles en este navegador:', err);
+}
 
 // ===== BASE DE DATOS (valores por defecto; se sobreescriben con lo que venga de Firebase) =====
 // ===== Planes de cuota social =====
@@ -769,6 +789,7 @@ function migrarDatosSocios() {
       if (typeof u.planCuota === 'undefined') { u.planCuota = 'individual'; huboCambios = true; }
       if (!Array.isArray(u.familiaMiembros)) { u.familiaMiembros = []; huboCambios = true; }
       if (typeof u.segundoNombre === 'undefined') { u.segundoNombre = ''; huboCambios = true; }
+      if (!Array.isArray(u.fcmTokens)) { u.fcmTokens = []; huboCambios = true; }
     }
   }
   actividadesDB.forEach(act => {
@@ -1308,6 +1329,7 @@ function renderSecciones(rol) {
             <span class="perfil-badge-estado" id="profileStatus">-</span>
           </div>
           <button class="perfil-btn-editar" onclick="abrirModalEditarPerfilSocio()">✏️ Editar mis datos</button>
+          <button class="perfil-btn-editar" id="btnActivarNotis" onclick="activarNotificaciones()" style="margin-left:8px;">🔔 Activar notificaciones</button>
         </div>
 
         <div class="perfil-info-grid">
@@ -4207,6 +4229,7 @@ function cargarPerfilSocio() {
 
   if (document.getElementById('profileName')) document.getElementById('profileName').textContent = `${u.nombre} ${u.segundoNombre || ''} ${u.apellido1 || ''} ${u.apellido2 || ''}`.replace(/\s+/g, ' ').trim();
   if (document.getElementById('profileTipoBadge')) document.getElementById('profileTipoBadge').textContent = u.tipoSocio || 'Socio';
+  actualizarBotonNotificaciones();
   if (document.getElementById('profileStatus')) {
     const badge = document.getElementById('profileStatus');
     badge.textContent = enSuspenso ? '🔴 En suspenso' : '✅ Activo';
@@ -4336,6 +4359,53 @@ function guardarEditarPerfilSocio() {
   document.querySelector('.modal-overlay').remove();
   cargarPerfilSocio();
   alert('✅ Tus datos fueron actualizados');
+}
+
+// ===== SOCIO: activar notificaciones push =====
+async function activarNotificaciones() {
+  if (!messaging) {
+    alert('Tu navegador no soporta notificaciones push, o falta instalar la app. Probá instalarla desde el menú del navegador y volvé a intentar.');
+    return;
+  }
+
+  try {
+    const permiso = await Notification.requestPermission();
+    if (permiso !== 'granted') {
+      alert('No diste permiso para las notificaciones. Podés activarlas más tarde desde la configuración del sitio en tu navegador.');
+      return;
+    }
+
+    const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY });
+    if (!token) {
+      alert('No se pudo generar el token de notificaciones. Intentá de nuevo en unos segundos.');
+      return;
+    }
+
+    const usuario = localStorage.getItem('currentUser');
+    const u = usuariosDB[usuario];
+    if (!Array.isArray(u.fcmTokens)) u.fcmTokens = [];
+    if (!u.fcmTokens.includes(token)) {
+      u.fcmTokens.push(token);
+      guardarTodo();
+    }
+
+    actualizarBotonNotificaciones();
+    alert('✅ ¡Notificaciones activadas! Te vamos a avisar sobre noticias, eventos y novedades de tus reservas.');
+  } catch (err) {
+    console.error('Error activando notificaciones:', err);
+    alert('❌ No se pudieron activar las notificaciones. Revisá que le hayas dado permiso al sitio en la configuración del navegador.');
+  }
+}
+
+function actualizarBotonNotificaciones() {
+  const btn = document.getElementById('btnActivarNotis');
+  if (!btn) return;
+  const usuario = localStorage.getItem('currentUser');
+  const u = usuariosDB[usuario];
+  const activas = u && Array.isArray(u.fcmTokens) && u.fcmTokens.length > 0;
+  btn.textContent = activas ? '🔔 Notificaciones activadas' : '🔔 Activar notificaciones';
+  btn.disabled = !!activas;
+  btn.style.opacity = activas ? '0.7' : '1';
 }
 
 function cargarCarouselSocio() {

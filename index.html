@@ -1112,6 +1112,14 @@ function renderSecciones(rol) {
         <button class="btn btn-small" onclick="mostrarHistorialBajas()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: #6c757d;">📋 Historial de bajas</button>
         <button class="btn btn-small" onclick="mostrarCumpleanosDelMes()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: #C8960A;">🎂 Cumpleaños del mes</button>
         <button class="btn btn-small" onclick="cargarTablaSocios()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: var(--navy2);">👥 Ver socios activos</button>
+        <div style="position:relative; max-width:420px; margin-bottom:15px;">
+          <input type="text" id="buscarSocioInput" placeholder="🔎 Buscar socio por nombre, email, usuario o teléfono..."
+            oninput="cargarTablaSocios()"
+            style="width:100%; padding:10px 36px 10px 14px; border:1px solid #ccc; border-radius:8px; font-size:15px; box-sizing:border-box;">
+          <span onclick="document.getElementById('buscarSocioInput').value=''; cargarTablaSocios();"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color:#888; font-size:16px; display:none;"
+            id="limpiarBusquedaSocio">✕</span>
+        </div>
         <div id="tablaSocios"></div>
       </div>
       <div id="tesorero" class="section">
@@ -1424,6 +1432,11 @@ function calcularEdad(fechaNacimiento) {
 function cargarTablaSocios() {
   actualizarMesesEnDeudaAutomatico();
 
+  const filtroRaw = (document.getElementById('buscarSocioInput')?.value || '').trim();
+  const filtro = filtroRaw.toLowerCase();
+  const limpiarBtn = document.getElementById('limpiarBusquedaSocio');
+  if (limpiarBtn) limpiarBtn.style.display = filtroRaw ? 'block' : 'none';
+
   let html = `<table><thead><tr>
     <th>Nombre completo</th><th>Email</th><th>Usuario</th><th>Tipo de socio</th><th>Teléfono</th>
     <th>Edad</th><th>Estado</th><th>Editar</th><th>Contraseña</th><th>Baja</th>
@@ -1438,9 +1451,16 @@ function cargarTablaSocios() {
     socios.push({ user, u, nombreCompleto });
   }
 
-  socios.sort((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto, 'es', { sensitivity: 'base' }));
+  const socioCoincide = ({ user, u, nombreCompleto }) => {
+    if (!filtro) return true;
+    const campos = [nombreCompleto, u.email, user, u.telefono, u.tipoSocio];
+    return campos.some(c => (c || '').toString().toLowerCase().includes(filtro));
+  };
+  const sociosFiltrados = socios.filter(socioCoincide);
 
-  socios.forEach(({ user, u, nombreCompleto }) => {
+  sociosFiltrados.sort((a, b) => a.nombreCompleto.localeCompare(b.nombreCompleto, 'es', { sensitivity: 'base' }));
+
+  sociosFiltrados.forEach(({ user, u, nombreCompleto }) => {
     const colorClase = tieneCausalPorDeuda(u) ? 'btn-baja-rojo' : 'btn-baja-gris';
     const botonBaja = `<button class="${colorClase}" onclick="abrirModalBaja('${user}')">Dar de baja</button>`;
 
@@ -1472,8 +1492,9 @@ function cargarTablaSocios() {
     </tr>`;
   });
 
-  if (socios.length === 0) {
-    html += `<tr><td colspan="10" style="color: var(--gray); text-align:center;">No hay socios activos</td></tr>`;
+  if (sociosFiltrados.length === 0) {
+    const msg = filtro ? `No se encontraron socios que coincidan con "${filtroRaw}"` : 'No hay socios activos';
+    html += `<tr><td colspan="10" style="color: var(--gray); text-align:center;">${msg}</td></tr>`;
   }
 
   html += `</tbody></table>`;

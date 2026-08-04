@@ -520,6 +520,20 @@ body {
   .egreso-item-detalle p { margin-bottom: 4px; }
   .egreso-item-detalle button { margin: 8px 6px 0 0; }
 
+  /* ===== TESORERO: lista desplegable de ingresos manuales ===== */
+  .ingreso-item { border: 1px solid #eee; border-radius: 10px; margin-bottom: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(7,41,74,0.05); }
+  .ingreso-item-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; background: white; }
+  .ingreso-item-header:hover { background: var(--cream); }
+  .ingreso-item-main { min-width: 0; }
+  .ingreso-item-concepto { font-weight: 700; color: var(--navy); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ingreso-item-fecha { font-size: 11px; color: var(--gray); }
+  .ingreso-item-right { display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-shrink: 0; }
+  .ingreso-item-monto { font-weight: 700; color: #1F6F3B; font-size: 14px; }
+  .ingreso-item-chevron { color: var(--gray); font-size: 12px; }
+  .ingreso-item-detalle { padding: 4px 14px 14px 14px; background: var(--cream); border-top: 1px solid #eee; font-size: 13px; }
+  .ingreso-item-detalle p { margin-bottom: 4px; }
+  .ingreso-item-detalle button { margin: 8px 6px 0 0; }
+
   /* ===== SOCIO: perfil rediseñado ===== */
   .perfil-header-card {
     background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
@@ -735,6 +749,10 @@ let solicitudesCambioClaseDB = [];
 // Egresos/gastos de la Asociación
 let egresosDB = [];
 
+// Ingresos manuales de la Asociación (donaciones, rifas, eventos, subvenciones, etc.)
+// No incluye cuotas sociales, alquileres ni comisiones de profesores: esos se calculan solos.
+let ingresosDB = [];
+
 // Documentos institucionales de la Asociación, organizados por categoría
 let documentosDB = [];
 
@@ -768,10 +786,21 @@ const CATEGORIAS_EGRESO = [
   'Otros'
 ];
 
+const CATEGORIAS_INGRESO = [
+  'Donaciones',
+  'Rifas y beneficios',
+  'Eventos y actividades',
+  'Subvenciones / aportes municipales',
+  'Venta de bienes',
+  'Patrocinios',
+  'Reintegros',
+  'Otros'
+];
+
 // Guarda todo en Firebase; todos los dispositivos conectados reciben el cambio al instante
 function guardarTodo() {
   docRefDatos.set({
-    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB, egresosDB, documentosDB, flyersDB
+    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB, egresosDB, ingresosDB, documentosDB, flyersDB
   }).catch(err => {
     console.error('Error guardando en Firebase:', err);
     alert('⚠️ No se pudo guardar en la nube. Revisá tu conexión a internet e intentá de nuevo.');
@@ -812,6 +841,7 @@ docRefDatos.onSnapshot((snap) => {
     registrosClaseDB = data.registrosClaseDB || registrosClaseDB;
     solicitudesCambioClaseDB = data.solicitudesCambioClaseDB || solicitudesCambioClaseDB;
     egresosDB = data.egresosDB || egresosDB;
+    ingresosDB = data.ingresosDB || ingresosDB;
     documentosDB = data.documentosDB || documentosDB;
     flyersDB = data.flyersDB || flyersDB;
     if (migrarDatosSocios()) guardarTodo();
@@ -847,6 +877,7 @@ function refrescarVistaActual() {
   if (document.getElementById('panelProfesor')) cargarPanelProfesor();
   if (document.getElementById('tablaRegistrosClaseTesorero')) cargarTablaRegistrosClaseTesorero();
   if (document.getElementById('tablaEgresosTesorero')) cargarTablaEgresosTesorero();
+  if (document.getElementById('tablaIngresosTesorero')) cargarTablaIngresosTesorero();
   if (document.getElementById('tablaSolicitudesCambio')) cargarSolicitudesCambioAdmin();
   if (document.getElementById('reporteFinancieroResultado') && reporteFinancieroYaGenerado) generarReporteFinanciero();
   actualizarBadgeProfesoresAdmin();
@@ -2774,6 +2805,11 @@ function cargarPanelTesorero() {
   }
   alquileresDB.forEach(r => { if (r.estadoPago === 'Pagado' && r.fecha >= primerDiaAnio && r.fecha <= ultimoDiaAnio) ingresosAnioUYU += (r.montoTotal || 0); });
   registrosClaseDB.forEach(r => { if (r.fecha >= primerDiaAnio && r.fecha <= ultimoDiaAnio) ingresosAnioUYU += (r.comision || 0); });
+  ingresosDB.forEach(i => {
+    if (i.fecha >= primerDiaAnio && i.fecha <= ultimoDiaAnio) {
+      if (i.moneda === 'USD') ingresosAnioUSD += (i.monto || 0); else ingresosAnioUYU += (i.monto || 0);
+    }
+  });
 
   let egresosAnioUYU = 0, egresosAnioUSD = 0;
   egresosDB.forEach(e => {
@@ -2837,6 +2873,14 @@ function cargarPanelTesorero() {
     <div id="tablaRegistrosClaseTesorero"></div>
 
     <div class="socios-toolbar" style="margin-top: 35px;">
+      <h3 style="color: var(--navy);">💵 Ingresos</h3>
+      <button class="btn-add-circle" onclick="abrirModalIngreso()" title="Registrar nuevo ingreso">+</button>
+    </div>
+    <p style="color: var(--gray); font-size: 13px; margin-bottom: 15px;">Otros ingresos de la Asociación: donaciones, rifas, eventos, subvenciones, etc. (las cuotas sociales, alquileres y comisiones de profesores ya se registran solas más arriba).</p>
+    <div id="resumenIngresos"></div>
+    <div id="tablaIngresosTesorero"></div>
+
+    <div class="socios-toolbar" style="margin-top: 35px;">
       <h3 style="color: var(--navy);">💸 Egresos</h3>
       <button class="btn-add-circle" onclick="abrirModalEgreso()" title="Registrar nuevo egreso">+</button>
     </div>
@@ -2852,6 +2896,7 @@ function cargarPanelTesorero() {
   reporteFinancieroYaGenerado = false;
   cargarTablaRegistrosClaseTesorero();
   cargarTablaEgresosTesorero();
+  cargarTablaIngresosTesorero();
 }
 
 // ===== TESORERO: Reportes Financieros =====
@@ -2989,7 +3034,15 @@ function generarReporteFinanciero() {
     if (r.fecha >= desde && r.fecha <= hasta) ingresosComisiones += (r.comision || 0);
   });
 
-  const totalIngresos = ingresosCuotas + ingresosAlquileres + ingresosComisiones;
+  // ===== Otros ingresos registrados manualmente (donaciones, rifas, eventos, etc.) =====
+  const ingresosManualDelPeriodo = ingresosDB.filter(i => i.fecha >= desde && i.fecha <= hasta);
+  const ingresosManualTotal = ingresosManualDelPeriodo.reduce((sum, i) => sum + (i.monto || 0), 0);
+  const ingresosManualPorCategoria = {};
+  ingresosManualDelPeriodo.forEach(i => {
+    ingresosManualPorCategoria[i.categoria] = (ingresosManualPorCategoria[i.categoria] || 0) + (i.monto || 0);
+  });
+
+  const totalIngresos = ingresosCuotas + ingresosAlquileres + ingresosComisiones + ingresosManualTotal;
 
   // ===== Egresos del período =====
   const egresosDelPeriodo = egresosDB.filter(e => e.fecha >= desde && e.fecha <= hasta);
@@ -3006,7 +3059,7 @@ function generarReporteFinanciero() {
   const alDia = socios.filter(([user, u]) => socioEstaAlDia(u));
 
   // Guardamos todo para que el botón de Excel use exactamente los mismos datos
-  ultimoReporteData = { desde, hasta, verIngresos, verDeuda, verAlDia, verEgresos, ingresosCuotas, ingresosAlquileres, ingresosComisiones, totalIngresos, conDeuda, alDia, egresosDelPeriodo, totalEgresos, egresosPorCategoria };
+  ultimoReporteData = { desde, hasta, verIngresos, verDeuda, verAlDia, verEgresos, ingresosCuotas, ingresosAlquileres, ingresosComisiones, ingresosManualDelPeriodo, ingresosManualTotal, ingresosManualPorCategoria, totalIngresos, conDeuda, alDia, egresosDelPeriodo, totalEgresos, egresosPorCategoria };
 
   let htmlFinal = '';
 
@@ -3017,6 +3070,7 @@ function generarReporteFinanciero() {
         <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosCuotas.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Cuotas sociales</p></div>
         <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosAlquileres.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Alquileres pagados</p></div>
         <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosComisiones.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Comisión profesores</p></div>
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0;"><h3 style="color:var(--navy);">$${ingresosManualTotal.toLocaleString('es-UY')}</h3><p style="font-size:12px;">Otros ingresos</p></div>
         <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color: var(--navy2);"><h3 style="color:var(--navy2);">$${totalIngresos.toLocaleString('es-UY')}</h3><p style="font-size:12px; font-weight:700;">Total ingresos</p></div>
       </div>
     `;
@@ -3098,6 +3152,7 @@ function exportarReporteExcel() {
       ['Cuotas sociales', d.ingresosCuotas],
       ['Alquileres pagados', d.ingresosAlquileres],
       ['Comisión profesores', d.ingresosComisiones],
+      ['Otros ingresos', d.ingresosManualTotal],
       ['TOTAL INGRESOS', d.totalIngresos],
       [],
       [`Período: ${d.desde} a ${d.hasta}`]
@@ -3107,6 +3162,16 @@ function exportarReporteExcel() {
     }
     const wsIngresos = XLSX.utils.aoa_to_sheet(filasIngresos);
     XLSX.utils.book_append_sheet(wb, wsIngresos, 'Ingresos');
+  }
+
+  if (d.verIngresos && d.ingresosManualDelPeriodo && d.ingresosManualDelPeriodo.length > 0) {
+    const filasIngresosManual = [['Fecha', 'Categoría', 'Concepto', 'Monto']];
+    d.ingresosManualDelPeriodo.forEach(i => {
+      filasIngresosManual.push([i.fecha, i.categoria, i.concepto, i.monto]);
+    });
+    filasIngresosManual.push([], ['TOTAL OTROS INGRESOS', '', '', d.ingresosManualTotal]);
+    const wsIngresosManual = XLSX.utils.aoa_to_sheet(filasIngresosManual);
+    XLSX.utils.book_append_sheet(wb, wsIngresosManual, 'Otros ingresos');
   }
 
   if (d.verEgresos) {
@@ -3331,6 +3396,150 @@ function cargarTablaEgresosTesorero() {
 function toggleEgresoDetalle(id) {
   const detalle = document.getElementById(`egresoDetalle-${id}`);
   const chevron = document.getElementById(`egresoChevron-${id}`);
+  if (!detalle) return;
+  const abierto = detalle.style.display !== 'none';
+  detalle.style.display = abierto ? 'none' : 'block';
+  if (chevron) chevron.textContent = abierto ? '▾' : '▴';
+}
+
+// ===== TESORERO: Ingresos manuales (donaciones, rifas, eventos, subvenciones, etc.) =====
+function abrirModalIngreso(idExistente) {
+  const editando = idExistente !== undefined;
+  const ingreso = editando ? ingresosDB.find(i => i.id === idExistente) : null;
+  const hoy = new Date().toISOString().split('T')[0];
+
+  let opcionesCategorias = '';
+  CATEGORIAS_INGRESO.forEach(cat => {
+    opcionesCategorias += `<option value="${cat}" ${editando && ingreso.categoria === cat ? 'selected' : ''}>${cat}</option>`;
+  });
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>${editando ? '✏️ Editar ingreso' : '➕ Registrar nuevo ingreso'}</h2>
+      <label style="font-size:12px; font-weight:600;">Fecha</label>
+      <input type="date" id="ingFecha" value="${editando ? ingreso.fecha : hoy}">
+      <label style="font-size:12px; font-weight:600;">Categoría</label>
+      <select id="ingCategoria">${opcionesCategorias}</select>
+      <label style="font-size:12px; font-weight:600;">Concepto / detalle</label>
+      <input type="text" id="ingConcepto" placeholder="Ej: Donación de un vecino" value="${editando ? ingreso.concepto : ''}">
+      <label style="font-size:12px; font-weight:600;">N° de comprobante</label>
+      <input type="text" id="ingComprobante" placeholder="Ej: R 00412" value="${editando ? (ingreso.comprobante || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Moneda</label>
+      <select id="ingMoneda">
+        <option value="UYU" ${!editando || ingreso.moneda !== 'USD' ? 'selected' : ''}>$ (Pesos uruguayos)</option>
+        <option value="USD" ${editando && ingreso.moneda === 'USD' ? 'selected' : ''}>USD (Dólares)</option>
+      </select>
+      <label style="font-size:12px; font-weight:600;">Monto</label>
+      <input type="number" id="ingMonto" min="0" step="0.01" value="${editando ? ingreso.monto : ''}">
+      <button class="btn" onclick="guardarIngreso(${editando ? idExistente : 'null'})">Guardar ingreso</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarIngreso(idExistente) {
+  const fecha = document.getElementById('ingFecha').value;
+  const categoria = document.getElementById('ingCategoria').value;
+  const concepto = document.getElementById('ingConcepto').value.trim();
+  const comprobante = document.getElementById('ingComprobante').value.trim();
+  const moneda = document.getElementById('ingMoneda').value;
+  const monto = parseFloat(document.getElementById('ingMonto').value);
+  const tesorero = localStorage.getItem('currentUser');
+
+  if (!fecha || !concepto || !monto || monto <= 0) {
+    alert('Completá fecha, concepto y monto correctamente');
+    return;
+  }
+
+  if (idExistente !== null && idExistente !== undefined) {
+    const ingreso = ingresosDB.find(i => i.id === idExistente);
+    ingreso.fecha = fecha; ingreso.categoria = categoria; ingreso.concepto = concepto; ingreso.comprobante = comprobante; ingreso.monto = monto; ingreso.moneda = moneda;
+    alert('✅ Ingreso actualizado');
+  } else {
+    const nuevoId = ingresosDB.length ? Math.max(...ingresosDB.map(i => i.id)) + 1 : 1;
+    ingresosDB.push({ id: nuevoId, fecha, categoria, concepto, comprobante, monto, moneda, registradoPor: tesorero });
+    alert('✅ Ingreso registrado');
+  }
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaIngresosTesorero();
+}
+
+function eliminarIngreso(id) {
+  if (!confirm('¿Seguro que querés eliminar este ingreso?')) return;
+  ingresosDB = ingresosDB.filter(i => i.id !== id);
+  guardarTodo();
+  cargarTablaIngresosTesorero();
+}
+
+function cargarTablaIngresosTesorero() {
+  const cont = document.getElementById('tablaIngresosTesorero');
+  const resumenCont = document.getElementById('resumenIngresos');
+  if (!cont) return;
+
+  const lista = ingresosDB.slice().sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  const totalIngresosUYU = ingresosDB.filter(i => i.moneda !== 'USD').reduce((sum, i) => sum + (i.monto || 0), 0);
+  const totalIngresosUSD = ingresosDB.filter(i => i.moneda === 'USD').reduce((sum, i) => sum + (i.monto || 0), 0);
+
+  if (resumenCont) {
+    resumenCont.innerHTML = `
+      <div style="display:flex; gap:15px; margin-bottom:15px; flex-wrap:wrap;">
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color:#1F6F3B;">
+          <h3 style="color:#1F6F3B;">$${totalIngresosUYU.toLocaleString('es-UY')}</h3>
+          <p style="font-size:12px;">Total otros ingresos ($)</p>
+        </div>
+        ${totalIngresosUSD > 0 ? `
+        <div class="card" style="flex:1; min-width:150px; text-align:center; margin-bottom:0; border-left-color:#1F6F3B;">
+          <h3 style="color:#1F6F3B;">US$${totalIngresosUSD.toLocaleString('es-UY')}</h3>
+          <p style="font-size:12px;">Total otros ingresos (USD)</p>
+        </div>` : ''}
+      </div>
+    `;
+  }
+
+  let html = '';
+
+  if (lista.length === 0) {
+    html = `<p style="color: var(--gray); font-size:13px;">No hay ingresos registrados todavía</p>`;
+  }
+
+  lista.forEach(i => {
+    const fechaFormateada = new Date(i.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+    const simboloMoneda = i.moneda === 'USD' ? 'US$' : '$';
+    const comprobanteTexto = i.comprobante ? i.comprobante : '-';
+    html += `
+      <div class="ingreso-item">
+        <div class="ingreso-item-header" onclick="toggleIngresoDetalle(${i.id})">
+          <div class="ingreso-item-main">
+            <div class="ingreso-item-concepto">${i.concepto}</div>
+            <div class="ingreso-item-fecha">${fechaFormateada} · ${i.categoria}</div>
+          </div>
+          <div class="ingreso-item-right">
+            <span class="ingreso-item-monto">${simboloMoneda}${i.monto.toLocaleString('es-UY')}</span>
+            <span class="ingreso-item-chevron" id="ingresoChevron-${i.id}">▾</span>
+          </div>
+        </div>
+        <div class="ingreso-item-detalle" id="ingresoDetalle-${i.id}" style="display:none;">
+          <p>Categoría: <strong>${i.categoria}</strong></p>
+          <p>N° de comprobante: <strong>${comprobanteTexto}</strong></p>
+          <p>Monto: <strong>${simboloMoneda}${i.monto.toLocaleString('es-UY')}</strong></p>
+          <button class="btn-editar" onclick="abrirModalIngreso(${i.id})">Editar</button>
+          <button class="btn-baja-rojo" onclick="eliminarIngreso(${i.id})">Eliminar</button>
+        </div>
+      </div>
+    `;
+  });
+
+  cont.innerHTML = html;
+}
+
+function toggleIngresoDetalle(id) {
+  const detalle = document.getElementById(`ingresoDetalle-${id}`);
+  const chevron = document.getElementById(`ingresoChevron-${id}`);
   if (!detalle) return;
   const abierto = detalle.style.display !== 'none';
   detalle.style.display = abierto ? 'none' : 'block';

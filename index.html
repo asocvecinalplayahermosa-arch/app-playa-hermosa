@@ -2912,7 +2912,7 @@ function quitarAcentos(str) {
 function extraerCoberturaConcepto(concepto) {
   if (!concepto) return null;
   const texto = quitarAcentos(concepto.toLowerCase());
-  const anioMatch = texto.match(/\b(20\d{2})\b/);
+  const anioMatch = texto.match(/(?<!\d)(20\d{2})(?!\d)/);
   if (!anioMatch) return null;
   const anio = parseInt(anioMatch[1]);
 
@@ -3955,13 +3955,17 @@ function abrirModalHistorialSocio(usuario) {
   const u = usuariosDB[usuario];
 
   let pagosHtml = (u.historialPagos || []).length
-    ? u.historialPagos.map(p => {
+    ? u.historialPagos.map((p, idx) => {
         const f = new Date(p.fecha + 'T00:00:00').toLocaleDateString('es-ES');
         const simboloMoneda = p.moneda === 'USD' ? 'US$' : '$';
         const montoTexto = p.sinPago
           ? '🚫 No pagó'
           : (p.cubiertoPorFamilia ? '👨‍👩‍👧 Familiar' : `${simboloMoneda}${p.monto.toFixed(2)}`);
-        return `<p style="font-size:13px; margin-bottom:6px;">${p.sinPago ? '⚠️' : '💰'} <strong>${f}</strong> - ${p.concepto} - ${montoTexto}</p>`;
+        // Los pagos cubiertos por el pago familiar de otro socio no se editan acá:
+        // hay que corregir el pago original de quien pagó por el grupo.
+        const botonEditar = p.cubiertoPorFamilia ? '' :
+          ` <button class="btn-editar" style="padding:2px 8px; font-size:10.5px; margin-left:6px;" onclick="this.closest('.modal-overlay').remove(); abrirModalEditarPago('${usuario}', ${idx})">✏️ Editar</button>`;
+        return `<p style="font-size:13px; margin-bottom:6px;">${p.sinPago ? '⚠️' : '💰'} <strong>${f}</strong> - ${p.concepto} - ${montoTexto}${botonEditar}</p>`;
       }).join('')
     : '<p style="font-size:13px; color: var(--gray);">Sin pagos registrados</p>';
 
@@ -3985,6 +3989,101 @@ function abrirModalHistorialSocio(usuario) {
     </div>
   `;
   document.body.appendChild(overlay);
+}
+
+// ===== TESORERO: editar o eliminar un pago ya cargado en el historial =====
+// Importante: el período (mes desde/hasta) que se corrige acá es el que realmente
+// usa el sistema para calcular si el socio está al día — no lo que diga el texto
+// del "Concepto". Si el concepto y el período no coinciden, gana el período.
+function abrirModalEditarPago(usuario, idx) {
+  const u = usuariosDB[usuario];
+  const p = u.historialPagos ? u.historialPagos[idx] : null;
+  if (!p) { alert('No se encontró ese pago (puede que la lista haya cambiado). Cerrá y volvé a abrir el historial.'); return; }
+
+  const mesDesdeVal = (typeof p.periodoDesdeMes === 'number' && p.periodoDesdeAnio)
+    ? `${p.periodoDesdeAnio}-${String(p.periodoDesdeMes + 1).padStart(2, '0')}` : '';
+  const mesHastaVal = (typeof p.periodoHastaMes === 'number' && p.periodoHastaAnio)
+    ? `${p.periodoHastaAnio}-${String(p.periodoHastaMes + 1).padStart(2, '0')}` : '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-content">
+      <h2>✏️ Editar pago — ${u.nombre}</h2>
+      <div class="warning-box">Estos dos campos ("Mes desde" / "Mes hasta") son los que realmente usa el sistema para calcular si el socio está al día. Si estaban vacíos o mal cargados, corregilos acá.</div>
+      <label style="font-size:12px; font-weight:600;">Mes desde</label>
+      <input type="month" id="editPagoMesDesde" value="${mesDesdeVal}">
+      <label style="font-size:12px; font-weight:600;">Mes hasta</label>
+      <input type="month" id="editPagoMesHasta" value="${mesHastaVal}">
+      <label style="font-size:12px; font-weight:600;">Moneda</label>
+      <select id="editPagoMoneda">
+        <option value="UYU" ${p.moneda !== 'USD' ? 'selected' : ''}>$ (Pesos uruguayos)</option>
+        <option value="USD" ${p.moneda === 'USD' ? 'selected' : ''}>USD (Dólares)</option>
+      </select>
+      <label style="font-size:12px; font-weight:600;">Monto</label>
+      <input type="number" id="editPagoMonto" min="0" step="0.01" value="${p.monto}">
+      <label style="font-size:12px; font-weight:600;">Concepto</label>
+      <input type="text" id="editPagoConcepto" value="${(p.concepto || '').replace(/"/g, '&quot;')}">
+      <label style="font-size:12px; font-weight:600;">Fecha</label>
+      <input type="date" id="editPagoFecha" value="${p.fecha}">
+      <button class="btn" onclick="guardarEdicionPago('${usuario}', ${idx})">Guardar cambios</button>
+      <button class="btn" style="background:#dc3545; margin-top:10px;" onclick="eliminarPago('${usuario}', ${idx})">🗑️ Eliminar este pago</button>
+      <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove(); abrirModalHistorialSocio('${usuario}')">Cancelar</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+function guardarEdicionPago(usuario, idx) {
+  const u = usuariosDB[usuario];
+  const p = u.historialPagos ? u.historialPagos[idx] : null;
+  if (!p) return;
+
+  const mesDesdeVal = document.getElementById('editPagoMesDesde').value;
+  const mesHastaVal = document.getElementById('editPagoMesHasta').value;
+  const moneda = document.getElementById('editPagoMoneda').value;
+  const monto = parseFloat(document.getElementById('editPagoMonto').value);
+  const concepto = document.getElementById('editPagoConcepto').value.trim();
+  const fecha = document.getElementById('editPagoFecha').value;
+
+  if (isNaN(monto) || monto < 0 || !concepto || !fecha) {
+    alert('Completá monto, concepto y fecha correctamente');
+    return;
+  }
+
+  const sinPago = monto === 0;
+  const [anioDesde, mesDesde] = mesDesdeVal ? mesDesdeVal.split('-').map(Number) : [null, null];
+  const [anioHasta, mesHasta] = mesHastaVal ? mesHastaVal.split('-').map(Number) : [null, null];
+
+  p.fecha = fecha;
+  p.concepto = concepto;
+  p.moneda = moneda;
+  p.monto = monto;
+  p.sinPago = sinPago;
+  p.periodoDesdeMes = sinPago ? null : (mesDesde ? mesDesde - 1 : null);
+  p.periodoDesdeAnio = sinPago ? null : anioDesde;
+  p.periodoHastaMes = sinPago ? null : (mesHasta ? mesHasta - 1 : null);
+  p.periodoHastaAnio = sinPago ? null : anioHasta;
+
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaDeudasTesorero();
+  if (document.getElementById('tablaSocios')) cargarTablaSocios();
+  abrirModalHistorialSocio(usuario);
+  alert('✅ Pago actualizado');
+}
+
+function eliminarPago(usuario, idx) {
+  if (!confirm('¿Seguro que querés eliminar este pago del historial? Esta acción no se puede deshacer.')) return;
+  const u = usuariosDB[usuario];
+  if (!u.historialPagos) return;
+  u.historialPagos.splice(idx, 1);
+  guardarTodo();
+  document.querySelector('.modal-overlay').remove();
+  cargarTablaDeudasTesorero();
+  if (document.getElementById('tablaSocios')) cargarTablaSocios();
+  abrirModalHistorialSocio(usuario);
+  alert('✅ Pago eliminado');
 }
 
 // ===== PROFESOR =====

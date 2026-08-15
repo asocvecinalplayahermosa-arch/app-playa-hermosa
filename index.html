@@ -1583,7 +1583,7 @@ function abrirModalSocio(usuarioExistente) {
       <input type="date" id="socioFechaNacimiento" value="${editando ? (u.fechaNacimiento || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Dirección</label>
       <input type="text" id="socioDireccion" placeholder="Dirección" value="${editando ? (u.direccion || '') : ''}">
-      <label style="font-size:12px; font-weight:600;">Correo electrónico</label>
+      <label style="font-size:12px; font-weight:600;">Correo electrónico (opcional)</label>
       <input type="email" id="socioEmail" placeholder="Correo electrónico" value="${editando ? u.email : ''}">
       <label style="font-size:12px; font-weight:600;">Tipo de socio</label>
       <select id="socioTipo">
@@ -1644,16 +1644,18 @@ function guardarSocio(usuarioExistente) {
   const familiaMiembros = Array.from(document.getElementById('socioFamiliaMiembros').selectedOptions).map(opt => opt.value);
   const mesesEnDeudaManual = parseInt(document.getElementById('socioMesesEnDeuda').value) || 0;
 
-  if (!nombre || !apellido1 || !email) {
-    alert('Nombre, primer apellido y email son obligatorios');
+  if (!nombre || !apellido1) {
+    alert('Nombre y primer apellido son obligatorios');
     return;
   }
 
-  const otroConMismoEmail = emailYaUsadoPorOtro(email, usuarioExistente);
-  if (otroConMismoEmail) {
-    const u2 = usuariosDB[otroConMismoEmail];
-    const continuar = confirm(`ℹ️ Ese email ya está registrado en otra cuenta: ${u2.nombre || otroConMismoEmail} (rol: ${u2.rol}, usuario: ${otroConMismoEmail}).\n\nEsto es normal si es la misma persona con dos roles distintos (por ejemplo, socio y profesor). Al recuperar la contraseña, la app va a preguntar cuál de las cuentas querés restablecer.\n\n¿Continuar y guardar igual?`);
-    if (!continuar) return;
+  if (email) {
+    const otroConMismoEmail = emailYaUsadoPorOtro(email, usuarioExistente);
+    if (otroConMismoEmail) {
+      const u2 = usuariosDB[otroConMismoEmail];
+      const continuar = confirm(`ℹ️ Ese email ya está registrado en otra cuenta: ${u2.nombre || otroConMismoEmail} (rol: ${u2.rol}, usuario: ${otroConMismoEmail}).\n\nEsto es normal si es la misma persona con dos roles distintos (por ejemplo, socio y profesor). Al recuperar la contraseña, la app va a preguntar cuál de las cuentas querés restablecer.\n\n¿Continuar y guardar igual?`);
+      if (!continuar) return;
+    }
   }
 
   if (usuarioExistente) {

@@ -759,6 +759,13 @@ let documentosDB = [];
 // Flyers de actividades organizadas por la Asociación (imágenes para invitar a los socios)
 let flyersDB = [];
 
+// Contadores para la numeración automática de recibos y comprobantes (empiezan en 0,
+// el primer número emitido es 000001). reciboIngreso cubre tanto los recibos de cuota
+// social como los de otros ingresos manuales (donaciones, rifas, etc.) — es una sola
+// secuencia de "recibos de ingreso". comprobanteEgreso es una secuencia aparte, solo
+// para egresos sin factura del proveedor (comprobante interno).
+let contadoresDB = { reciboIngreso: 0, comprobanteEgreso: 0 };
+
 const CATEGORIAS_DOCUMENTO = {
   actas: { label: 'Actas', icono: '📝' },
   reglamentos: { label: 'Reglamentos', icono: '📜' },
@@ -800,7 +807,7 @@ const CATEGORIAS_INGRESO = [
 // Guarda todo en Firebase; todos los dispositivos conectados reciben el cambio al instante
 function guardarTodo() {
   docRefDatos.set({
-    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB, egresosDB, ingresosDB, documentosDB, flyersDB
+    usuariosDB, actividadesDB, eventosDB, noticiasDB, alquileresDB, registrosClaseDB, solicitudesCambioClaseDB, egresosDB, ingresosDB, documentosDB, flyersDB, contadoresDB
   }).catch(err => {
     console.error('Error guardando en Firebase:', err);
     alert('⚠️ No se pudo guardar en la nube. Revisá tu conexión a internet e intentá de nuevo.');
@@ -826,7 +833,24 @@ function migrarDatosSocios() {
   actividadesDB.forEach(act => {
     if (typeof act.horaFin === 'undefined') { act.horaFin = ''; huboCambios = true; }
   });
+  if (!contadoresDB || typeof contadoresDB.reciboIngreso !== 'number' || typeof contadoresDB.comprobanteEgreso !== 'number') {
+    contadoresDB = { reciboIngreso: (contadoresDB && contadoresDB.reciboIngreso) || 0, comprobanteEgreso: (contadoresDB && contadoresDB.comprobanteEgreso) || 0 };
+    huboCambios = true;
+  }
   return huboCambios;
+}
+
+// ===== NUMERACIÓN AUTOMÁTICA de recibos (ingresos) y comprobantes (egresos) =====
+// Padding a 6 dígitos: 000001, 000002, etc. Cada llamada incrementa el contador
+// persistido en Firebase, así que el número nunca se repite entre dispositivos.
+function generarNumeroReciboIngreso() {
+  contadoresDB.reciboIngreso = (contadoresDB.reciboIngreso || 0) + 1;
+  return String(contadoresDB.reciboIngreso).padStart(6, '0');
+}
+
+function generarNumeroComprobanteEgreso() {
+  contadoresDB.comprobanteEgreso = (contadoresDB.comprobanteEgreso || 0) + 1;
+  return String(contadoresDB.comprobanteEgreso).padStart(6, '0');
 }
 
 // ===== Escucha en tiempo real: cualquier cambio de cualquier dispositivo llega acá =====
@@ -844,6 +868,7 @@ docRefDatos.onSnapshot((snap) => {
     ingresosDB = data.ingresosDB || ingresosDB;
     documentosDB = data.documentosDB || documentosDB;
     flyersDB = data.flyersDB || flyersDB;
+    contadoresDB = data.contadoresDB || contadoresDB;
     if (migrarDatosSocios()) guardarTodo();
   } else {
     // Primera vez: no existe el documento todavía, subimos los datos iniciales
@@ -3289,6 +3314,11 @@ function abrirModalEgreso(idExistente) {
       </select>
       <label style="font-size:12px; font-weight:600;">Monto</label>
       <input type="number" id="egrMonto" min="0" step="0.01" value="${editando ? egreso.monto : ''}">
+      ${!editando ? `
+      <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:normal; margin-top:-4px;">
+        <input type="checkbox" id="egrSinFactura" style="width:auto; margin:0;"> Sin factura del proveedor (generar comprobante interno numerado)
+      </label>
+      ` : (egreso.numeroComprobante ? `<p style="font-size:12px; color: var(--gray); margin-top:-6px;">Este egreso ya tiene comprobante interno Nº ${egreso.numeroComprobante}</p>` : '')}
       <button class="btn" onclick="guardarEgreso(${editando ? idExistente : 'null'})">Guardar egreso</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
@@ -3310,19 +3340,52 @@ function guardarEgreso(idExistente) {
     return;
   }
 
+  let egresoNuevo = null;
+
   if (idExistente !== null && idExistente !== undefined) {
     const egreso = egresosDB.find(e => e.id === idExistente);
     egreso.fecha = fecha; egreso.categoria = categoria; egreso.concepto = concepto; egreso.comprobante = comprobante; egreso.monto = monto; egreso.moneda = moneda;
     alert('✅ Egreso actualizado');
   } else {
+    const sinFactura = document.getElementById('egrSinFactura') ? document.getElementById('egrSinFactura').checked : false;
     const nuevoId = egresosDB.length ? Math.max(...egresosDB.map(e => e.id)) + 1 : 1;
-    egresosDB.push({ id: nuevoId, fecha, categoria, concepto, comprobante, monto, moneda, registradoPor: tesorero });
+    egresoNuevo = {
+      id: nuevoId, fecha, categoria, concepto, comprobante, monto, moneda, registradoPor: tesorero,
+      numeroComprobante: sinFactura ? generarNumeroComprobanteEgreso() : null
+    };
+    egresosDB.push(egresoNuevo);
     alert('✅ Egreso registrado');
   }
 
   guardarTodo();
   document.querySelector('.modal-overlay').remove();
   cargarTablaEgresosTesorero();
+
+  if (egresoNuevo && egresoNuevo.numeroComprobante) mostrarComprobanteEgresoInterno(egresoNuevo);
+}
+
+// ===== TESORERO: mostrar/reimprimir el comprobante interno de un egreso sin factura =====
+function mostrarComprobanteEgresoInternoPorId(id) {
+  const egreso = egresosDB.find(e => e.id === id);
+  if (!egreso) { alert('No se encontró ese egreso'); return; }
+  mostrarComprobanteEgresoInterno(egreso);
+}
+
+function mostrarComprobanteEgresoInterno(egreso) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = generarHTMLReciboComprobante({
+    tipo: 'comprobante',
+    numero: egreso.numeroComprobante,
+    concepto: egreso.concepto,
+    monto: egreso.monto,
+    moneda: egreso.moneda,
+    fecha: egreso.fecha,
+    destinatarioLabel: 'Categoría',
+    destinatarioValor: egreso.categoria,
+    registradoPor: egreso.registradoPor
+  });
+  document.body.appendChild(overlay);
 }
 
 function eliminarEgreso(id) {
@@ -3382,8 +3445,10 @@ function cargarTablaEgresosTesorero() {
         <div class="egreso-item-detalle" id="egresoDetalle-${e.id}" style="display:none;">
           <p>Categoría: <strong>${e.categoria}</strong></p>
           <p>N° de comprobante: <strong>${comprobanteTexto}</strong></p>
+          ${e.numeroComprobante ? `<p>Comprobante interno Nº: <strong>${e.numeroComprobante}</strong></p>` : ''}
           <p>Monto: <strong>${simboloMoneda}${e.monto.toLocaleString('es-UY')}</strong></p>
           <button class="btn-editar" onclick="abrirModalEgreso(${e.id})">Editar</button>
+          ${e.numeroComprobante ? `<button class="btn-baja-verde" onclick="mostrarComprobanteEgresoInternoPorId(${e.id})">🧾 Ver comprobante</button>` : ''}
           <button class="btn-baja-rojo" onclick="eliminarEgreso(${e.id})">Eliminar</button>
         </div>
       </div>
@@ -3454,19 +3519,48 @@ function guardarIngreso(idExistente) {
     return;
   }
 
+  let ingresoNuevo = null;
+
   if (idExistente !== null && idExistente !== undefined) {
     const ingreso = ingresosDB.find(i => i.id === idExistente);
     ingreso.fecha = fecha; ingreso.categoria = categoria; ingreso.concepto = concepto; ingreso.comprobante = comprobante; ingreso.monto = monto; ingreso.moneda = moneda;
     alert('✅ Ingreso actualizado');
   } else {
     const nuevoId = ingresosDB.length ? Math.max(...ingresosDB.map(i => i.id)) + 1 : 1;
-    ingresosDB.push({ id: nuevoId, fecha, categoria, concepto, comprobante, monto, moneda, registradoPor: tesorero });
-    alert('✅ Ingreso registrado');
+    // Recibo numerado automático (misma secuencia que los recibos de cuota social)
+    ingresoNuevo = { id: nuevoId, fecha, categoria, concepto, comprobante, monto, moneda, registradoPor: tesorero, numeroRecibo: generarNumeroReciboIngreso() };
+    ingresosDB.push(ingresoNuevo);
   }
 
   guardarTodo();
   document.querySelector('.modal-overlay').remove();
   cargarTablaIngresosTesorero();
+
+  if (ingresoNuevo) mostrarReciboIngresoManual(ingresoNuevo);
+}
+
+// ===== TESORERO: mostrar/reimprimir el recibo de un ingreso manual (donaciones, rifas, etc.) =====
+function mostrarReciboIngresoManualPorId(id) {
+  const ingreso = ingresosDB.find(i => i.id === id);
+  if (!ingreso) { alert('No se encontró ese ingreso'); return; }
+  mostrarReciboIngresoManual(ingreso);
+}
+
+function mostrarReciboIngresoManual(ingreso) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = generarHTMLReciboComprobante({
+    tipo: 'recibo',
+    numero: ingreso.numeroRecibo,
+    concepto: ingreso.concepto,
+    monto: ingreso.monto,
+    moneda: ingreso.moneda,
+    fecha: ingreso.fecha,
+    destinatarioLabel: 'Concepto de ingreso',
+    destinatarioValor: ingreso.categoria,
+    registradoPor: ingreso.registradoPor
+  });
+  document.body.appendChild(overlay);
 }
 
 function eliminarIngreso(id) {
@@ -3526,8 +3620,10 @@ function cargarTablaIngresosTesorero() {
         <div class="ingreso-item-detalle" id="ingresoDetalle-${i.id}" style="display:none;">
           <p>Categoría: <strong>${i.categoria}</strong></p>
           <p>N° de comprobante: <strong>${comprobanteTexto}</strong></p>
+          ${i.numeroRecibo ? `<p>Recibo Nº: <strong>${i.numeroRecibo}</strong></p>` : ''}
           <p>Monto: <strong>${simboloMoneda}${i.monto.toLocaleString('es-UY')}</strong></p>
           <button class="btn-editar" onclick="abrirModalIngreso(${i.id})">Editar</button>
+          ${i.numeroRecibo ? `<button class="btn-baja-verde" onclick="mostrarReciboIngresoManualPorId(${i.id})">🧾 Ver recibo</button>` : ''}
           <button class="btn-baja-rojo" onclick="eliminarIngreso(${i.id})">Eliminar</button>
         </div>
       </div>
@@ -3839,7 +3935,9 @@ function confirmarPago(usuario) {
     periodoDesdeAnio: sinPago ? null : anioDesde,
     periodoHastaMes: sinPago ? null : (mesHasta ? mesHasta - 1 : null),
     periodoHastaAnio: sinPago ? null : anioHasta,
-    sinPago
+    sinPago,
+    // Recibo numerado solo cuando efectivamente se recibió dinero (no en "$0, no pagó")
+    numeroRecibo: sinPago ? null : generarNumeroReciboIngreso()
   };
   u.historialPagos.push(pago);
 
@@ -3882,31 +3980,94 @@ function confirmarPago(usuario) {
   mostrarRecibo(usuario, pago);
 }
 
-function mostrarRecibo(usuario, pago) {
-  const u = usuariosDB[usuario];
-  const numeroRecibo = u.historialPagos.length;
-  const fechaFormateada = new Date(pago.fecha + 'T00:00:00').toLocaleDateString('es-ES');
-  const simboloMonedaRecibo = pago.moneda === 'USD' ? 'US$' : '$';
+// ===== Datos institucionales de la Asociación (para membretar recibos y comprobantes) =====
+const DATOS_ASOCIACION = {
+  nombre: 'Asociación Vecinal Playa Hermosa',
+  personeria: 'Personería Jurídica N.º 11754',
+  rut: 'RUT 100826710014',
+  direccion: 'Octógono — Calle 23 entre Calles 3 y 4, Playa Hermosa, Maldonado',
+  logo: 'icon-192.png'
+};
 
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
+// ===== Plantilla compartida para recibos (ingresos) y comprobantes internos (egresos) =====
+// tipo: 'recibo' (ingreso, membrete normal) o 'comprobante' (egreso interno, con aviso de "sin factura")
+function generarHTMLReciboComprobante({ tipo, numero, concepto, monto, moneda, fecha, destinatarioLabel, destinatarioValor, extraLineas, registradoPor }) {
+  const fechaFormateada = new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES');
+  const simboloMoneda = moneda === 'USD' ? 'US$' : '$';
+  const tituloDoc = tipo === 'comprobante' ? '🧾 Comprobante interno de egreso' : '🧾 Recibo';
+  const numeroLabel = tipo === 'comprobante' ? 'Comprobante interno Nº' : 'Recibo Nº';
+
+  let extraHtml = '';
+  (extraLineas || []).forEach(linea => {
+    extraHtml += `<p><strong>${linea.label}:</strong> ${linea.valor}</p>`;
+  });
+
+  return `
     <div class="modal-content" id="reciboImprimible">
-      <h2>🧾 Recibo de pago</h2>
+      <h2>${tituloDoc}</h2>
       <div class="card" style="border-left-color: var(--navy2);">
-        <p><strong>Asociación Vecinal Playa Hermosa</strong></p>
-        <p style="font-size:12px; color: var(--gray); margin-bottom: 10px;">Recibo Nº ${numeroRecibo}</p>
-        <p><strong>Socio:</strong> ${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}</p>
-        <p><strong>Usuario:</strong> ${usuario}</p>
-        <p><strong>Concepto:</strong> ${pago.concepto}</p>
-        <p><strong>Monto:</strong> ${simboloMonedaRecibo}${pago.monto.toFixed(2)}</p>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+          <img src="${DATOS_ASOCIACION.logo}" alt="Logo" style="width:48px; height:48px; border-radius:8px; object-fit:cover; flex-shrink:0;" onerror="this.style.display='none'">
+          <div>
+            <p style="font-weight:700; color: var(--navy); font-size:15px;">${DATOS_ASOCIACION.nombre}</p>
+            <p style="font-size:11px; color: var(--gray);">${DATOS_ASOCIACION.personeria} · ${DATOS_ASOCIACION.rut}</p>
+            <p style="font-size:11px; color: var(--gray);">${DATOS_ASOCIACION.direccion}</p>
+          </div>
+        </div>
+        <p style="font-size:12px; color: var(--gray); margin-bottom: 10px;">${numeroLabel} ${numero || '-'}</p>
+        ${tipo === 'comprobante' ? '<p style="font-size:11.5px; color:#A33; margin-bottom:8px;"><strong>Sin factura de respaldo del proveedor.</strong> Comprobante interno emitido por la Asociación.</p>' : ''}
+        <p><strong>${destinatarioLabel}:</strong> ${destinatarioValor}</p>
+        <p><strong>Concepto:</strong> ${concepto}</p>
+        <p><strong>Monto:</strong> ${simboloMoneda}${Number(monto).toFixed(2)}</p>
         <p><strong>Fecha:</strong> ${fechaFormateada}</p>
-        <p><strong>Registrado por:</strong> ${pago.registradoPor}</p>
+        ${extraHtml}
+        <p><strong>Registrado por:</strong> ${registradoPor}</p>
       </div>
-      <button class="btn" onclick="window.print()">🖨️ Imprimir recibo</button>
+      <button class="btn" onclick="window.print()">🖨️ Imprimir</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
     </div>
   `;
+}
+
+function mostrarRecibo(usuario, pago) {
+  const u = usuariosDB[usuario];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  if (pago.sinPago) {
+    // No se recibió dinero: mostramos una constancia simple, sin numeración de recibo
+    const fechaFormateada = new Date(pago.fecha + 'T00:00:00').toLocaleDateString('es-ES');
+    overlay.innerHTML = `
+      <div class="modal-content" id="reciboImprimible">
+        <h2>📋 Constancia de verificación</h2>
+        <div class="card" style="border-left-color: var(--navy2);">
+          <p style="font-weight:700; color: var(--navy);">${DATOS_ASOCIACION.nombre}</p>
+          <p style="font-size:11px; color: var(--gray); margin-bottom:10px;">${DATOS_ASOCIACION.personeria} · ${DATOS_ASOCIACION.rut}</p>
+          <p style="font-size:12px; color: var(--gray); margin-bottom: 10px;">No se generó recibo: no se registró pago en esta verificación.</p>
+          <p><strong>Socio:</strong> ${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''}</p>
+          <p><strong>Usuario:</strong> ${usuario}</p>
+          <p><strong>Concepto:</strong> ${pago.concepto}</p>
+          <p><strong>Fecha:</strong> ${fechaFormateada}</p>
+          <p><strong>Registrado por:</strong> ${pago.registradoPor}</p>
+        </div>
+        <button class="btn" style="background:#6c757d;" onclick="this.closest('.modal-overlay').remove()">Cerrar</button>
+      </div>
+    `;
+  } else {
+    overlay.innerHTML = generarHTMLReciboComprobante({
+      tipo: 'recibo',
+      numero: pago.numeroRecibo,
+      concepto: pago.concepto,
+      monto: pago.monto,
+      moneda: pago.moneda,
+      fecha: pago.fecha,
+      destinatarioLabel: 'Socio',
+      destinatarioValor: `${u.nombre} ${u.apellido1 || ''} ${u.apellido2 || ''} (usuario: ${usuario})`,
+      registradoPor: pago.registradoPor
+    });
+  }
+
   document.body.appendChild(overlay);
 }
 
@@ -3965,7 +4126,10 @@ function abrirModalHistorialSocio(usuario) {
         // hay que corregir el pago original de quien pagó por el grupo.
         const botonEditar = p.cubiertoPorFamilia ? '' :
           ` <button class="btn-editar" style="padding:2px 8px; font-size:10.5px; margin-left:6px;" onclick="this.closest('.modal-overlay').remove(); abrirModalEditarPago('${usuario}', ${idx})">✏️ Editar</button>`;
-        return `<p style="font-size:13px; margin-bottom:6px;">${p.sinPago ? '⚠️' : '💰'} <strong>${f}</strong> - ${p.concepto} - ${montoTexto}${botonEditar}</p>`;
+        const botonRecibo = (p.numeroRecibo && !p.cubiertoPorFamilia)
+          ? ` <button class="btn-baja-verde" style="padding:2px 8px; font-size:10.5px; margin-left:4px;" onclick="mostrarRecibo('${usuario}', usuariosDB['${usuario}'].historialPagos[${idx}])">🧾 Recibo</button>`
+          : '';
+        return `<p style="font-size:13px; margin-bottom:6px;">${p.sinPago ? '⚠️' : '💰'} <strong>${f}</strong> - ${p.concepto} - ${montoTexto}${botonEditar}${botonRecibo}</p>`;
       }).join('')
     : '<p style="font-size:13px; color: var(--gray);">Sin pagos registrados</p>';
 

@@ -1597,6 +1597,9 @@ function abrirModalExportarSocios() {
       <label style="display:flex; align-items:center; gap:6px; font-size:14px; font-weight:normal;">
         <input type="checkbox" id="expChkDeuda" style="width:auto; margin:0;"> Meses en deuda
       </label>
+      <label style="display:flex; align-items:center; gap:6px; font-size:14px; font-weight:normal;">
+        <input type="checkbox" id="expChkVinculo" style="width:auto; margin:0;"> Vínculo grupo familiar
+      </label>
 
       <button class="btn" style="margin-top:18px;" onclick="descargarListaSocios()">📥 Descargar Excel</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
@@ -1614,6 +1617,25 @@ async function descargarListaSocios() {
   const incluirTipo = document.getElementById('expChkTipo').checked;
   const incluirPlan = document.getElementById('expChkPlan').checked;
   const incluirDeuda = document.getElementById('expChkDeuda').checked;
+  const incluirVinculo = document.getElementById('expChkVinculo').checked;
+
+  // Mapa de vínculos familiares bidireccional: aunque el vínculo esté cargado
+  // solo del lado de uno de los dos socios, a ambos les tiene que figurar.
+  const vinculosFamiliares = {};
+  if (incluirVinculo) {
+    for (let user in usuariosDB) {
+      const u = usuariosDB[user];
+      if (u.rol !== 'socio' || !Array.isArray(u.familiaMiembros)) continue;
+      u.familiaMiembros.forEach(otroUser => {
+        const otro = usuariosDB[otroUser];
+        if (!otro) return;
+        if (!vinculosFamiliares[user]) vinculosFamiliares[user] = new Set();
+        if (!vinculosFamiliares[otroUser]) vinculosFamiliares[otroUser] = new Set();
+        vinculosFamiliares[user].add(`${otro.nombre} ${otro.apellido1 || ''}`.trim());
+        vinculosFamiliares[otroUser].add(`${u.nombre} ${u.apellido1 || ''}`.trim());
+      });
+    }
+  }
 
   let socios = [];
   for (let user in usuariosDB) {
@@ -1651,6 +1673,7 @@ async function descargarListaSocios() {
     if (incluirTipo) encabezado.push('Tipo de socio');
     if (incluirPlan) encabezado.push('Plan de cuota');
     if (incluirDeuda) encabezado.push('Meses en deuda');
+    if (incluirVinculo) encabezado.push('Vínculo grupo familiar');
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Socios');
@@ -1661,7 +1684,7 @@ async function descargarListaSocios() {
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
     });
 
-    socios.forEach(({ u }, i) => {
+    socios.forEach(({ user, u }, i) => {
       const apellidoCompleto = `${u.apellido1 || ''} ${u.apellido2 || ''}`.trim();
       const fila = [i + 1, u.nombre || '', apellidoCompleto];
       if (incluirTelefono) fila.push(u.telefono || '');
@@ -1669,6 +1692,10 @@ async function descargarListaSocios() {
       if (incluirTipo) fila.push(u.tipoSocio || '');
       if (incluirPlan) fila.push(PLANES_CUOTA[u.planCuota]?.label || u.planCuota || '');
       if (incluirDeuda) fila.push(u.mesesEnDeuda || 0);
+      if (incluirVinculo) {
+        const vinculos = vinculosFamiliares[user] ? Array.from(vinculosFamiliares[user]).join(', ') : '';
+        fila.push(vinculos);
+      }
       ws.addRow(fila);
     });
 
@@ -1754,7 +1781,7 @@ function abrirModalSocio(usuarioExistente) {
             return `<option value="${otroUser}" ${seleccionado ? 'selected' : ''}>${otroU.nombre} ${otroU.apellido1 || ''}</option>`;
           }).join('')}
       </select>
-      <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Mantené Ctrl (o Cmd) apretado para elegir varios. Al registrar un pago familiar, estos socios también quedarán al día automáticamente.</p>
+      <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Mantené Ctrl (o Cmd) apretado para elegir varios. El vínculo queda parejo entre todos los integrantes: no importa a cuál de ellos se le registre el pago, a los demás les llega el crédito automáticamente.</p>
       <label style="font-size:12px; font-weight:600;">Meses en deuda (ajuste manual)</label>
       <input type="number" id="socioMesesEnDeuda" min="0" value="${editando ? (u.mesesEnDeuda || 0) : 0}">
       <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Este valor se recalcula solo apenas el socio tenga algún pago registrado. Usalo a mano solo para casos excepcionales (por ejemplo, un socio que todavía no registró ningún pago en la app).</p>
@@ -1775,6 +1802,32 @@ function emailYaUsadoPorOtro(email, usuarioAExcluir) {
     if (u.email && u.email.trim().toLowerCase() === emailNorm) return user;
   }
   return null;
+}
+
+// Mantiene el vínculo de grupo familiar simétrico entre TODOS los integrantes,
+// sin depender de que uno quede como "cabeza". Así, no importa a quién de todos
+// se le registre el pago: a todos los demás del grupo les llega el crédito automático.
+function sincronizarGrupoFamiliar(usuarioEditado, gruposAnteriores, gruposNuevos) {
+  const grupoAnteriorCompleto = [usuarioEditado, ...gruposAnteriores];
+  const eliminados = gruposAnteriores.filter(x => !gruposNuevos.includes(x));
+
+  // A quien se saca del grupo, se le desvincula de todos los que integraban el grupo anterior
+  eliminados.forEach(userEliminado => {
+    const uEliminado = usuariosDB[userEliminado];
+    if (!uEliminado || !Array.isArray(uEliminado.familiaMiembros)) return;
+    uEliminado.familiaMiembros = uEliminado.familiaMiembros.filter(x => !grupoAnteriorCompleto.includes(x));
+  });
+
+  // A cada integrante del grupo nuevo se le agregan (sin duplicar) los demás integrantes
+  gruposNuevos.forEach(userMiembro => {
+    const uMiembro = usuariosDB[userMiembro];
+    if (!uMiembro) return;
+    if (!Array.isArray(uMiembro.familiaMiembros)) uMiembro.familiaMiembros = [];
+    const restoDelGrupo = [usuarioEditado, ...gruposNuevos.filter(x => x !== userMiembro)];
+    restoDelGrupo.forEach(otro => {
+      if (!uMiembro.familiaMiembros.includes(otro)) uMiembro.familiaMiembros.push(otro);
+    });
+  });
 }
 
 function guardarSocio(usuarioExistente) {
@@ -1808,6 +1861,7 @@ function guardarSocio(usuarioExistente) {
   if (usuarioExistente) {
     // EDITAR
     const u = usuariosDB[usuarioExistente];
+    const familiaAnterior = Array.isArray(u.familiaMiembros) ? [...u.familiaMiembros] : [];
     u.nombre = nombre;
     u.segundoNombre = segundoNombre;
     u.apellido1 = apellido1;
@@ -1819,6 +1873,7 @@ function guardarSocio(usuarioExistente) {
     u.tipoSocio = tipoSocio;
     u.planCuota = planCuota;
     u.familiaMiembros = familiaMiembros;
+    sincronizarGrupoFamiliar(usuarioExistente, familiaAnterior, familiaMiembros);
     if (!u.historialPagos || u.historialPagos.length === 0) {
       u.mesesEnDeuda = mesesEnDeudaManual;
     }
@@ -1846,6 +1901,7 @@ function guardarSocio(usuarioExistente) {
       historialPagos: [],
       historialAvisos: []
     };
+    sincronizarGrupoFamiliar(usuario, [], familiaMiembros);
     guardarTodo();
     document.querySelector('.modal-overlay').remove();
     cargarTablaSocios();

@@ -1275,6 +1275,8 @@ function renderSecciones(rol) {
           <h2 style="color: var(--navy);">🎯 Mis Actividades</h2>
           <button class="btn-add-circle" onclick="abrirModalActividadProfesor()" title="Agregar nueva actividad">+</button>
         </div>
+        <button class="btn-baja-gris" style="width:auto; padding:8px 14px; margin-bottom:15px;" onclick="toggleHorariosLibresProfesor()">📆 Ver horarios libres de la semana</button>
+        <div id="horariosLibresProfContainer" style="display:none; margin-bottom:25px;"></div>
         <div id="panelProfesor"></div>
       </div>
       <div id="novedades" class="section">
@@ -2855,11 +2857,14 @@ function cargarTablaActividades() {
       const prof = usuariosDB[act.profesor];
       const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : act.profesor;
       const rangoHorario = act.horaFin ? `${act.hora} a ${act.horaFin}` : act.hora;
+      const diaTexto = act.tipo === 'recuperacion' && act.fecha
+        ? `🔁 ${new Date(act.fecha + 'T00:00:00').toLocaleDateString('es-ES')} (recuperación)`
+        : act.dia;
       html += `<tr>
         <td data-label="Actividad"><strong>${act.titulo}</strong></td>
         <td data-label="Profesor">${nombreProf}</td>
         <td data-label="Horario" style="white-space:nowrap;">${rangoHorario}</td>
-        <td data-label="Días en que se dicta">${act.dia}</td>
+        <td data-label="Días en que se dicta">${diaTexto}</td>
         <td data-label="Inscriptos">${act.inscriptos.length}</td>
         <td data-label="Acciones">
           <button class="btn-editar" onclick="abrirModalActividad(${act.id})">Editar</button>
@@ -3002,7 +3007,9 @@ function combinarActividadesRepetidas() {
         dia: diaCombinado,
         hora: grupo[0].hora,
         horaFin: grupo[0].horaFin,
-        inscriptos: inscriptosUnicos
+        inscriptos: inscriptosUnicos,
+        tipo: grupo[0].tipo,
+        fecha: grupo[0].fecha
       });
     }
   });
@@ -4462,7 +4469,7 @@ function cargarPanelProfesor() {
   let hayActividades = false;
 
   actividadesDB.forEach(act => {
-    if (act.profesor === usuarioActual) {
+    if (act.profesor === usuarioActual && act.tipo !== 'recuperacion') {
       hayActividades = true;
       const alumnos = act.inscriptos.map(user => usuariosDB[user]?.nombre || user).join(', ');
       const rangoHorario = act.horaFin ? `${act.hora} a ${act.horaFin}` : act.hora;
@@ -4486,6 +4493,32 @@ function cargarPanelProfesor() {
   }
 
   html += `</tbody></table>`;
+
+  // ----- Recuperaciones puntuales -----
+  const misRecuperaciones = actividadesDB
+    .filter(act => act.profesor === usuarioActual && act.tipo === 'recuperacion')
+    .sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+
+  html += `<h3 style="color: var(--navy); margin: 30px 0 15px 0;">🔁 Mis clases de recuperación</h3>`;
+  if (misRecuperaciones.length === 0) {
+    html += `<p style="color: var(--gray); font-size:13px;">No tenés recuperaciones cargadas. Usá "Ver horarios libres de la semana" para elegir un hueco libre y cargar una.</p>`;
+  } else {
+    html += `<table><thead><tr><th>Actividad</th><th>Fecha</th><th>Hora</th><th>Acciones</th></tr></thead><tbody>`;
+    misRecuperaciones.forEach(act => {
+      const rangoHorario = act.horaFin ? `${act.hora} a ${act.horaFin}` : act.hora;
+      const fechaFormateada = act.fecha ? new Date(act.fecha + 'T00:00:00').toLocaleDateString('es-ES') : '-';
+      html += `<tr>
+        <td data-label="Actividad"><strong>${act.titulo}</strong></td>
+        <td data-label="Fecha">${fechaFormateada} (${act.dia})</td>
+        <td data-label="Hora">${rangoHorario}</td>
+        <td data-label="Acciones">
+          <button class="btn-editar" onclick="abrirModalActividadProfesor(${act.id})">Editar</button>
+          <button class="btn-baja-rojo" onclick="eliminarActividad(${act.id}); cargarPanelProfesor();">Eliminar</button>
+        </td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+  }
 
   html += `<h3 style="color: var(--navy); margin: 30px 0 15px 0;">📋 Mis registros de clase</h3>`;
   const misRegistros = registrosClaseDB
@@ -4518,12 +4551,16 @@ function cargarPanelProfesor() {
 }
 
 // ===== PROFESOR: modal para crear/editar SU PROPIA actividad =====
-function abrirModalActividadProfesor(idExistente) {
+function abrirModalActividadProfesor(idExistente, prefill) {
   const usuarioActual = localStorage.getItem('currentUser');
-  const editando = idExistente !== undefined;
+  const editando = idExistente !== undefined && idExistente !== null;
   const act = editando ? actividadesDB.find(a => a.id === idExistente) : null;
   const profesor = usuariosDB[usuarioActual];
   const nombreProf = `${profesor.nombre} ${profesor.apellido1 || ''}`.trim();
+
+  const tipoInicial = editando ? (act.tipo || 'regular') : (prefill ? 'recuperacion' : 'regular');
+  const fechaInicial = editando ? (act.fecha || '') : (prefill ? prefill.fecha : '');
+  const horaInicial = editando ? act.hora : (prefill ? prefill.hora : '');
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -4534,16 +4571,31 @@ function abrirModalActividadProfesor(idExistente) {
       <input type="text" id="actProfTitulo" placeholder="Ej: Yoga, Pilates, Zumba..." value="${editando ? act.titulo : ''}">
       <label style="font-size:12px; font-weight:600;">Profesor a cargo</label>
       <input type="text" value="${nombreProf}" disabled style="background:#f2f2f2;">
-      <label style="font-size:12px; font-weight:600;">Día</label>
-      <input type="text" id="actProfDia" placeholder="Ej: Martes y Jueves" value="${editando ? act.dia : ''}">
+
+      <label style="font-size:12px; font-weight:600;">Tipo de actividad</label>
+      <select id="actProfTipo" onchange="actualizarTipoActividadProfesor()" ${editando ? 'disabled style="background:#f2f2f2;"' : ''}>
+        <option value="regular" ${tipoInicial === 'regular' ? 'selected' : ''}>Regular (todas las semanas)</option>
+        <option value="recuperacion" ${tipoInicial === 'recuperacion' ? 'selected' : ''}>Recuperación puntual (una fecha)</option>
+      </select>
+
+      <div id="bloqueActDiaRegular" style="display:${tipoInicial === 'regular' ? 'block' : 'none'};">
+        <label style="font-size:12px; font-weight:600;">Día</label>
+        <input type="text" id="actProfDia" placeholder="Ej: Martes y Jueves" value="${tipoInicial === 'regular' && editando ? act.dia : ''}">
+      </div>
+      <div id="bloqueActFechaRecuperacion" style="display:${tipoInicial === 'recuperacion' ? 'block' : 'none'};">
+        <label style="font-size:12px; font-weight:600;">Fecha de la recuperación</label>
+        <input type="date" id="actProfFecha" value="${fechaInicial}">
+        <p style="font-size:11px; color:var(--gray); margin: -6px 0 8px 0;">No hay actividades los domingos.</p>
+      </div>
+
       <label style="font-size:12px; font-weight:600;">Hora desde</label>
-      <input type="time" id="actProfHora" value="${editando ? act.hora : ''}">
+      <input type="time" id="actProfHora" value="${horaInicial || ''}">
       <label style="font-size:12px; font-weight:600;">Hora hasta</label>
       <input type="time" id="actProfHoraFin" value="${editando ? (act.horaFin || '') : ''}">
       <label style="font-size:12px; font-weight:600;">Precio por alumno (para el registro de clases)</label>
       <input type="number" id="actProfPrecioAlumno" value="${editando ? (act.precioPorAlumno ?? 250) : 250}" min="0">
       <label style="font-size:12px; font-weight:600;">Descripción</label>
-      <textarea id="actProfDescripcion" placeholder="Descripción de la actividad">${editando ? act.descripcion : ''}</textarea>
+      <textarea id="actProfDescripcion" placeholder="Descripción de la actividad">${editando ? (act.descripcion || '') : ''}</textarea>
       <button class="btn" onclick="guardarActividadProfesor(${editando ? idExistente : 'null'})">Guardar Actividad</button>
       <button class="btn" style="background:#6c757d; margin-top:10px;" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
     </div>
@@ -4551,10 +4603,34 @@ function abrirModalActividadProfesor(idExistente) {
   document.body.appendChild(overlay);
 }
 
+function actualizarTipoActividadProfesor() {
+  const tipo = document.getElementById('actProfTipo').value;
+  document.getElementById('bloqueActDiaRegular').style.display = tipo === 'regular' ? 'block' : 'none';
+  document.getElementById('bloqueActFechaRecuperacion').style.display = tipo === 'recuperacion' ? 'block' : 'none';
+}
+
 function guardarActividadProfesor(idExistente) {
   const usuarioActual = localStorage.getItem('currentUser');
   const titulo = document.getElementById('actProfTitulo').value.trim();
-  const dia = document.getElementById('actProfDia').value.trim();
+  const tipo = document.getElementById('actProfTipo').value;
+  let dia = '';
+  let fecha = '';
+
+  if (tipo === 'recuperacion') {
+    fecha = document.getElementById('actProfFecha').value;
+    if (!fecha) {
+      alert('Elegí la fecha de la recuperación');
+      return;
+    }
+    dia = nombreDiaDeFecha(fecha);
+    if (dia === 'Domingo') {
+      alert('No se pueden cargar actividades los domingos');
+      return;
+    }
+  } else {
+    dia = document.getElementById('actProfDia').value.trim();
+  }
+
   const hora = document.getElementById('actProfHora').value;
   const horaFin = document.getElementById('actProfHoraFin').value;
   const precioPorAlumno = parseFloat(document.getElementById('actProfPrecioAlumno').value) || 0;
@@ -4564,9 +4640,13 @@ function guardarActividadProfesor(idExistente) {
     alert('Título y día son obligatorios');
     return;
   }
+  if (!hora) {
+    alert('Ingresá el horario de inicio');
+    return;
+  }
 
   const idParaExcluir = (idExistente !== null && idExistente !== undefined) ? idExistente : null;
-  const conflicto = buscarConflictoHorarioActividad(dia, hora, horaFin, idParaExcluir);
+  const conflicto = buscarConflictoHorarioActividad(dia, hora, horaFin, idParaExcluir, tipo === 'recuperacion' ? fecha : null);
   if (conflicto) {
     alert(mensajeConflictoHorario(conflicto));
     return;
@@ -4584,16 +4664,142 @@ function guardarActividadProfesor(idExistente) {
     act.horaFin = horaFin;
     act.descripcion = descripcion;
     act.precioPorAlumno = precioPorAlumno;
+    if (tipo === 'recuperacion') act.fecha = fecha; else delete act.fecha;
     alert('✅ Actividad actualizada');
   } else {
     const nuevoId = actividadesDB.length ? Math.max(...actividadesDB.map(a => a.id)) + 1 : 1;
-    actividadesDB.push({ id: nuevoId, titulo, profesor: usuarioActual, descripcion, dia, hora, horaFin, precioPorAlumno, inscriptos: [] });
-    alert('✅ Actividad creada');
+    const nuevaActividad = { id: nuevoId, titulo, profesor: usuarioActual, descripcion, dia, hora, horaFin, precioPorAlumno, inscriptos: [], tipo };
+    if (tipo === 'recuperacion') nuevaActividad.fecha = fecha;
+    actividadesDB.push(nuevaActividad);
+    alert(tipo === 'recuperacion' ? '✅ Recuperación cargada' : '✅ Actividad creada');
   }
 
   guardarTodo();
   document.querySelector('.modal-overlay').remove();
   cargarPanelProfesor();
+  const contLibres = document.getElementById('horariosLibresProfContainer');
+  if (contLibres && contLibres.style.display !== 'none') cargarHorariosLibresProfesor();
+}
+
+// ===== PROFESOR: horarios libres de la semana (para cargar recuperaciones) =====
+function nombreDiaDeFecha(fechaISO) {
+  const dow = new Date(fechaISO + 'T00:00:00').getDay(); // 0=domingo...6=sábado
+  const nombres = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  return nombres[dow];
+}
+
+function lunesDeLaSemana(fechaBase) {
+  const d = new Date(fechaBase);
+  const dow = d.getDay();
+  const diff = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function formatearFechaCortaDMY(d) {
+  return d.toLocaleDateString('es-UY', { day: '2-digit', month: '2-digit' });
+}
+
+function fechaAISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+let semanaLibresOffset = 0;
+
+function toggleHorariosLibresProfesor() {
+  const cont = document.getElementById('horariosLibresProfContainer');
+  if (!cont) return;
+  if (cont.style.display === 'none') {
+    semanaLibresOffset = 0;
+    cont.style.display = 'block';
+    cargarHorariosLibresProfesor();
+  } else {
+    cont.style.display = 'none';
+  }
+}
+
+function cambiarSemanaLibres(delta) {
+  semanaLibresOffset += delta;
+  cargarHorariosLibresProfesor();
+}
+
+function cargarHorariosLibresProfesor() {
+  const cont = document.getElementById('horariosLibresProfContainer');
+  if (!cont) return;
+
+  const lunesBase = lunesDeLaSemana(new Date());
+  lunesBase.setDate(lunesBase.getDate() + (semanaLibresOffset * 7));
+
+  const fechasSemana = DIAS_SEMANA.map((_, i) => {
+    const f = new Date(lunesBase);
+    f.setDate(f.getDate() + i);
+    return f;
+  });
+
+  const totalFilas = HORA_FIN_GRILLA - HORA_INICIO_GRILLA;
+  const matriz = {};
+  DIAS_SEMANA.forEach(d => { matriz[d] = new Array(totalFilas).fill(null); });
+
+  actividadesDB.forEach(act => {
+    if (!act.hora) return;
+    const inicio = parseInt(act.hora.split(':')[0], 10);
+    const fin = act.horaFin ? parseInt(act.horaFin.split(':')[0], 10) : inicio + 1;
+
+    DIAS_SEMANA.forEach((diaNombre, idx) => {
+      if (act.tipo === 'recuperacion') {
+        if (act.fecha !== fechaAISO(fechasSemana[idx])) return;
+      } else {
+        const dias = parsearDiasActividad(act.dia);
+        if (!dias.includes(diaNombre)) return;
+      }
+      for (let h = inicio; h < fin; h++) {
+        const fila = h - HORA_INICIO_GRILLA;
+        if (fila < 0 || fila >= totalFilas) continue;
+        matriz[diaNombre][fila] = act;
+      }
+    });
+  });
+
+  const rangoTexto = `${formatearFechaCortaDMY(fechasSemana[0])} al ${formatearFechaCortaDMY(fechasSemana[5])}`;
+
+  let html = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <button class="btn-baja-gris" style="width:auto; padding:6px 12px;" onclick="cambiarSemanaLibres(-1)">◀ Anterior</button>
+      <strong style="color:var(--navy); font-size:13px;">${rangoTexto}</strong>
+      <button class="btn-baja-gris" style="width:auto; padding:6px 12px;" onclick="cambiarSemanaLibres(1)">Siguiente ▶</button>
+    </div>
+    <p style="color: var(--gray); font-size:12px; margin-bottom:10px;">
+      🟩 Libre — tocá una celda libre para cargar ahí tu recuperación. 🟥 Ocupado por otra actividad.
+    </p>
+    <div class="grilla-wrap" style="overflow-x:auto;"><table class="grilla-horarios"><thead><tr><th>Hora</th>`;
+  DIAS_SEMANA.forEach((d, idx) => { html += `<th>${d}<br>${formatearFechaCortaDMY(fechasSemana[idx])}</th>`; });
+  html += '</tr></thead><tbody>';
+
+  for (let fila = 0; fila < totalFilas; fila++) {
+    const hora = HORA_INICIO_GRILLA + fila;
+    html += `<tr><td class="hora-label">${hora}:00</td>`;
+    DIAS_SEMANA.forEach((d, idx) => {
+      const act = matriz[d][fila];
+      const fechaISO = fechaAISO(fechasSemana[idx]);
+      const horaTexto = String(hora).padStart(2, '0') + ':00';
+      if (!act) {
+        html += `<td class="celda-libre" style="cursor:pointer;" onclick='abrirModalActividadProfesor(undefined, {fecha:"${fechaISO}", hora:"${horaTexto}"})'>Libre</td>`;
+      } else {
+        const prof = usuariosDB[act.profesor];
+        const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : act.profesor;
+        const etiqueta = act.tipo === 'recuperacion' ? '🔁 ' : '';
+        html += `<td class="celda-ocupada"><strong>${etiqueta}${act.titulo}</strong><span class="celda-horas">${nombreProf}</span></td>`;
+      }
+    });
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+
+  cont.innerHTML = html;
 }
 
 // ===== PROFESOR: registro de asistencia/cobro por clase =====
@@ -5456,19 +5662,28 @@ function rangosSeSuperponen(inicio1, fin1, inicio2, fin2) {
 
 // ===== ACTIVIDADES: detectar choque de horario con otra clase ya cargada =====
 // Devuelve la actividad en conflicto (con la que se superpone) o null si no hay choque.
-function buscarConflictoHorarioActividad(dia, hora, horaFin, idExcluir) {
+function buscarConflictoHorarioActividad(dia, hora, horaFin, idExcluir, fecha) {
   if (!hora) return null;
   const finComparar = horaFin || hora;
   const diasNuevos = parsearDiasActividad(dia);
   if (diasNuevos.length === 0) return null;
+  const nuevoEsRecuperacion = !!fecha;
 
   for (const act of actividadesDB) {
     if (idExcluir !== undefined && idExcluir !== null && act.id === idExcluir) continue;
     if (!act.hora) continue;
 
-    const diasExistentes = parsearDiasActividad(act.dia);
-    const hayDiaEnComun = diasNuevos.some(d => diasExistentes.includes(d));
-    if (!hayDiaEnComun) continue;
+    const actEsRecuperacion = act.tipo === 'recuperacion';
+
+    if (nuevoEsRecuperacion && actEsRecuperacion) {
+      // Dos recuperaciones puntuales solo compiten si caen exactamente el mismo día
+      if (act.fecha !== fecha) continue;
+    } else {
+      // Si alguna de las dos es regular, se repite todas las semanas: comparar por nombre de día
+      const diasExistentes = parsearDiasActividad(act.dia);
+      const hayDiaEnComun = diasNuevos.some(d => diasExistentes.includes(d));
+      if (!hayDiaEnComun) continue;
+    }
 
     const finExistente = act.horaFin || act.hora;
     if (rangosSeSuperponen(hora, finComparar, act.hora, finExistente)) {
@@ -5482,7 +5697,10 @@ function mensajeConflictoHorario(actConflicto) {
   const prof = usuariosDB[actConflicto.profesor];
   const nombreProf = prof ? `${prof.nombre} ${prof.apellido1 || ''}`.trim() : actConflicto.profesor;
   const rango = actConflicto.horaFin ? `${actConflicto.hora} a ${actConflicto.horaFin}` : actConflicto.hora;
-  return `⚠️ Ese horario ya está ocupado por "${actConflicto.titulo}" (Prof. ${nombreProf}), ${actConflicto.dia} de ${rango} hs.\n\nElegí otro horario o día.`;
+  const cuando = actConflicto.tipo === 'recuperacion' && actConflicto.fecha
+    ? `el ${new Date(actConflicto.fecha + 'T00:00:00').toLocaleDateString('es-ES')} (recuperación)`
+    : actConflicto.dia;
+  return `⚠️ Ese horario ya está ocupado por "${actConflicto.titulo}" (Prof. ${nombreProf}), ${cuando} de ${rango} hs.\n\nElegí otro horario o día.`;
 }
 
 function turnoOcupado(fechaISO, turnoId) {
@@ -5499,8 +5717,12 @@ function turnoOcupado(fechaISO, turnoId) {
 
   const hayConflictoActividad = actividadesDB.some(act => {
     if (!act.hora) return false;
-    const dias = parsearDiasActividad(act.dia);
-    if (!dias.includes(diaTexto)) return false;
+    if (act.tipo === 'recuperacion') {
+      if (act.fecha !== fechaISO) return false;
+    } else {
+      const dias = parsearDiasActividad(act.dia);
+      if (!dias.includes(diaTexto)) return false;
+    }
     const finActividad = act.horaFin || act.hora;
     return rangosSeSuperponen(turno.horaInicio, turno.horaFin, act.hora, finActividad);
   });
@@ -5912,6 +6134,7 @@ function cargarEventosSocio() {
   DIAS_SEMANA.forEach(d => { porDia[d] = []; });
 
   actividadesDB.forEach(act => {
+    if (act.tipo === 'recuperacion') return; // las recuperaciones puntuales no se muestran en la grilla semanal genérica
     const dias = parsearDiasActividad(act.dia);
     dias.forEach(d => {
       if (porDia[d]) porDia[d].push(act);
@@ -6004,6 +6227,7 @@ function cargarCalendarioSocio() {
 
   actividadesDB.forEach(act => {
     if (!act.hora) return;
+    if (act.tipo === 'recuperacion') return; // las recuperaciones puntuales no se muestran en la grilla semanal genérica
     const dias = parsearDiasActividad(act.dia);
     const [h] = act.hora.split(':').map(Number);
     const fila = h - HORA_INICIO_GRILLA;

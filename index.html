@@ -832,6 +832,7 @@ function migrarDatosSocios() {
       if (!Array.isArray(u.familiaMiembros)) { u.familiaMiembros = []; huboCambios = true; }
       if (typeof u.segundoNombre === 'undefined') { u.segundoNombre = ''; huboCambios = true; }
       if (!Array.isArray(u.fcmTokens)) { u.fcmTokens = []; huboCambios = true; }
+      if (typeof u.puedeGestionarSocios === 'undefined') { u.puedeGestionarSocios = false; huboCambios = true; }
     }
   }
   actividadesDB.forEach(act => {
@@ -1328,6 +1329,10 @@ function renderSecciones(rol) {
           <button class="quick-action-tile" onclick="mostrarSeccionSocio('actividadesSocio')">
             <span class="qa-icon">📅</span><span class="qa-label">Actividades</span>
           </button>
+          ${u.puedeGestionarSocios ? `
+          <button class="quick-action-tile" onclick="mostrarSeccionSocio('gestionSocios')">
+            <span class="qa-icon">👥</span><span class="qa-label">Gestionar Socios</span>
+          </button>` : ''}
         </div>
 
         <h3 style="color: var(--navy); margin: 20px 0 12px 0; font-size:15px;">Próximos eventos</h3>
@@ -1389,6 +1394,28 @@ function renderSecciones(rol) {
         <div id="avisoDeudaSocio"></div>
         <div id="historialAvisosSocio"></div>
       </div>
+
+      ${u.puedeGestionarSocios ? `
+      <div id="gestionSocios" class="section app-shell-socio">
+        <a class="oct-back-link" onclick="mostrarSeccionSocio('inicio')" style="color: var(--navy2);">← Inicio</a>
+        <div class="oct-header-card">
+          <h2>👥 Gestionar Socios</h2>
+          <p>Herramientas de Secretaría</p>
+        </div>
+        <button class="btn btn-small" onclick="abrirModalSocio()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: var(--gold2); font-weight:bold;">➕ Agregar nuevo socio</button>
+        <button class="btn btn-small" onclick="mostrarHistorialBajas()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: #6c757d;">📋 Historial de bajas</button>
+        <button class="btn btn-small" onclick="mostrarCumpleanosDelMes()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: #C8960A;">🎂 Cumpleaños del mes</button>
+        <button class="btn btn-small" onclick="abrirModalExportarSocios()" style="width: auto; padding: 10px 16px; margin-bottom: 15px; background: #1e7e34;">📥 Descargar lista de socios</button>
+        <div style="position:relative; max-width:420px; margin-bottom:15px;">
+          <input type="text" id="buscarSocioInput" placeholder="🔎 Buscar socio por nombre, email, usuario o teléfono..."
+            oninput="cargarTablaSocios()"
+            style="width:100%; padding:10px 36px 10px 14px; border:1px solid #ccc; border-radius:8px; font-size:15px; box-sizing:border-box;">
+          <span onclick="document.getElementById('buscarSocioInput').value=''; cargarTablaSocios();"
+            style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color:#888; font-size:16px; display:none;"
+            id="limpiarBusquedaSocio">✕</span>
+        </div>
+        <div id="tablaSocios"></div>
+      </div>` : ''}
 
       <div id="perfil" class="section app-shell-socio">
         <div class="perfil-header-card">
@@ -1457,6 +1484,8 @@ function renderSecciones(rol) {
     cargarHistorialAvisosSocio();
     renderOctogonoSocio();
     renderActividadesSocio();
+    const usuarioActualParaSocios = localStorage.getItem('currentUser');
+    if (usuariosDB[usuarioActualParaSocios] && usuariosDB[usuarioActualParaSocios].puedeGestionarSocios) cargarTablaSocios();
   }
 }
 
@@ -1787,6 +1816,12 @@ function abrirModalSocio(usuarioExistente) {
           }).join('')}
       </select>
       <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Mantené Ctrl (o Cmd) apretado para elegir varios. El vínculo queda parejo entre todos los integrantes: no importa a cuál de ellos se le registre el pago, a los demás les llega el crédito automáticamente.</p>
+      ${usuariosDB[localStorage.getItem('currentUser')].rol === 'admin' ? `
+      <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:normal; margin-top:10px; background:#FFF8E8; padding:10px; border-radius:8px;">
+        <input type="checkbox" id="socioPuedeGestionar" ${editando && u.puedeGestionarSocios ? 'checked' : ''} style="width:auto; margin:0;"> 🔑 Comisión Directiva: puede cargar y gestionar socios (Secretaría)
+      </label>
+      <p style="font-size:11px; color: var(--gray); margin-top:6px; margin-bottom:12px;">Si activás esto, esta persona va a ver una sección "Gestionar Socios" en su perfil, con las mismas herramientas que usás vos: agregar, editar, dar de baja y restablecer contraseñas de socios.</p>
+      ` : `<input type="checkbox" id="socioPuedeGestionar" ${editando && u.puedeGestionarSocios ? 'checked' : ''} style="display:none;">`}
       <label style="font-size:12px; font-weight:600;">Meses en deuda (ajuste manual)</label>
       <input type="number" id="socioMesesEnDeuda" min="0" value="${editando ? (u.mesesEnDeuda || 0) : 0}">
       <p style="font-size:11px; color: var(--gray); margin-top:-6px; margin-bottom:12px;">Este valor se recalcula solo apenas el socio tenga algún pago registrado. Usalo a mano solo para casos excepcionales (por ejemplo, un socio que todavía no registró ningún pago en la app).</p>
@@ -1848,6 +1883,7 @@ function guardarSocio(usuarioExistente) {
   const planCuota = document.getElementById('socioPlanCuota').value;
   const familiaMiembros = Array.from(document.getElementById('socioFamiliaMiembros').selectedOptions).map(opt => opt.value);
   const mesesEnDeudaManual = parseInt(document.getElementById('socioMesesEnDeuda').value) || 0;
+  const puedeGestionarSocios = document.getElementById('socioPuedeGestionar').checked;
 
   if (!nombre || !apellido1) {
     alert('Nombre y primer apellido son obligatorios');
@@ -1878,6 +1914,7 @@ function guardarSocio(usuarioExistente) {
     u.tipoSocio = tipoSocio;
     u.planCuota = planCuota;
     u.familiaMiembros = familiaMiembros;
+    u.puedeGestionarSocios = puedeGestionarSocios;
     sincronizarGrupoFamiliar(usuarioExistente, familiaAnterior, familiaMiembros);
     if (!u.historialPagos || u.historialPagos.length === 0) {
       u.mesesEnDeuda = mesesEnDeudaManual;
@@ -1898,6 +1935,7 @@ function guardarSocio(usuarioExistente) {
       tipoSocio,
       planCuota,
       familiaMiembros,
+      puedeGestionarSocios,
       estado: 'Pendiente de verificación',
       mesesEnDeuda: 0,
       avisosPorDeuda: 0,

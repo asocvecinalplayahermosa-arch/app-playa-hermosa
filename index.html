@@ -805,6 +805,9 @@ const CATEGORIAS_INGRESO = [
   'Otros'
 ];
 
+// Modalidades de pago disponibles para registrar ingresos y egresos
+const MODALIDADES_PAGO = ['Efectivo', 'Transferencia', 'Otros'];
+
 // Guarda todo en Firebase; todos los dispositivos conectados reciben el cambio al instante
 function guardarTodo() {
   docRefDatos.set({
@@ -3402,21 +3405,21 @@ function exportarReporteExcel() {
   }
 
   if (d.verIngresos && d.ingresosManualDelPeriodo && d.ingresosManualDelPeriodo.length > 0) {
-    const filasIngresosManual = [['Fecha', 'Categoría', 'Concepto', 'Monto']];
+    const filasIngresosManual = [['Fecha', 'Categoría', 'Concepto', 'Modalidad de pago', 'Monto']];
     d.ingresosManualDelPeriodo.forEach(i => {
-      filasIngresosManual.push([i.fecha, i.categoria, i.concepto, i.monto]);
+      filasIngresosManual.push([i.fecha, i.categoria, i.concepto, i.modalidadPago || '-', i.monto]);
     });
-    filasIngresosManual.push([], ['TOTAL OTROS INGRESOS', '', '', d.ingresosManualTotal]);
+    filasIngresosManual.push([], ['TOTAL OTROS INGRESOS', '', '', '', d.ingresosManualTotal]);
     const wsIngresosManual = XLSX.utils.aoa_to_sheet(filasIngresosManual);
     XLSX.utils.book_append_sheet(wb, wsIngresosManual, 'Otros ingresos');
   }
 
   if (d.verEgresos) {
-    const filasEgresos = [['Fecha', 'Categoría', 'Concepto', 'Monto']];
+    const filasEgresos = [['Fecha', 'Categoría', 'Concepto', 'Modalidad de pago', 'Monto']];
     d.egresosDelPeriodo.forEach(e => {
-      filasEgresos.push([e.fecha, e.categoria, e.concepto, e.monto]);
+      filasEgresos.push([e.fecha, e.categoria, e.concepto, e.modalidadPago || '-', e.monto]);
     });
-    filasEgresos.push([], ['TOTAL EGRESOS', '', '', d.totalEgresos]);
+    filasEgresos.push([], ['TOTAL EGRESOS', '', '', '', d.totalEgresos]);
     const wsEgresos = XLSX.utils.aoa_to_sheet(filasEgresos);
     XLSX.utils.book_append_sheet(wb, wsEgresos, 'Egresos');
   }
@@ -3506,6 +3509,11 @@ function abrirModalEgreso(idExistente) {
     opcionesCategorias += `<option value="${cat}" ${editando && egreso.categoria === cat ? 'selected' : ''}>${cat}</option>`;
   });
 
+  let opcionesModalidad = '';
+  MODALIDADES_PAGO.forEach(mod => {
+    opcionesModalidad += `<option value="${mod}" ${editando && egreso.modalidadPago === mod ? 'selected' : ''}>${mod}</option>`;
+  });
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
@@ -3519,6 +3527,8 @@ function abrirModalEgreso(idExistente) {
       <input type="text" id="egrConcepto" placeholder="Ej: Pintura para el frente" value="${editando ? egreso.concepto : ''}">
       <label style="font-size:12px; font-weight:600;">N° de comprobante</label>
       <input type="text" id="egrComprobante" placeholder="Ej: A 25412" value="${editando ? (egreso.comprobante || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Modalidad de pago</label>
+      <select id="egrModalidadPago">${opcionesModalidad}</select>
       <label style="font-size:12px; font-weight:600;">Moneda</label>
       <select id="egrMoneda">
         <option value="UYU" ${!editando || egreso.moneda !== 'USD' ? 'selected' : ''}>$ (Pesos uruguayos)</option>
@@ -3543,6 +3553,7 @@ function guardarEgreso(idExistente) {
   const categoria = document.getElementById('egrCategoria').value;
   const concepto = document.getElementById('egrConcepto').value.trim();
   const comprobante = document.getElementById('egrComprobante').value.trim();
+  const modalidadPago = document.getElementById('egrModalidadPago').value;
   const moneda = document.getElementById('egrMoneda').value;
   const monto = parseFloat(document.getElementById('egrMonto').value);
   const tesorero = localStorage.getItem('currentUser');
@@ -3556,13 +3567,13 @@ function guardarEgreso(idExistente) {
 
   if (idExistente !== null && idExistente !== undefined) {
     const egreso = egresosDB.find(e => e.id === idExistente);
-    egreso.fecha = fecha; egreso.categoria = categoria; egreso.concepto = concepto; egreso.comprobante = comprobante; egreso.monto = monto; egreso.moneda = moneda;
+    egreso.fecha = fecha; egreso.categoria = categoria; egreso.concepto = concepto; egreso.comprobante = comprobante; egreso.modalidadPago = modalidadPago; egreso.monto = monto; egreso.moneda = moneda;
     alert('✅ Egreso actualizado');
   } else {
     const sinFactura = document.getElementById('egrSinFactura') ? document.getElementById('egrSinFactura').checked : false;
     const nuevoId = egresosDB.length ? Math.max(...egresosDB.map(e => e.id)) + 1 : 1;
     egresoNuevo = {
-      id: nuevoId, fecha, categoria, concepto, comprobante, monto, moneda, registradoPor: tesorero,
+      id: nuevoId, fecha, categoria, concepto, comprobante, modalidadPago, monto, moneda, registradoPor: tesorero,
       numeroComprobante: sinFactura ? generarNumeroComprobanteEgreso() : null
     };
     egresosDB.push(egresoNuevo);
@@ -3595,6 +3606,7 @@ function mostrarComprobanteEgresoInterno(egreso) {
     fecha: egreso.fecha,
     destinatarioLabel: 'Categoría',
     destinatarioValor: egreso.categoria,
+    modalidadPago: egreso.modalidadPago,
     registradoPor: egreso.registradoPor
   });
   document.body.appendChild(overlay);
@@ -3642,12 +3654,13 @@ function cargarTablaEgresosTesorero() {
     const fechaFormateada = new Date(e.fecha + 'T00:00:00').toLocaleDateString('es-ES');
     const simboloMoneda = e.moneda === 'USD' ? 'US$' : '$';
     const comprobanteTexto = e.comprobante ? e.comprobante : '-';
+    const modalidadTexto = e.modalidadPago || '-';
     html += `
       <div class="egreso-item">
         <div class="egreso-item-header" onclick="toggleEgresoDetalle(${e.id})">
           <div class="egreso-item-main">
             <div class="egreso-item-concepto">${e.concepto}</div>
-            <div class="egreso-item-fecha">${fechaFormateada} · ${e.categoria}</div>
+            <div class="egreso-item-fecha">${fechaFormateada} · ${e.categoria}${e.modalidadPago ? ' · ' + e.modalidadPago : ''}</div>
           </div>
           <div class="egreso-item-right">
             <span class="egreso-item-monto">${simboloMoneda}${e.monto.toLocaleString('es-UY')}</span>
@@ -3657,6 +3670,7 @@ function cargarTablaEgresosTesorero() {
         <div class="egreso-item-detalle" id="egresoDetalle-${e.id}" style="display:none;">
           <p>Categoría: <strong>${e.categoria}</strong></p>
           <p>N° de comprobante: <strong>${comprobanteTexto}</strong></p>
+          <p>Modalidad de pago: <strong>${modalidadTexto}</strong></p>
           ${e.numeroComprobante ? `<p>Comprobante interno Nº: <strong>${e.numeroComprobante}</strong></p>` : ''}
           <p>Monto: <strong>${simboloMoneda}${e.monto.toLocaleString('es-UY')}</strong></p>
           <button class="btn-editar" onclick="abrirModalEgreso(${e.id})">Editar</button>
@@ -3690,6 +3704,11 @@ function abrirModalIngreso(idExistente) {
     opcionesCategorias += `<option value="${cat}" ${editando && ingreso.categoria === cat ? 'selected' : ''}>${cat}</option>`;
   });
 
+  let opcionesModalidadIng = '';
+  MODALIDADES_PAGO.forEach(mod => {
+    opcionesModalidadIng += `<option value="${mod}" ${editando && ingreso.modalidadPago === mod ? 'selected' : ''}>${mod}</option>`;
+  });
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
@@ -3703,6 +3722,8 @@ function abrirModalIngreso(idExistente) {
       <input type="text" id="ingConcepto" placeholder="Ej: Donación de un vecino" value="${editando ? ingreso.concepto : ''}">
       <label style="font-size:12px; font-weight:600;">N° de comprobante</label>
       <input type="text" id="ingComprobante" placeholder="Ej: R 00412" value="${editando ? (ingreso.comprobante || '') : ''}">
+      <label style="font-size:12px; font-weight:600;">Modalidad de pago</label>
+      <select id="ingModalidadPago">${opcionesModalidadIng}</select>
       <label style="font-size:12px; font-weight:600;">Moneda</label>
       <select id="ingMoneda">
         <option value="UYU" ${!editando || ingreso.moneda !== 'USD' ? 'selected' : ''}>$ (Pesos uruguayos)</option>
@@ -3722,6 +3743,7 @@ function guardarIngreso(idExistente) {
   const categoria = document.getElementById('ingCategoria').value;
   const concepto = document.getElementById('ingConcepto').value.trim();
   const comprobante = document.getElementById('ingComprobante').value.trim();
+  const modalidadPago = document.getElementById('ingModalidadPago').value;
   const moneda = document.getElementById('ingMoneda').value;
   const monto = parseFloat(document.getElementById('ingMonto').value);
   const tesorero = localStorage.getItem('currentUser');
@@ -3735,12 +3757,12 @@ function guardarIngreso(idExistente) {
 
   if (idExistente !== null && idExistente !== undefined) {
     const ingreso = ingresosDB.find(i => i.id === idExistente);
-    ingreso.fecha = fecha; ingreso.categoria = categoria; ingreso.concepto = concepto; ingreso.comprobante = comprobante; ingreso.monto = monto; ingreso.moneda = moneda;
+    ingreso.fecha = fecha; ingreso.categoria = categoria; ingreso.concepto = concepto; ingreso.comprobante = comprobante; ingreso.modalidadPago = modalidadPago; ingreso.monto = monto; ingreso.moneda = moneda;
     alert('✅ Ingreso actualizado');
   } else {
     const nuevoId = ingresosDB.length ? Math.max(...ingresosDB.map(i => i.id)) + 1 : 1;
     // Recibo numerado automático (misma secuencia que los recibos de cuota social)
-    ingresoNuevo = { id: nuevoId, fecha, categoria, concepto, comprobante, monto, moneda, registradoPor: tesorero, numeroRecibo: generarNumeroReciboIngreso() };
+    ingresoNuevo = { id: nuevoId, fecha, categoria, concepto, comprobante, modalidadPago, monto, moneda, registradoPor: tesorero, numeroRecibo: generarNumeroReciboIngreso() };
     ingresosDB.push(ingresoNuevo);
   }
 
@@ -3770,6 +3792,7 @@ function mostrarReciboIngresoManual(ingreso) {
     fecha: ingreso.fecha,
     destinatarioLabel: 'Concepto de ingreso',
     destinatarioValor: ingreso.categoria,
+    modalidadPago: ingreso.modalidadPago,
     registradoPor: ingreso.registradoPor
   });
   document.body.appendChild(overlay);
@@ -3817,12 +3840,13 @@ function cargarTablaIngresosTesorero() {
     const fechaFormateada = new Date(i.fecha + 'T00:00:00').toLocaleDateString('es-ES');
     const simboloMoneda = i.moneda === 'USD' ? 'US$' : '$';
     const comprobanteTexto = i.comprobante ? i.comprobante : '-';
+    const modalidadTexto = i.modalidadPago || '-';
     html += `
       <div class="ingreso-item">
         <div class="ingreso-item-header" onclick="toggleIngresoDetalle(${i.id})">
           <div class="ingreso-item-main">
             <div class="ingreso-item-concepto">${i.concepto}</div>
-            <div class="ingreso-item-fecha">${fechaFormateada} · ${i.categoria}</div>
+            <div class="ingreso-item-fecha">${fechaFormateada} · ${i.categoria}${i.modalidadPago ? ' · ' + i.modalidadPago : ''}</div>
           </div>
           <div class="ingreso-item-right">
             <span class="ingreso-item-monto">${simboloMoneda}${i.monto.toLocaleString('es-UY')}</span>
@@ -3832,6 +3856,7 @@ function cargarTablaIngresosTesorero() {
         <div class="ingreso-item-detalle" id="ingresoDetalle-${i.id}" style="display:none;">
           <p>Categoría: <strong>${i.categoria}</strong></p>
           <p>N° de comprobante: <strong>${comprobanteTexto}</strong></p>
+          <p>Modalidad de pago: <strong>${modalidadTexto}</strong></p>
           ${i.numeroRecibo ? `<p>Recibo Nº: <strong>${i.numeroRecibo}</strong></p>` : ''}
           <p>Monto: <strong>${simboloMoneda}${i.monto.toLocaleString('es-UY')}</strong></p>
           <button class="btn-editar" onclick="abrirModalIngreso(${i.id})">Editar</button>
@@ -4203,7 +4228,7 @@ const DATOS_ASOCIACION = {
 
 // ===== Plantilla compartida para recibos (ingresos) y comprobantes internos (egresos) =====
 // tipo: 'recibo' (ingreso, membrete normal) o 'comprobante' (egreso interno, con aviso de "sin factura")
-function generarHTMLReciboComprobante({ tipo, numero, concepto, monto, moneda, fecha, destinatarioLabel, destinatarioValor, extraLineas, registradoPor }) {
+function generarHTMLReciboComprobante({ tipo, numero, concepto, monto, moneda, fecha, destinatarioLabel, destinatarioValor, extraLineas, modalidadPago, registradoPor }) {
   const fechaFormateada = new Date(fecha + 'T00:00:00').toLocaleDateString('es-ES');
   const simboloMoneda = moneda === 'USD' ? 'US$' : '$';
   const tituloDoc = tipo === 'comprobante' ? '🧾 Comprobante interno de egreso' : '🧾 Recibo';
@@ -4231,6 +4256,7 @@ function generarHTMLReciboComprobante({ tipo, numero, concepto, monto, moneda, f
         <p><strong>${destinatarioLabel}:</strong> ${destinatarioValor}</p>
         <p><strong>Concepto:</strong> ${concepto}</p>
         <p><strong>Monto:</strong> ${simboloMoneda}${Number(monto).toFixed(2)}</p>
+        ${modalidadPago ? `<p><strong>Modalidad de pago:</strong> ${modalidadPago}</p>` : ''}
         <p><strong>Fecha:</strong> ${fechaFormateada}</p>
         ${extraHtml}
         <p><strong>Registrado por:</strong> ${registradoPor}</p>
@@ -6369,6 +6395,16 @@ function abrirModalRecuperarPassword() {
     </div>
   `;
   document.body.appendChild(overlay);
+}
+
+function buscarCuentasPorEmail(email) {
+  const emailNorm = email.trim().toLowerCase();
+  const cuentas = [];
+  for (let user in usuariosDB) {
+    const u = usuariosDB[user];
+    if (u.email && u.email.trim().toLowerCase() === emailNorm) cuentas.push(user);
+  }
+  return cuentas;
 }
 
 function procesarRecuperarPassword() {
